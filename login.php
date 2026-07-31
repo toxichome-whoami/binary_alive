@@ -14,6 +14,9 @@ $success = '';
 
 // Check if any users exist
 $stmt = $pdo->query("SELECT COUNT(*) FROM users");
+$userCount = $stmt->fetchColumn();
+$isSetupMode = ($userCount == 0);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Basic CSRF & Honeypot check
     if (!empty($_POST['website'])) {

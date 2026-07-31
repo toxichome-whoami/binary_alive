@@ -23,22 +23,29 @@ if ($action === 'status') {
     $processes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     foreach ($processes as &$process) {
-        $pid = Monitor::isRunning($process);
-        if ($pid) {
+        $actual_pid = Monitor::isRunning($process);
+        
+        if ($actual_pid) {
             $process['status'] = 'running';
-            $process['pid'] = $pid;
-            $metrics = Monitor::getMetrics($pid);
+            $process['pid'] = $actual_pid;
+            $metrics = Monitor::getMetrics($actual_pid);
             $process = array_merge($process, $metrics);
+            
+            // Only update the PID, DO NOT touch the status (status is our desired state)
+            $update = $pdo->prepare("UPDATE processes SET pid = ? WHERE id = ?");
+            $update->execute([$actual_pid, $process['id']]);
         } else {
-            $process['status'] = 'stopped';
+            // If DB says running but it's dead, it means it crashed!
+            $process['status'] = ($process['status'] === 'running') ? 'crashed' : 'stopped';
             $process['pid'] = null;
             $process['cpu'] = 0;
-            $process['mem'] = 0;
+            $process['mem'] = '0 MB';
             $process['uptime'] = '00:00:00';
+            
+            // Clear the PID, DO NOT touch the desired status
+            $update = $pdo->prepare("UPDATE processes SET pid = NULL WHERE id = ?");
+            $update->execute([$process['id']]);
         }
-        // Update DB with latest accurate status silently
-        $update = $pdo->prepare("UPDATE processes SET status = ?, pid = ? WHERE id = ?");
-        $update->execute([$process['status'], $process['pid'], $process['id']]);
     }
     
     // Get system load
