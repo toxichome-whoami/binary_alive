@@ -1,0 +1,4 @@
+﻿# Secure Binary Alive System
+# Prevent direct web access to included PHP files to prevent source leakage
+Order allow,deny
+Deny from all

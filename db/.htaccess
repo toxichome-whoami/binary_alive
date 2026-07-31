@@ -1,0 +1,4 @@
+﻿# Secure Binary Alive System
+# Prevent direct web access to the database folder
+Order allow,deny
+Deny from all
