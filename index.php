@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once 'includes/security.php';
 require_once 'includes/auth.php';
 $auth = new Auth();
@@ -13,8 +13,8 @@ $auth->requireAuth();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
-        body { background-color: #f8f9fa; }
-        .navbar { background-color: #2c3e50; }
+        body { background-color: #f8f9fa; margin: 0 !important; padding: 0 !important; }
+        .navbar { background-color: #2c3e50; margin-top: 0 !important; border-radius: 0 !important; }
         .navbar-brand, .nav-link { color: white !important; }
         .status-running { color: #198754; }
         .status-stopped { color: #dc3545; }
@@ -211,6 +211,44 @@ const canControl = ['admin', 'operator'].includes(userRole);
 // Force jQuery to append a timestamp to GET requests so the browser NEVER caches them
 $.ajaxSetup({ cache: false });
 
+function parseUptimeToSeconds(str) {
+    if (!str || str === '---') return 0;
+    let days = 0, hours = 0, mins = 0, secs = 0;
+    if (str.includes('-')) {
+        let parts = str.split('-');
+        days = parseInt(parts[0], 10);
+        str = parts[1];
+    }
+    let timeParts = str.split(':');
+    if (timeParts.length === 3) {
+        hours = parseInt(timeParts[0], 10);
+        mins = parseInt(timeParts[1], 10);
+        secs = parseInt(timeParts[2], 10);
+    } else if (timeParts.length === 2) {
+        mins = parseInt(timeParts[0], 10);
+        secs = parseInt(timeParts[1], 10);
+    }
+    return (days * 86400) + (hours * 3600) + (mins * 60) + secs;
+}
+
+function formatSecondsToUptime(totalSecs) {
+    let d = Math.floor(totalSecs / 86400);
+    totalSecs %= 86400;
+    let h = Math.floor(totalSecs / 3600);
+    totalSecs %= 3600;
+    let m = Math.floor(totalSecs / 60);
+    let s = totalSecs % 60;
+    
+    let hStr = h.toString().padStart(2, '0');
+    let mStr = m.toString().padStart(2, '0');
+    let sStr = s.toString().padStart(2, '0');
+    
+    if (d > 0 || h > 0) {
+        return (d > 0 ? d + '-' : '') + hStr + ':' + mStr + ':' + sStr;
+    }
+    return mStr + ':' + sStr;
+}
+
 function fetchStatus() {
     $.getJSON('api.php?action=status', function(res) {
         if (!res.success) return;
@@ -250,7 +288,7 @@ function fetchStatus() {
                     <td>${p.pid || '---'}</td>
                     <td>${p.cpu || '0'}%</td>
                     <td>${p.mem || '0 MB'}</td>
-                    <td>${p.uptime || '---'}</td>
+                    <td><span class="uptime-ticker" data-seconds="${p.uptime ? parseUptimeToSeconds(p.uptime) : 0}">${p.uptime || '---'}</span></td>
                     <td><span class="badge bg-secondary">${p.restart_count}</span></td>
                     <td>${actions}</td>
                 </tr>`;
@@ -355,6 +393,18 @@ $('#editProcessForm').submit(function(e) {
 
 fetchStatus();
 setInterval(fetchStatus, 5000);
+
+// Smooth 1-second Uptime Ticker
+setInterval(function() {
+    $('.uptime-ticker').each(function() {
+        let secs = parseInt($(this).attr('data-seconds'));
+        if (!isNaN(secs) && secs > 0) {
+            secs++;
+            $(this).attr('data-seconds', secs);
+            $(this).text(formatSecondsToUptime(secs));
+        }
+    });
+}, 1000);
 </script>
 </body>
 </html>

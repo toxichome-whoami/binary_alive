@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once 'includes/security.php';
 require_once 'includes/auth.php';
 $auth = new Auth();
@@ -14,17 +14,23 @@ $success = '';
 
 // Check if any users exist
 $stmt = $pdo->query("SELECT COUNT(*) FROM users");
-$userCount = $stmt->fetchColumn();
-$isSetupMode = ($userCount == 0);
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Basic CSRF & Honeypot check
     if (!empty($_POST['website'])) {
         die("Bot detected."); // Honeypot filled
     }
 
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
+    $captcha_answer = strtoupper(trim($_POST['captcha'] ?? ''));
+    $expected = $_SESSION['captcha_code'] ?? '';
+    
+    // Always unset on submit to prevent replay attacks
+    unset($_SESSION['captcha_code']);
+    
+    if (empty($expected) || $captcha_answer !== $expected) {
+        $error = "Incorrect Security CAPTCHA. Please try again.";
+    } else {
+        $username = $_POST['username'] ?? '';
+        $password = $_POST['password'] ?? '';
     
     if ($isSetupMode) {
         if (!empty($username) && !empty($password)) {
@@ -48,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = $result['message'];
         }
+    }
     }
 }
 ?>
@@ -94,6 +101,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" name="totp" class="form-control" placeholder="123456" autocomplete="off">
             </div>
             <?php endif; ?>
+            
+            <!-- Image Captcha -->
+            <div class="mb-3">
+                <label class="form-label">Security Check</label>
+                <div class="d-flex align-items-center mb-2">
+                    <img src="captcha.php" alt="CAPTCHA" class="rounded border me-3" style="cursor: pointer; min-width: 160px; min-height: 50px;" onclick="this.src='captcha.php?'+Math.random()" title="Click to refresh image">
+                    <input type="text" name="captcha" class="form-control" placeholder="Enter code" required autocomplete="off" style="text-transform: uppercase;">
+                </div>
+                <small class="text-muted" style="font-size: 0.75rem;">Click the image to generate a new code.</small>
+            </div>
             
             <!-- Honeypot -->
             <input type="text" name="website" class="honeypot" tabindex="-1" autocomplete="off">

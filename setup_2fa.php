@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once 'includes/security.php';
 require_once 'includes/auth.php';
 require_once 'includes/totp_helper.php';
@@ -49,6 +49,8 @@ $qrUrl = TotpHelper::getQrCodeUrl($user['username'], $secret);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Setup 2FA - Binary Alive</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>body { margin: 0 !important; padding: 0 !important; } .navbar { margin-top: 0 !important; border-radius: 0 !important; }</style>
 </head>
 <body class="bg-light">
 
@@ -61,7 +63,7 @@ $qrUrl = TotpHelper::getQrCodeUrl($user['username'], $secret);
     </div>
 </nav>
 
-<div class="container mt-5">
+<div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-6">
             <div class="card">
@@ -101,3 +103,4 @@ $qrUrl = TotpHelper::getQrCodeUrl($user['username'], $secret);
 
 </body>
 </html>
+

@@ -8,7 +8,7 @@ require_once __DIR__ . '/includes/monitor.php';
 $db = new Database();
 $pdo = $db->getPdo();
 
-$stmt = $pdo->query("SELECT * FROM processes WHERE auto_restart = 1");
+$stmt = $pdo->query("SELECT * FROM processes WHERE status = 'running'");
 $processes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 foreach ($processes as $process) {

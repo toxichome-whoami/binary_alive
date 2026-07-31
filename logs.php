@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once 'includes/security.php';
 require_once 'includes/auth.php';
 
@@ -29,6 +29,8 @@ $loginLogs = $stmt2->fetchAll(PDO::FETCH_ASSOC);
     <title>Audit Logs - Binary Alive</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+    <style>body { margin: 0 !important; padding: 0 !important; } .navbar { margin-top: 0 !important; border-radius: 0 !important; }</style>
 </head>
 <body class="bg-light">
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -40,7 +42,7 @@ $loginLogs = $stmt2->fetchAll(PDO::FETCH_ASSOC);
     </div>
 </nav>
 
-<div class="container mt-5">
+<div class="container mt-4">
     <ul class="nav nav-tabs mb-4" id="logTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="audit-tab" data-bs-toggle="tab" data-bs-target="#audit" type="button" role="tab">System Audit Logs</button>
@@ -118,3 +120,4 @@ $loginLogs = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
