@@ -25,7 +25,7 @@ $auth->requireAuth();
 
 <nav class="navbar navbar-expand-lg">
     <div class="container-fluid">
-        <a class="navbar-brand" href="#"><i class="bi bi-shield-lock"></i> Binary Alive v1.0</a>
+        <a class="navbar-brand" href="#"><i class="bi bi-shield-lock"></i> Binary Alive v1.0.1</a>
         <div class="d-flex align-items-center">
             <span class="navbar-text text-white me-3">User: <?= htmlspecialchars($_SESSION['username']) ?> (<?= ucfirst(htmlspecialchars($_SESSION['role'])) ?>)</span>
             <?php if ($auth->hasRole(['admin'])): ?>
