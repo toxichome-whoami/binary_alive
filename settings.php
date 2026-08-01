@@ -6,9 +6,10 @@ $auth = new Auth();
 $auth->requireAuth();
 
 $message = '';
-$configFile = __DIR__ . '/config.json';
-$config = json_decode(file_get_contents($configFile), true) ?: [];
-$captchaEnabled = $config['security']['enable_captcha'] ?? true;
+$pdo = $auth->getPdo();
+$stmt = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'enable_captcha'");
+$captchaSetting = $stmt->fetchColumn();
+$captchaEnabled = ($captchaSetting === false) ? true : ($captchaSetting === '1');
 
 // Handle Export
 if (isset($_GET['export'])) {
@@ -37,16 +38,13 @@ if (isset($_GET['export'])) {
 // Handle Import / Toggle
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'toggle_captcha') {
-        $config['security']['enable_captcha'] = !$captchaEnabled;
-        if (file_exists($configFile)) {
-            @chmod($configFile, 0666); // Try to force write permissions
-        }
-        if (file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT)) !== false) {
-            $auth->getLogger()->logAudit($_SESSION['user_id'], 'toggle_captcha', "Captcha set to " . ($config['security']['enable_captcha'] ? 'enabled' : 'disabled'));
-            $_SESSION['flash_message'] = '<div class="alert alert-success">Login CAPTCHA ' . ($config['security']['enable_captcha'] ? 'enabled' : 'disabled') . '.</div>';
-        } else {
-            $_SESSION['flash_message'] = '<div class="alert alert-danger">Error: Could not save settings! Please CHMOD 666 your config.json file in cPanel.</div>';
-        }
+        $newValue = $captchaEnabled ? '0' : '1';
+        $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('enable_captcha', ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?");
+        $stmt->execute([$newValue, $newValue]);
+        
+        $auth->getLogger()->logAudit($_SESSION['user_id'], 'toggle_captcha', "Captcha set to " . ($newValue === '1' ? 'enabled' : 'disabled'));
+        $_SESSION['flash_message'] = '<div class="alert alert-success">Login CAPTCHA ' . ($newValue === '1' ? 'enabled' : 'disabled') . '.</div>';
+        
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit;
     } elseif ($_POST['action'] === 'import') {

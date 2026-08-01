@@ -350,7 +350,23 @@ $('#select-all').change(function() {
     $('.process-checkbox').prop('checked', $(this).prop('checked'));
 });
 
-$('#refresh-btn').click(fetchStatus);
+$('#refresh-btn').click(function() {
+    let btn = $(this);
+    if (btn.prop('disabled')) return;
+    
+    // Disable button to prevent spam clicking
+    btn.prop('disabled', true);
+    let originalHtml = btn.html();
+    btn.html('<i class="bi bi-hourglass-split"></i> Refreshing...');
+    
+    fetchStatus();
+    
+    // Re-enable after 2 seconds
+    setTimeout(function() {
+        btn.prop('disabled', false);
+        btn.html(originalHtml);
+    }, 2000);
+});
 
 $('#addProcessForm').submit(function(e) {
     e.preventDefault();

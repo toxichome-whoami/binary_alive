@@ -17,9 +17,9 @@ if ($auth->isAuthenticated()) {
 $error = '';
 $success = '';
 
-$configFile = __DIR__ . '/config.json';
-$config = json_decode(file_get_contents($configFile), true) ?: [];
-$captchaEnabled = $config['security']['enable_captcha'] ?? true;
+$stmt = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'enable_captcha'");
+$captchaSetting = $stmt->fetchColumn();
+$captchaEnabled = ($captchaSetting === false) ? true : ($captchaSetting === '1');
 
 // Check if any users exist
 $stmt = $pdo->query("SELECT COUNT(*) FROM users");

@@ -67,6 +67,10 @@ class Database {
                 username TEXT,
                 is_successful BOOLEAN DEFAULT 0,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            "CREATE TABLE IF NOT EXISTS settings (
+                setting_key TEXT PRIMARY KEY,
+                setting_value TEXT
             )"
         ];
 
