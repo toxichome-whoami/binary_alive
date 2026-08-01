@@ -100,7 +100,9 @@ $auth->requireAuth();
             <table class="table table-hover mb-0">
                 <thead class="table-dark">
                     <tr>
+                        <?php if ($auth->hasRole(['admin', 'operator'])): ?>
                         <th style="width: 40px;"><input type="checkbox" id="select-all"></th>
+                        <?php endif; ?>
                         <th>Name</th>
                         <th>Status</th>
                         <th>PID</th>
@@ -285,7 +287,7 @@ function fetchStatus() {
                 ` : '<span class="badge bg-secondary">Read-only</span>';
 
                 html += `<tr>
-                    <td><input type="checkbox" class="process-checkbox" value="${p.id}" ${canControl?'':'disabled'}></td>
+                    ${canControl ? `<td><input type="checkbox" class="process-checkbox" value="${p.id}"></td>` : ''}
                     <td><strong>${p.name}</strong></td>
                     <td>${statusIcon}</td>
                     <td>${p.pid || '---'}</td>
