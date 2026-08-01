@@ -109,6 +109,20 @@ class Auth {
             return false;
         }
 
+        // Live Security Check: Refresh role from DB and ensure user wasn't deleted
+        if (isset($_SESSION['user_id'])) {
+            $stmt = $this->pdo->prepare("SELECT role FROM users WHERE id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $currentRole = $stmt->fetchColumn();
+            
+            if ($currentRole) {
+                $_SESSION['role'] = $currentRole; // Instantly apply role changes
+            } else {
+                $this->logout(); // Instantly log them out if deleted
+                return false;
+            }
+        }
+
         $_SESSION['last_activity'] = time();
         return true;
     }

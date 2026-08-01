@@ -1,4 +1,9 @@
 <?php
+// Prevent browser and LiteSpeed caching issues
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
 require_once 'includes/security.php';
 require_once 'includes/auth.php';
 $auth = new Auth();
@@ -68,8 +73,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = $result['message'];
         }
     }
-        }
     }
+    
+    // PRG Pattern: Redirect back to login.php with flash messages to prevent form resubmission warnings on reload
+    if ($error) {
+        $_SESSION['login_error'] = $error;
+        $_SESSION['login_old_username'] = $_POST['username'] ?? '';
+        $_SESSION['login_old_password'] = $_POST['password'] ?? '';
+        $_SESSION['login_old_totp'] = $_POST['totp'] ?? '';
+        header("Location: login.php");
+        exit();
+    }
+}
+
+// Fetch flash session data if it exists
+if (isset($_SESSION['login_error'])) {
+    $error = $_SESSION['login_error'];
+    $old_username = $_SESSION['login_old_username'] ?? '';
+    $old_password = $_SESSION['login_old_password'] ?? '';
+    $old_totp = $_SESSION['login_old_totp'] ?? '';
+    unset($_SESSION['login_error'], $_SESSION['login_old_username'], $_SESSION['login_old_password'], $_SESSION['login_old_totp']);
+} else {
+    $old_username = '';
+    $old_password = '';
+    $old_totp = '';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -101,17 +129,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="POST" action="">
             <div class="mb-3">
                 <label>Username</label>
-                <input type="text" name="username" class="form-control" required>
+                <input type="text" name="username" class="form-control" value="<?= htmlspecialchars($old_username) ?>" required>
             </div>
             <div class="mb-3">
                 <label>Password</label>
-                <input type="password" name="password" class="form-control" required>
+                <input type="password" name="password" class="form-control" value="<?= htmlspecialchars($old_password) ?>" required>
             </div>
             
             <?php if (!$isSetupMode): ?>
             <div class="mb-3">
                 <label>2FA Code (If enabled)</label>
-                <input type="text" name="totp" class="form-control" placeholder="123456" autocomplete="off">
+                <input type="text" name="totp" class="form-control" placeholder="123456" autocomplete="off" value="<?= htmlspecialchars($old_totp) ?>">
             </div>
             <?php endif; ?>
             

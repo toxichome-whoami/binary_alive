@@ -32,7 +32,7 @@ $auth->requireAuth();
                 <a href="users.php" class="btn btn-outline-success btn-sm me-2"><i class="bi bi-people"></i> Users</a>
                 <a href="logs.php" class="btn btn-outline-light btn-sm me-2"><i class="bi bi-journal-text"></i> Logs</a>
                 <a href="settings.php" class="btn btn-outline-warning btn-sm me-2"><i class="bi bi-gear"></i> Settings</a>
-            <?php elseif ($auth->hasRole(['auditor'])): ?>
+            <?php elseif ($auth->hasRole(['auditor', 'operator'])): ?>
                 <a href="logs.php" class="btn btn-outline-light btn-sm me-2"><i class="bi bi-journal-text"></i> Logs</a>
             <?php endif; ?>
             <a href="setup_2fa.php" class="btn btn-outline-info btn-sm me-2"><i class="bi bi-shield-check"></i> 2FA</a>
@@ -250,6 +250,9 @@ function formatSecondsToUptime(totalSecs) {
 }
 
 function fetchStatus() {
+    // Prevent hammering the server if the user is in a different browser tab
+    if (document.hidden) return;
+    
     $.getJSON('api.php?action=status', function(res) {
         if (!res.success) return;
         
@@ -393,6 +396,13 @@ $('#editProcessForm').submit(function(e) {
 
 fetchStatus();
 setInterval(fetchStatus, 5000);
+
+// Instantly refresh when the user switches back to this tab
+document.addEventListener("visibilitychange", function() {
+    if (!document.hidden) {
+        fetchStatus();
+    }
+});
 
 // Smooth 1-second Uptime Ticker
 setInterval(function() {

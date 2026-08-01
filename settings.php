@@ -38,9 +38,15 @@ if (isset($_GET['export'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'toggle_captcha') {
         $config['security']['enable_captcha'] = !$captchaEnabled;
-        file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT));
-        $auth->getLogger()->logAudit($_SESSION['user_id'], 'toggle_captcha', "Captcha set to " . ($config['security']['enable_captcha'] ? 'enabled' : 'disabled'));
-        $_SESSION['flash_message'] = '<div class="alert alert-success">Login CAPTCHA ' . ($config['security']['enable_captcha'] ? 'enabled' : 'disabled') . '.</div>';
+        if (file_exists($configFile)) {
+            @chmod($configFile, 0666); // Try to force write permissions
+        }
+        if (file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT)) !== false) {
+            $auth->getLogger()->logAudit($_SESSION['user_id'], 'toggle_captcha', "Captcha set to " . ($config['security']['enable_captcha'] ? 'enabled' : 'disabled'));
+            $_SESSION['flash_message'] = '<div class="alert alert-success">Login CAPTCHA ' . ($config['security']['enable_captcha'] ? 'enabled' : 'disabled') . '.</div>';
+        } else {
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">Error: Could not save settings! Please CHMOD 666 your config.json file in cPanel.</div>';
+        }
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit;
     } elseif ($_POST['action'] === 'import') {

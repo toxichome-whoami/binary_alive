@@ -4,7 +4,7 @@ require_once 'includes/auth.php';
 
 $auth = new Auth();
 $auth->requireAuth();
-$auth->requireRole(['admin', 'auditor']); // Only admins and auditors can view logs
+$auth->requireRole(['admin', 'auditor', 'operator']); // Admins, auditors, and operators can view logs
 
 $pdo = $auth->getPdo();
 

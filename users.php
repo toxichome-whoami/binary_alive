@@ -87,6 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$id]);
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_api_token', "Deleted token for user ID: $id");
         $_SESSION['flash_message'] = '<div class="alert alert-success">API Token deleted.</div>';
+    } elseif ($action === 'remove_2fa') {
+        $id = $_POST['id'] ?? 0;
+        $stmt = $pdo->prepare("UPDATE users SET totp_secret = NULL WHERE id = ?");
+        $stmt->execute([$id]);
+        $auth->getLogger()->logAudit($_SESSION['user_id'], 'disable_2fa', "Removed 2FA for user ID: $id");
+        $_SESSION['flash_message'] = '<div class="alert alert-success">2FA disabled for user.</div>';
     }
     
     // PRG Pattern: Redirect back to the same URL to prevent form resubmission
@@ -106,7 +112,7 @@ $offset = ($page - 1) * $limit;
 $totalUsers = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 $totalPages = ceil($totalUsers / $limit);
 
-$stmt = $pdo->prepare("SELECT id, username, role, api_token, created_at, failed_attempts FROM users LIMIT ? OFFSET ?");
+$stmt = $pdo->prepare("SELECT id, username, role, api_token, totp_secret, created_at, failed_attempts FROM users LIMIT ? OFFSET ?");
 $stmt->execute([$limit, $offset]);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -173,6 +179,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <th>Username</th>
                         <th>Role</th>
                         <th>API Token</th>
+                        <th>2FA</th>
                         <th>Failed Logins</th>
                         <th>Actions</th>
                     </tr>
@@ -198,6 +205,13 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <span class="text-muted">None</span>
                             <?php endif; ?>
                         </td>
+                        <td>
+                            <?php if (!empty($u['totp_secret'])): ?>
+                                <span class="badge bg-success">Enabled</span>
+                            <?php else: ?>
+                                <span class="badge bg-secondary">Disabled</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?= $u['failed_attempts'] ?></td>
                         <td>
                             <button class="btn btn-sm btn-info text-white" onclick="openPasswordModal(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username']) ?>', '<?= htmlspecialchars($u['role']) ?>')"><i class="bi bi-pencil-square"></i> Edit</button>
@@ -206,6 +220,13 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <input type="hidden" name="id" value="<?= $u['id'] ?>">
                                 <button type="submit" class="btn btn-sm btn-warning" title="Generate API Token"><i class="bi bi-braces"></i></button>
                             </form>
+                            <?php if (!empty($u['totp_secret'])): ?>
+                            <form method="POST" class="d-inline" onsubmit="return confirm('Forcefully remove 2FA for this user?');">
+                                <input type="hidden" name="action" value="remove_2fa">
+                                <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove 2FA"><i class="bi bi-shield-x"></i></button>
+                            </form>
+                            <?php endif; ?>
                             <?php if ($u['id'] != $_SESSION['user_id']): ?>
                             <form method="POST" class="d-inline" onsubmit="return confirm('Delete this user?');">
                                 <input type="hidden" name="action" value="delete">
