@@ -12,6 +12,10 @@ if ($auth->isAuthenticated()) {
 $error = '';
 $success = '';
 
+$configFile = __DIR__ . '/config.json';
+$config = json_decode(file_get_contents($configFile), true) ?: [];
+$captchaEnabled = $config['security']['enable_captcha'] ?? true;
+
 // Check if any users exist
 $stmt = $pdo->query("SELECT COUNT(*) FROM users");
 $userCount = $stmt->fetchColumn();
@@ -23,15 +27,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("Bot detected."); // Honeypot filled
     }
 
-    $captcha_answer = strtoupper(trim($_POST['captcha'] ?? ''));
-    $expected = $_SESSION['captcha_code'] ?? '';
+    $captchaValid = true;
+    if ($captchaEnabled) {
+        $captcha_answer = strtoupper(trim($_POST['captcha'] ?? ''));
+        $expected = $_SESSION['captcha_code'] ?? '';
+        
+        // Always unset on submit to prevent replay attacks
+        unset($_SESSION['captcha_code']);
+        
+        if (empty($expected) || $captcha_answer !== $expected) {
+            $captchaValid = false;
+            $error = "Incorrect Security CAPTCHA. Please try again.";
+        }
+    }
     
-    // Always unset on submit to prevent replay attacks
-    unset($_SESSION['captcha_code']);
-    
-    if (empty($expected) || $captcha_answer !== $expected) {
-        $error = "Incorrect Security CAPTCHA. Please try again.";
-    } else {
+    if ($captchaValid) {
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
     
@@ -58,8 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = $result['message'];
         }
     }
+        }
     }
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -106,6 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
             
             <!-- Image Captcha -->
+            <?php if ($captchaEnabled): ?>
             <div class="mb-3">
                 <label class="form-label">Security Check</label>
                 <div class="d-flex align-items-center mb-2">
@@ -114,6 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <small class="text-muted" style="font-size: 0.75rem;">Click the image to generate a new code.</small>
             </div>
+            <?php endif; ?>
             
             <!-- Honeypot -->
             <input type="text" name="website" class="honeypot" tabindex="-1" autocomplete="off">

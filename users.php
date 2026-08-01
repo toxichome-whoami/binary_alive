@@ -23,9 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)");
                 $stmt->execute([$username, $hash, $role]);
                 $auth->getLogger()->logAudit($_SESSION['user_id'], 'create_user', "Created user: $username");
-                $message = '<div class="alert alert-success">User created successfully.</div>';
+                $_SESSION['flash_message'] = '<div class="alert alert-success">User created successfully.</div>';
             } catch (PDOException $e) {
-                $message = '<div class="alert alert-danger">Username already exists.</div>';
+                $_SESSION['flash_message'] = '<div class="alert alert-danger">Username already exists.</div>';
             }
         }
     } elseif ($action === 'delete') {
@@ -34,39 +34,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
             $stmt->execute([$id]);
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_user', "Deleted user ID: $id");
-            $message = '<div class="alert alert-success">User deleted.</div>';
+            $_SESSION['flash_message'] = '<div class="alert alert-success">User deleted.</div>';
         }
     } elseif ($action === 'change_password') {
         $id = $_POST['id'] ?? 0;
         $new_username = $_POST['new_username'] ?? '';
         $new_password = $_POST['new_password'] ?? '';
+        $new_role = $_POST['new_role'] ?? '';
         
         try {
-            if (!empty($new_password) && !empty($new_username)) {
-                $hash = password_hash($new_password, PASSWORD_BCRYPT, ['cost' => 12]);
-                $stmt = $pdo->prepare("UPDATE users SET username = ?, password_hash = ? WHERE id = ?");
-                $stmt->execute([$new_username, $hash, $id]);
-                $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_user', "Changed username and password for user ID: $id");
-                $message = '<div class="alert alert-success">Username and Password updated successfully.</div>';
-            } elseif (!empty($new_password)) {
-                $hash = password_hash($new_password, PASSWORD_BCRYPT, ['cost' => 12]);
-                $stmt = $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
-                $stmt->execute([$hash, $id]);
-                $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_user', "Changed password for user ID: $id");
-                $message = '<div class="alert alert-success">Password updated successfully.</div>';
-            } elseif (!empty($new_username)) {
-                $stmt = $pdo->prepare("UPDATE users SET username = ? WHERE id = ?");
-                $stmt->execute([$new_username, $id]);
-                $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_user', "Changed username for user ID: $id");
-                $message = '<div class="alert alert-success">Username updated successfully.</div>';
+            $updates = [];
+            $params = [];
+            
+            if (!empty($new_username)) {
+                $updates[] = "username = ?";
+                $params[] = $new_username;
+            }
+            if (!empty($new_password)) {
+                $updates[] = "password_hash = ?";
+                $params[] = password_hash($new_password, PASSWORD_BCRYPT, ['cost' => 12]);
+            }
+            if (!empty($new_role)) {
+                $updates[] = "role = ?";
+                $params[] = $new_role;
             }
             
-            // If they edited themselves, update session
-            if ($id == $_SESSION['user_id'] && !empty($new_username)) {
-                $_SESSION['username'] = $new_username;
+            if (!empty($updates)) {
+                $params[] = $id;
+                $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+                $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_user', "Updated details for user ID: $id");
+                $_SESSION['flash_message'] = '<div class="alert alert-success">User updated successfully.</div>';
+                
+                if ($id == $_SESSION['user_id'] && !empty($new_username)) {
+                    $_SESSION['username'] = $new_username;
+                }
             }
         } catch (PDOException $e) {
-            $message = '<div class="alert alert-danger">Failed to update user. The username might already exist.</div>';
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">Failed to update user. The username might already exist.</div>';
         }
     } elseif ($action === 'generate_token') {
         $id = $_POST['id'] ?? 0;
@@ -74,11 +80,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("UPDATE users SET api_token = ? WHERE id = ?");
         $stmt->execute([$token, $id]);
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'generate_api_token', "Generated for user ID: $id");
-        $message = '<div class="alert alert-success">API Token generated successfully.</div>';
+        $_SESSION['flash_message'] = '<div class="alert alert-success">API Token generated successfully.</div>';
+    } elseif ($action === 'delete_token') {
+        $id = $_POST['id'] ?? 0;
+        $stmt = $pdo->prepare("UPDATE users SET api_token = NULL WHERE id = ?");
+        $stmt->execute([$id]);
+        $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_api_token', "Deleted token for user ID: $id");
+        $_SESSION['flash_message'] = '<div class="alert alert-success">API Token deleted.</div>';
     }
+    
+    // PRG Pattern: Redirect back to the same URL to prevent form resubmission
+    header("Location: " . $_SERVER['REQUEST_URI']);
+    exit;
 }
 
-$stmt = $pdo->query("SELECT id, username, role, api_token, created_at, failed_attempts FROM users");
+if (isset($_SESSION['flash_message'])) {
+    $message = $_SESSION['flash_message'];
+    unset($_SESSION['flash_message']);
+}
+
+$limit = 20;
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$offset = ($page - 1) * $limit;
+
+$totalUsers = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+$totalPages = ceil($totalUsers / $limit);
+
+$stmt = $pdo->prepare("SELECT id, username, role, api_token, created_at, failed_attempts FROM users LIMIT ? OFFSET ?");
+$stmt->execute([$limit, $offset]);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
@@ -156,14 +185,22 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <td><span class="badge bg-secondary"><?= ucfirst($u['role']) ?></span></td>
                         <td>
                             <?php if ($u['api_token']): ?>
-                                <input type="text" class="form-control form-control-sm" value="<?= htmlspecialchars($u['api_token']) ?>" readonly>
+                                <div class="input-group input-group-sm" style="max-width: 250px;">
+                                    <input type="text" class="form-control" id="token-<?= $u['id'] ?>" value="<?= htmlspecialchars($u['api_token']) ?>" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('token-<?= $u['id'] ?>').value); alert('Copied!');" title="Copy Token"><i class="bi bi-clipboard"></i></button>
+                                    <form method="POST" class="d-inline" onsubmit="return confirm('Delete API token? This breaks any scripts using it!');">
+                                        <input type="hidden" name="action" value="delete_token">
+                                        <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                                        <button type="submit" class="btn btn-outline-danger" title="Delete Token"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </div>
                             <?php else: ?>
                                 <span class="text-muted">None</span>
                             <?php endif; ?>
                         </td>
                         <td><?= $u['failed_attempts'] ?></td>
                         <td>
-                            <button class="btn btn-sm btn-info text-white" onclick="openPasswordModal(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username']) ?>')"><i class="bi bi-pencil-square"></i> Edit</button>
+                            <button class="btn btn-sm btn-info text-white" onclick="openPasswordModal(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username']) ?>', '<?= htmlspecialchars($u['role']) ?>')"><i class="bi bi-pencil-square"></i> Edit</button>
                             <form method="POST" class="d-inline" onsubmit="return confirm('Generate new API token?');">
                                 <input type="hidden" name="action" value="generate_token">
                                 <input type="hidden" name="id" value="<?= $u['id'] ?>">
@@ -181,6 +218,21 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <?php if ($page > 1): ?>
+                <a href="?page=<?= $page - 1 ?>" class="btn btn-outline-primary btn-sm">Previous</a>
+            <?php else: ?>
+                <button class="btn btn-outline-secondary btn-sm" disabled>Previous</button>
+            <?php endif; ?>
+            
+            <span class="text-muted small">Page <?= $page ?> of <?= max(1, $totalPages) ?> (Total: <?= $totalUsers ?>)</span>
+            
+            <?php if ($page < $totalPages): ?>
+                <a href="?page=<?= $page + 1 ?>" class="btn btn-outline-primary btn-sm">Next</a>
+            <?php else: ?>
+                <button class="btn btn-outline-secondary btn-sm" disabled>Next</button>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -200,16 +252,25 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <input type="hidden" name="id" id="modalUserId">
             <div class="mb-3">
                 <label>New Username</label>
-                <input type="text" name="new_username" id="inputNewUsername" class="form-control">
+                <input type="text" name="new_username" id="inputNewUsername" class="form-control" oninput="checkModalChanges()">
             </div>
             <div class="mb-3">
                 <label>New Password</label>
-                <input type="password" name="new_password" class="form-control">
+                <input type="password" name="new_password" id="inputNewPassword" class="form-control" oninput="checkModalChanges()">
+            </div>
+            <div class="mb-3">
+                <label>Role</label>
+                <select class="form-select" name="new_role" id="inputNewRole" onchange="checkModalChanges()">
+                    <option value="admin">Admin</option>
+                    <option value="operator">Operator</option>
+                    <option value="viewer">Viewer</option>
+                    <option value="auditor">Auditor</option>
+                </select>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="submit" class="btn btn-primary" id="saveChangesBtn" disabled>Save Changes</button>
           </div>
       </form>
     </div>
@@ -218,14 +279,42 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-function openPasswordModal(id, username) {
+let originalUsername = '';
+let originalRole = '';
+
+function checkModalChanges() {
+    const currentUsername = document.getElementById('inputNewUsername').value;
+    const currentRole = document.getElementById('inputNewRole').value;
+    const currentPassword = document.getElementById('inputNewPassword').value;
+    const saveBtn = document.getElementById('saveChangesBtn');
+    
+    if (currentUsername !== originalUsername || currentRole !== originalRole || currentPassword.length > 0) {
+        saveBtn.disabled = false;
+    } else {
+        saveBtn.disabled = true;
+    }
+}
+
+function openPasswordModal(id, username, role) {
     document.getElementById('modalUserId').value = id;
     document.getElementById('modalUsername').innerText = username;
+    
+    // Set and store original values
     document.getElementById('inputNewUsername').value = username;
+    originalUsername = username;
+    
+    document.getElementById('inputNewRole').value = role;
+    originalRole = role;
+    
+    // Clear password box
+    document.getElementById('inputNewPassword').value = '';
+    
+    // Disable save button by default
+    document.getElementById('saveChangesBtn').disabled = true;
+    
     var modal = new bootstrap.Modal(document.getElementById('passwordModal'));
     modal.show();
 }
 </script>
 </body>
 </html>
-

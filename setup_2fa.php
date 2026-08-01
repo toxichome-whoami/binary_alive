@@ -25,18 +25,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt = $pdo->prepare("UPDATE users SET totp_secret = ? WHERE id = ?");
             $stmt->execute([$secret, $userId]);
             $auth->getLogger()->logAudit($userId, 'enable_2fa');
-            $user['totp_secret'] = $secret;
-            $message = '<div class="alert alert-success">Two-Factor Authentication enabled successfully!</div>';
+            $_SESSION['flash_message'] = '<div class="alert alert-success">Two-Factor Authentication enabled successfully!</div>';
         } else {
-            $message = '<div class="alert alert-danger">Invalid code. Please try again.</div>';
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">Invalid code. Please try again.</div>';
         }
     } elseif ($_POST['action'] === 'disable') {
         $stmt = $pdo->prepare("UPDATE users SET totp_secret = NULL WHERE id = ?");
         $stmt->execute([$userId]);
         $auth->getLogger()->logAudit($userId, 'disable_2fa');
-        $user['totp_secret'] = null;
-        $message = '<div class="alert alert-success">Two-Factor Authentication disabled.</div>';
+        $_SESSION['flash_message'] = '<div class="alert alert-success">Two-Factor Authentication disabled.</div>';
     }
+    
+    header("Location: " . $_SERVER['REQUEST_URI']);
+    exit;
+}
+
+if (isset($_SESSION['flash_message'])) {
+    $message = $_SESSION['flash_message'];
+    unset($_SESSION['flash_message']);
 }
 
 $secret = TotpHelper::generateSecret();

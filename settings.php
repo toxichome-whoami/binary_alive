@@ -6,6 +6,9 @@ $auth = new Auth();
 $auth->requireAuth();
 
 $message = '';
+$configFile = __DIR__ . '/config.json';
+$config = json_decode(file_get_contents($configFile), true) ?: [];
+$captchaEnabled = $config['security']['enable_captcha'] ?? true;
 
 // Handle Export
 if (isset($_GET['export'])) {
@@ -31,8 +34,16 @@ if (isset($_GET['export'])) {
     }
 }
 
-// Handle Import
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'import') {
+// Handle Import / Toggle
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'toggle_captcha') {
+        $config['security']['enable_captcha'] = !$captchaEnabled;
+        file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT));
+        $auth->getLogger()->logAudit($_SESSION['user_id'], 'toggle_captcha', "Captcha set to " . ($config['security']['enable_captcha'] ? 'enabled' : 'disabled'));
+        $_SESSION['flash_message'] = '<div class="alert alert-success">Login CAPTCHA ' . ($config['security']['enable_captcha'] ? 'enabled' : 'disabled') . '.</div>';
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit;
+    } elseif ($_POST['action'] === 'import') {
     if (isset($_FILES['backup_file']) && $_FILES['backup_file']['error'] === UPLOAD_ERR_OK) {
         $tmpName = $_FILES['backup_file']['tmp_name'];
         $fileName = $_FILES['backup_file']['name'];
@@ -41,15 +52,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if ($ext === 'json') {
             move_uploaded_file($tmpName, __DIR__ . '/config.json');
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'import_data', "Type: config");
-            $message = '<div class="alert alert-success">Configuration imported successfully.</div>';
+            $_SESSION['flash_message'] = '<div class="alert alert-success">Configuration imported successfully.</div>';
         } elseif ($ext === 'sqlite') {
             move_uploaded_file($tmpName, __DIR__ . '/db/monitor.sqlite');
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'import_data', "Type: database");
-            $message = '<div class="alert alert-success">Database imported successfully.</div>';
+            $_SESSION['flash_message'] = '<div class="alert alert-success">Database imported successfully.</div>';
         } else {
-            $message = '<div class="alert alert-danger">Invalid file type. Only .json or .sqlite allowed.</div>';
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">Invalid file type. Only .json or .sqlite allowed.</div>';
         }
     }
+    header("Location: " . $_SERVER['REQUEST_URI']);
+    exit;
+    }
+}
+
+if (isset($_SESSION['flash_message'])) {
+    $message = $_SESSION['flash_message'];
+    unset($_SESSION['flash_message']);
 }
 ?>
 <!DOCTYPE html>
@@ -84,7 +103,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 <div class="card-body">
                     <?= $message ?>
                     
-                    <h5 class="mt-3 border-bottom pb-2">Export Data</h5>
+                    <h5 class="mt-3 border-bottom pb-2">Security Settings</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <strong>Login CAPTCHA</strong>
+                            <p class="text-muted small mb-0">Require users to solve an image CAPTCHA when logging in to prevent bot brute-force attacks.</p>
+                        </div>
+                        <form method="POST">
+                            <input type="hidden" name="action" value="toggle_captcha">
+                            <?php if ($captchaEnabled): ?>
+                                <button type="submit" class="btn btn-success">Enabled (Click to Disable)</button>
+                            <?php else: ?>
+                                <button type="submit" class="btn btn-secondary">Disabled (Click to Enable)</button>
+                            <?php endif; ?>
+                        </form>
+                    </div>
+                    
+                    <h5 class="mt-4 border-bottom pb-2">Export Data</h5>
                     <p>Download a backup of your configuration or entire database.</p>
                     <a href="?export=config" class="btn btn-outline-primary mb-2"><i class="bi bi-download"></i> Download config.json</a>
                     <a href="?export=database" class="btn btn-outline-primary mb-2"><i class="bi bi-download"></i> Download database.sqlite</a>
