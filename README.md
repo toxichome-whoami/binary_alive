@@ -2,22 +2,16 @@
 
 A PHP-based monitoring and process management system designed to keep Linux binaries (such as Discord bots, Node apps, or Go/C++ binaries) running continuously on cPanel/WHM servers.
 
+## Documentation Links
+- **[View the API Documentation](API.md)**: Learn how to manage your bots remotely via cURL or custom scripts.
+- **[View the Changelog](CHANGELOG.md)**: See all the latest features and security updates for version 1.0.1.
+
 ## Key Features
 - **Auto-Restart**: Automatically restarts binaries if they stop or if the server reboots.
 - **Security**: Role-Based Access Control (RBAC), 2FA/TOTP support, CAPTCHA protection, IP Whitelisting, and Security Headers.
 - **Audit Logging**: Tracks login attempts, process start/stop actions, and API key generation with pagination.
 - **API Access**: Control processes remotely using API tokens.
 - **CPanel Native**: Runs entirely on standard PHP 7.4+ and SQLite. No Composer, Node.js, or PM2 required on the host server.
-
-## Version 1.0.1 Updates
-- **In-App Process Management**: Add, edit, delete, and group processes directly from the user interface.
-- **Session Validation**: Changing a user's role or deleting an account instantly updates their active session.
-- **Form Resubmission Fixes**: Uses the Post-Redirect-Get pattern to prevent browser "Confirm Form Resubmission" warnings on the Login, User Management, and Settings pages.
-- **Database Settings**: Security settings (such as the CAPTCHA toggle) are now stored in the SQLite database to avoid file permission issues.
-- **Admin Overrides**: Administrators can remove a user's 2FA setup if the user loses access to their authenticator app.
-- **Rate Limiting**: The dashboard Refresh button has a 2-second delay to prevent excessive server requests.
-- **Background Optimization**: Dashboard polling pauses when the browser tab is hidden to reduce server load.
-- **UI Optimizations**: Buttons and checkboxes are hidden for restricted roles (Viewers/Auditors) for a cleaner interface.
 
 ## Installation Instructions
 

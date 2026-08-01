@@ -283,7 +283,10 @@ function fetchStatus() {
                         <button class="btn btn-sm btn-success me-1 ctl-btn" data-id="${p.id}" data-cmd="start" ${p.status==='running'?'disabled':''} title="Start"><i class="bi bi-play-fill"></i></button>
                         <button class="btn btn-sm btn-danger me-1 ctl-btn" data-id="${p.id}" data-cmd="stop" ${p.status==='stopped'?'disabled':''} title="Stop"><i class="bi bi-stop-fill"></i></button>
                         <button class="btn btn-sm btn-warning me-1 ctl-btn" data-id="${p.id}" data-cmd="restart" title="Restart"><i class="bi bi-arrow-repeat"></i></button>
-                        ${userRole === 'admin' ? `<button class="btn btn-sm btn-info text-white edit-btn" data-id="${p.id}" title="Edit"><i class="bi bi-pencil-square"></i></button>` : ''}
+                        ${userRole === 'admin' ? `
+                        <button class="btn btn-sm btn-info text-white edit-btn me-1" data-id="${p.id}" title="Edit"><i class="bi bi-pencil-square"></i></button>
+                        <button class="btn btn-sm btn-dark delete-btn" data-id="${p.id}" title="Delete"><i class="bi bi-trash"></i></button>
+                        ` : ''}
                 ` : '<span class="badge bg-secondary">Read-only</span>';
 
                 html += `<tr>
@@ -414,6 +417,21 @@ $('#editProcessForm').submit(function(e) {
 
 fetchStatus();
 setInterval(fetchStatus, 5000);
+
+$(document).on('click', '.delete-btn', function() {
+    if (confirm("Are you sure you want to permanently delete this process? (If it is currently running, it will be forcefully stopped).")) {
+        let btn = $(this);
+        btn.prop('disabled', true);
+        $.post('api.php?action=delete_process', { id: btn.data('id') }, function(res) {
+            if (res.success) {
+                fetchStatus();
+            } else {
+                alert(res.message);
+                btn.prop('disabled', false);
+            }
+        }, 'json');
+    }
+});
 
 // Instantly refresh when the user switches back to this tab
 document.addEventListener("visibilitychange", function() {

@@ -190,4 +190,29 @@ if ($action === 'edit_process') {
     exit;
 }
 
+if ($action === 'delete_process') {
+    $auth->requireRole(['admin']);
+    $id = $_POST['id'] ?? 0;
+    if (empty($id)) {
+        echo json_encode(['success' => false, 'message' => 'Process ID required']);
+        exit;
+    }
+    
+    // Stop it if it's running before deleting
+    $stmt = $pdo->prepare("SELECT * FROM processes WHERE id = ?");
+    $stmt->execute([$id]);
+    $process = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($process) {
+        $pid = Monitor::isRunning($process);
+        if ($pid) Monitor::stopProcess($pid);
+        
+        $pdo->prepare("DELETE FROM processes WHERE id = ?")->execute([$id]);
+        $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_process', "Deleted process: {$process['name']}");
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Process not found']);
+    }
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => 'Invalid action']);
