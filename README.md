@@ -1,10 +1,10 @@
-# Secure Binary Alive System (v1.0.1)
+# Secure Binary Alive System (v1.0.2)
 
 A PHP-based monitoring and process management system designed to keep Linux binaries (such as Discord bots, Node apps, or Go/C++ binaries) running continuously on cPanel/WHM servers.
 
 ## Documentation Links
 - **[View the API Documentation](API.md)**: Learn how to manage your bots remotely via cURL or custom scripts.
-- **[View the Changelog](CHANGELOG.md)**: See all the latest features and security updates for version 1.0.1.
+- **[View the Changelog](CHANGELOG.md)**: See all the latest features and security updates for version 1.0.2.
 
 ## Key Features
 - **Auto-Restart**: Automatically restarts binaries if they stop or if the server reboots.

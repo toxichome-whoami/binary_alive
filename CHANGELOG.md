@@ -1,8 +1,14 @@
 # Changelog
 
-## Latest Updates
+## Version 1.0.2 Updates
 - **Admin Web Terminal**: Added a `terminal.php` page (admin only) with a dark terminal-style UI where admins can run shell commands directly from the browser, with command history, built-in `help`/`clear`/`processes`/`system` commands, and a 30-second timeout to prevent hangs.
 - **Terminal API**: New `action=terminal` endpoint in `api.php` (admin only) that executes a shell command and returns stdout/stderr, exit code, and timeout status. Every command is recorded in the audit logs.
+- **Dynamic Terminal Prompt**: Terminal prompt dynamically detects the underlying OS username and hostname instead of hardcoding values.
+- **Enhanced Terminal UI**: Switched the terminal prompt design to use precise CSS-drawn brackets and VS Code-inspired text colors instead of raw characters, keeping it looking crisp across light and dark modes.
+- **Dashboard UI Refinements**: Flattened the dashboard design by removing drop shadows from the cards and grouping all global action buttons cleanly in the header.
+- **Master Admin Security**: Implemented a strict hierarchy where the Master Admin (User ID 1) cannot be deleted or demoted. 
+- **Role Restrictions**: Regular admins can no longer assign the `admin` role, nor can they edit or delete other admin accounts.
+- **Admin Hierarchy UI**: The Master Admin now features a distinct golden "Master Admin" badge in the users list, and restricted actions (like upgrading someone to admin) are securely disabled in the UI for regular admins.
 
 ## Version 1.0.1 Updates
 - **In-App Process Management**: Add, edit, delete, and group processes directly from the user interface.
