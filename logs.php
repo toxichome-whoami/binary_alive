@@ -36,25 +36,11 @@ $stmt2 = $pdo->prepare("SELECT * FROM login_attempts ORDER BY timestamp DESC LIM
 $stmt2->execute([$limit, $loginOffset]);
 $loginLogs = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Audit Logs - Binary Alive</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-
-    <style>body { margin: 0 !important; padding: 0 !important; } .navbar { margin-top: 0 !important; border-radius: 0 !important; }</style>
-</head>
-<body class="bg-light">
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="index.php">Binary Alive</a>
-        <div class="d-flex">
-            <a href="index.php" class="btn btn-outline-light btn-sm me-2">Back to Dashboard</a>
-        </div>
-    </div>
-</nav>
+<?php
+$pageTitle = 'Audit Logs';
+require_once 'components/header.php';
+require_once 'components/navbar.php';
+?>
 
 <div class="container mt-4">
     <ul class="nav nav-tabs mb-4" id="logTabs" role="tablist">
@@ -161,7 +147,5 @@ $loginLogs = $stmt2->fetchAll(PDO::FETCH_ASSOC);
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+<?php require_once 'components/footer.php'; ?>
 

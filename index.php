@@ -4,42 +4,11 @@ require_once 'includes/auth.php';
 $auth = new Auth();
 $auth->requireAuth();
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Binary Alive</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <style>
-        body { background-color: #f8f9fa; margin: 0 !important; padding: 0 !important; }
-        .navbar { background-color: #2c3e50; margin-top: 0 !important; border-radius: 0 !important; }
-        .navbar-brand, .nav-link { color: white !important; }
-        .status-running { color: #198754; }
-        .status-stopped { color: #dc3545; }
-        .group-header { background-color: #e9ecef; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-<nav class="navbar navbar-expand-lg">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#"><i class="bi bi-shield-lock"></i> Binary Alive v1.0.1</a>
-        <div class="d-flex align-items-center">
-            <span class="navbar-text text-white me-3">User: <?= htmlspecialchars($_SESSION['username']) ?> (<?= ucfirst(htmlspecialchars($_SESSION['role'])) ?>)</span>
-            <?php if ($auth->hasRole(['admin'])): ?>
-                <a href="users.php" class="btn btn-outline-success btn-sm me-2"><i class="bi bi-people"></i> Users</a>
-                <a href="logs.php" class="btn btn-outline-light btn-sm me-2"><i class="bi bi-journal-text"></i> Logs</a>
-                <a href="settings.php" class="btn btn-outline-warning btn-sm me-2"><i class="bi bi-gear"></i> Settings</a>
-            <?php elseif ($auth->hasRole(['auditor', 'operator'])): ?>
-                <a href="logs.php" class="btn btn-outline-light btn-sm me-2"><i class="bi bi-journal-text"></i> Logs</a>
-            <?php endif; ?>
-            <a href="setup_2fa.php" class="btn btn-outline-info btn-sm me-2"><i class="bi bi-shield-check"></i> 2FA</a>
-            <a href="logout.php" class="btn btn-outline-light btn-sm">Logout</a>
-        </div>
-    </div>
-</nav>
+<?php
+$pageTitle = 'Dashboard';
+require_once 'components/header.php';
+require_once 'components/navbar.php';
+?>
 
 <div class="container mt-4">
     <!-- Stat Cards -->
@@ -451,6 +420,6 @@ setInterval(function() {
         }
     });
 }, 1000);
+// Theme Toggle Logic handle by components/footer.php
 </script>
-</body>
-</html>
+<?php require_once 'components/footer.php'; ?>

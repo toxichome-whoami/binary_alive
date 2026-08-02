@@ -48,26 +48,11 @@ if (isset($_SESSION['flash_message'])) {
 $secret = TotpHelper::generateSecret();
 $qrUrl = TotpHelper::getQrCodeUrl($user['username'], $secret);
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Setup 2FA - Binary Alive</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <style>body { margin: 0 !important; padding: 0 !important; } .navbar { margin-top: 0 !important; border-radius: 0 !important; }</style>
-</head>
-<body class="bg-light">
-
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="index.php">Binary Alive</a>
-        <div class="d-flex">
-            <a href="index.php" class="btn btn-outline-light btn-sm me-2">Back to Dashboard</a>
-        </div>
-    </div>
-</nav>
+<?php
+$pageTitle = 'Setup 2FA';
+require_once 'components/header.php';
+require_once 'components/navbar.php';
+?>
 
 <div class="container mt-4">
     <div class="row justify-content-center">
@@ -107,6 +92,5 @@ $qrUrl = TotpHelper::getQrCodeUrl($user['username'], $secret);
     </div>
 </div>
 
-</body>
-</html>
+<?php require_once 'components/footer.php'; ?>
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Latest Updates
+- **Admin Web Terminal**: Added a `terminal.php` page (admin only) with a dark terminal-style UI where admins can run shell commands directly from the browser, with command history, built-in `help`/`clear`/`processes`/`system` commands, and a 30-second timeout to prevent hangs.
+- **Terminal API**: New `action=terminal` endpoint in `api.php` (admin only) that executes a shell command and returns stdout/stderr, exit code, and timeout status. Every command is recorded in the audit logs.
+
 ## Version 1.0.1 Updates
 - **In-App Process Management**: Add, edit, delete, and group processes directly from the user interface.
 - **Session Validation**: Changing a user's role or deleting an account instantly updates their active session.

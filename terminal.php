@@ -1,0 +1,202 @@
+<?php
+require_once 'includes/security.php';
+require_once 'includes/auth.php';
+
+$auth = new Auth();
+$auth->requireAuth();
+$auth->requireRole(['admin']); // Only admins can access the terminal
+?>
+<?php
+$pageTitle = 'Terminal';
+require_once 'components/header.php';
+require_once 'components/navbar.php';
+?>
+
+<div class="container mt-4 mb-4">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-terminal"></i> Root Terminal (Admin)</span>
+            <button id="clear-btn" class="btn btn-sm btn-outline-light"><i class="bi bi-eraser"></i> Clear</button>
+        </div>
+        <div class="card-body p-0 terminal-container">
+            <div id="terminal"></div>
+            <div class="term-footer" style="background-color: #1e1e1e; padding: 10px 15px; border-top: 1px solid #333; border-radius: 0 0 5px 5px;">
+                <div class="input-group">
+                    <span class="input-group-text" style="background-color:#1e1e1e; border-color:#333; color:#569cd6; border-right: none;" id="prompt-label">root@binary-alive:~$</span>
+                    <input type="text" id="term-input" class="form-control" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command and press Enter (try: help)" autofocus>
+                    <button id="run-btn" class="btn btn-outline-success"><i class="bi bi-play-fill"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+const terminal = document.getElementById('terminal');
+const input = document.getElementById('term-input');
+const promptLabel = 'root@binary-alive:~$';
+const SESSION_USER = <?= json_encode(['username' => $_SESSION['username'], 'role' => $_SESSION['role']]) ?>;
+const SERVER_INFO = <?= json_encode(['server' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown', 'php' => phpversion(), 'os' => PHP_OS]) ?>;
+let history = [];
+let historyIndex = -1;
+
+function print(text, cls) {
+    const div = document.createElement('div');
+    if (text === '') text = ' ';
+    div.textContent = text;
+    if (cls) div.classList.add(cls);
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+}
+
+function printPrompt() {
+    const div = document.createElement('div');
+    const span = document.createElement('span');
+    span.className = 'prompt';
+    span.textContent = promptLabel + ' ';
+    div.appendChild(span);
+    div.classList.add('cmd-line');
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+}
+
+function printExecutedLine(cmd) {
+    const div = document.createElement('div');
+    div.className = 'cmd-line';
+    div.textContent = promptLabel + ' ' + cmd;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+}
+
+function runLocal(cmd) {
+    if (cmd === 'clear') {
+        terminal.innerHTML = '';
+        return true;
+    }
+    if (cmd === 'help') {
+        print('Available built-in commands:', 'ok');
+        print('  help       - show this help', 'muted');
+        print('  clear      - clear the terminal', 'muted');
+        print('  processes  - show monitored processes (via API)', 'muted');
+        print('  system     - show basic server info', 'muted');
+        print('', 'muted');
+        print('Any other command is executed on the server shell via the terminal API.', 'muted');
+        print('Every command is logged to the audit logs. Use with caution.', 'warn');
+        return true;
+    }
+    if (cmd === 'processes') {
+        print('Fetching process status...', 'muted');
+        $.getJSON('api.php?action=status', function(res) {
+            if (!res.success) {
+                print('Failed to fetch status', 'err');
+                printPrompt();
+                return;
+            }
+            res.data.forEach(function(p) {
+                const icon = p.status === 'running' ? 'RUNNING ' : (p.status === 'crashed' ? 'CRASHED ' : 'STOPPED ');
+                const color = p.status === 'running' ? 'ok' : (p.status === 'crashed' ? 'err' : 'muted');
+                print(p.name.padEnd(20) + icon.padEnd(9) + 'pid=' + (p.pid || '---') + '  cpu=' + (p.cpu || 0) + '%', color);
+            });
+            print('Total processes: ' + res.data.length, 'ok');
+            printPrompt();
+        });
+        return true;
+    }
+    if (cmd === 'system') {
+        const info = [
+            'User:        ' + SESSION_USER.username,
+            'Role:        ' + SESSION_USER.role,
+            'Server:      ' + SERVER_INFO.server,
+            'PHP Version: ' + SERVER_INFO.php,
+            'OS:          ' + SERVER_INFO.os,
+            'Date:        ' + new Date().toLocaleString()
+        ];
+        info.forEach(function(line) { print(line, 'output'); });
+        return true;
+    }
+    return false;
+}
+
+function runCommand(rawCmd) {
+    const cmd = rawCmd.trim();
+    if (cmd === '') {
+        printPrompt();
+        return;
+    }
+
+    history.push(cmd);
+    historyIndex = history.length;
+    input.value = '';
+
+    printExecutedLine(cmd);
+
+    if (cmd === 'clear') {
+        runLocal(cmd);
+        printPrompt();
+        return;
+    }
+    if (runLocal(cmd)) {
+        printPrompt();
+        return;
+    }
+
+    $.post('api.php?action=terminal', { cmd: cmd }, function(res) {
+        if (res.success) {
+            if (res.timed_out) {
+                print('[Command timed out after 30 seconds]', 'err');
+            }
+            if (res.output && res.output !== '') {
+                print(res.output.replace(/\n$/, ''), 'output');
+            }
+            if (res.exit_code !== 0 && res.exit_code !== null) {
+                print('[Exit code: ' + res.exit_code + ']', 'warn');
+            }
+            printPrompt();
+        } else {
+            print(res.message || 'Command failed', 'err');
+            printPrompt();
+        }
+    }, 'json').fail(function() {
+        print('Request failed - is the server reachable?', 'err');
+        printPrompt();
+    });
+}
+
+$('#run-btn').click(function() { runCommand(input.value); });
+
+input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        runCommand(input.value);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (historyIndex > 0) {
+            historyIndex--;
+            input.value = history[historyIndex];
+        }
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyIndex < history.length - 1) {
+            historyIndex++;
+            input.value = history[historyIndex];
+        } else {
+            historyIndex = history.length;
+            input.value = '';
+        }
+    } else if (e.key === 'l' && e.ctrlKey) {
+        e.preventDefault();
+        terminal.innerHTML = '';
+    }
+});
+
+$('#clear-btn').click(function() { terminal.innerHTML = ''; });
+
+terminal.addEventListener('click', function() { input.focus(); });
+
+print('Binary Alive Terminal', 'ok');
+print('Type "help" to see available built-in commands. All commands are logged.', 'muted');
+print('--------------------------------------------------------------', 'muted');
+printPrompt();
+input.focus();
+</script>
+<?php require_once 'components/footer.php'; ?>

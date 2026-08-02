@@ -215,4 +215,151 @@ if ($action === 'delete_process') {
     exit;
 }
 
+if ($action === 'terminal') {
+    $auth->requireRole(['admin']); // Only admin can run shell commands
+
+    $cmd = trim($_POST['cmd'] ?? '');
+    if (empty($cmd)) {
+        echo json_encode(['success' => false, 'message' => 'No command provided']);
+        exit;
+    }
+    if (strlen($cmd) > 2000) {
+        echo json_encode(['success' => false, 'message' => 'Command too long (max 2000 chars)']);
+        exit;
+    }
+
+    $auth->getLogger()->logAudit($_SESSION['user_id'], 'terminal_command', "Command: $cmd");
+
+    $timeout = 30; // Seconds before the command is force-killed
+    $output = '';
+    $exitCode = -1;
+
+    // Run via the shell with stderr merged into stdout so we capture everything
+    $descriptorspec = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w']
+    ];
+
+    $proc = proc_open($cmd, $descriptorspec, $pipes, __DIR__);
+    if (!is_resource($proc)) {
+        echo json_encode(['success' => false, 'message' => 'Failed to start command process']);
+        exit;
+    }
+
+    fclose($pipes[0]); // No stdin input
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+
+    $deadline = time() + $timeout;
+    $timedOut = false;
+    $status = proc_get_status($proc);
+
+    while ($status['running']) {
+        if (time() >= $deadline) {
+            $timedOut = true;
+            proc_terminate($proc);
+            $status = proc_get_status($proc);
+            break;
+        }
+        $chunk1 = stream_get_contents($pipes[1]);
+        $chunk2 = stream_get_contents($pipes[2]);
+        if ($chunk1 !== false && $chunk1 !== '') $output .= $chunk1;
+        if ($chunk2 !== false && $chunk2 !== '') $output .= $chunk2;
+        usleep(50000); // 50ms
+        $status = proc_get_status($proc);
+    }
+
+    $output .= stream_get_contents($pipes[1]);
+    $output .= stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+
+    $exitCode = $status['exitcode'];
+    proc_close($proc);
+
+    echo json_encode([
+        'success' => true,
+        'output' => $output,
+        'exit_code' => $exitCode,
+        'timed_out' => $timedOut
+    ]);
+    exit;
+}
+
+if ($action === 'terminal') {
+    $auth->requireRole(['admin']);
+    $cmd = $_POST['cmd'] ?? '';
+    
+    if (empty($cmd)) {
+        echo json_encode(['success' => false, 'message' => 'Command required']);
+        exit;
+    }
+    
+    $auth->getLogger()->logAudit($_SESSION['user_id'], 'terminal_cmd', "Executed: " . substr($cmd, 0, 100));
+    
+    // Execute command with a timeout (using proc_open)
+    $descriptorspec = [
+       0 => ["pipe", "r"],  
+       1 => ["pipe", "w"],  
+       2 => ["pipe", "w"] 
+    ];
+    
+    $process = proc_open($cmd, $descriptorspec, $pipes);
+    if (!is_resource($process)) {
+        echo json_encode(['success' => false, 'message' => 'Failed to execute command']);
+        exit;
+    }
+    
+    // Non-blocking reads
+    stream_set_blocking($pipes[1], 0);
+    stream_set_blocking($pipes[2], 0);
+    
+    $output = '';
+    $startTime = time();
+    $timedOut = false;
+    $status = proc_get_status($process);
+    
+    while ($status['running']) {
+        $out = stream_get_contents($pipes[1]);
+        $err = stream_get_contents($pipes[2]);
+        if ($out) $output .= $out;
+        if ($err) $output .= $err;
+        
+        if (time() - $startTime > 30) {
+            $timedOut = true;
+            proc_terminate($process, 9);
+            break;
+        }
+        usleep(100000); // 100ms
+        $status = proc_get_status($process);
+    }
+    
+    // Final read
+    $out = stream_get_contents($pipes[1]);
+    $err = stream_get_contents($pipes[2]);
+    if ($out) $output .= $out;
+    if ($err) $output .= $err;
+    
+    fclose($pipes[0]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($process);
+    
+    if ($timedOut) $exitCode = null;
+    
+    // Sanitize output for JSON (UTF-8 encoding)
+    if (!mb_check_encoding($output, 'UTF-8')) {
+        $output = mb_convert_encoding($output, 'UTF-8', 'ISO-8859-1');
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'output' => $output,
+        'exit_code' => $exitCode,
+        'timed_out' => $timedOut
+    ]);
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => 'Invalid action']);

@@ -72,3 +72,28 @@ curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
      -d "id=1" \
      "https://yourdomain.com/watch/api.php"
 ```
+
+
+### 7. Run a Terminal Command (POST)
+**Required Role:** `Admin`
+Runs an arbitrary shell command on the server and returns the combined stdout/stderr output. The command runs from the system directory with a 30-second timeout, and every command is recorded in the audit logs.
+- **cmd:** The shell command to execute (max 2000 characters)
+```bash
+curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
+     -d "action=terminal" \
+     -d "cmd=ls -la" \
+     "https://yourdomain.com/watch/api.php"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "output": "drwxr-xr-x 2 user user 4096 Aug 02 12:00 .",
+  "exit_code": 0,
+  "timed_out": false
+}
+```
+- `output` — combined stdout/stderr from the command.
+- `exit_code` — the process exit code (non-zero usually means an error).
+- `timed_out` — `true` if the command was killed because it exceeded the 30-second limit.
