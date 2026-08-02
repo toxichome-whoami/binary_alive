@@ -5,6 +5,16 @@ require_once 'includes/auth.php';
 $auth = new Auth();
 $auth->requireAuth();
 $auth->requireRole(['admin']); // Only admins can access the terminal
+
+$sysUser = get_current_user();
+if (empty($sysUser) && PHP_OS_FAMILY !== 'Windows') {
+    $sysUser = trim(shell_exec('whoami'));
+}
+if (empty($sysUser)) $sysUser = 'root';
+
+$sysHost = gethostname();
+if (empty($sysHost)) $sysHost = php_uname('n');
+if (empty($sysHost)) $sysHost = 'binary-alive';
 ?>
 <?php
 $pageTitle = 'Terminal';
@@ -34,8 +44,18 @@ require_once 'components/navbar.php';
     .muted { color: #6c757d; }
     .ok { color: #198754; }
     .warn { color: #ffc107; }
-    .prompt-user { color: #0056b3; font-weight: bold; }
-    .prompt-path { color: #198754; font-weight: bold; }
+    .prompt-connector { color: #6c757d; font-weight: bold; margin-right: 5px; font-family: monospace; }
+    .powerline-path {
+        background-color: #0d6efd; color: #ffffff; padding: 2px 18px 2px 10px;
+        font-weight: bold; font-size: 0.9em;
+        clip-path: polygon(0% 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 0% 100%);
+        border-radius: 3px 0 0 3px; display: inline-block;
+    }
+    .prompt-symbol { color: #198754; font-weight: bold; margin-right: 8px; }
+    .cmd-text { color: #000000; font-weight: bold; }
+    .cmd-wrapper { margin-top: 10px; margin-bottom: 5px; }
+    .prompt-line-1 { display: flex; align-items: center; margin-bottom: 2px; }
+    .prompt-line-2 { display: flex; align-items: center; }
     .term-footer { background-color: #f8f9fa; padding: 10px 15px; border-top: 1px solid #dee2e6; border-radius: 0 0 5px 5px; }
     #term-input { background-color: #ffffff; color: #333333; border: 1px solid #dee2e6; border-left: none; font-family: 'Consolas', 'Courier New', monospace; }
     #term-input:focus { outline: none; border-color: #dee2e6; box-shadow: none; }
@@ -51,8 +71,10 @@ require_once 'components/navbar.php';
     [data-bs-theme="dark"] .muted { color: #808080; }
     [data-bs-theme="dark"] .ok { color: #6a9955; }
     [data-bs-theme="dark"] .warn { color: #e2b93d; }
-    [data-bs-theme="dark"] .prompt-user { color: #569cd6; font-weight: normal; }
-    [data-bs-theme="dark"] .prompt-path { color: #4ec9b0; font-weight: normal; }
+    [data-bs-theme="dark"] .prompt-connector { color: #808080; }
+    [data-bs-theme="dark"] .powerline-path { background-color: #007acc; color: #ffffff; }
+    [data-bs-theme="dark"] .prompt-symbol { color: #4ec9b0; }
+    [data-bs-theme="dark"] .cmd-text { color: #d4d4d4; font-weight: normal; }
     [data-bs-theme="dark"] .term-footer { background-color: #1e1e1e; border-top: 1px solid #333; }
     [data-bs-theme="dark"] #prompt-label-full, [data-bs-theme="dark"] #prompt-label-short { background-color: #1e1e1e; border-color: #333; color: #569cd6 !important; font-weight: normal !important; border-right: none; }
     [data-bs-theme="light"] #prompt-label-full, [data-bs-theme="light"] #prompt-label-short { background-color: #ffffff; border-color: #dee2e6; color: #0056b3; font-weight: bold; border-right: none; }
@@ -71,7 +93,7 @@ require_once 'components/navbar.php';
             <div id="terminal"></div>
             <div class="term-footer">
                 <div class="input-group">
-                    <span class="input-group-text d-none d-sm-flex" id="prompt-label-full"><?= htmlspecialchars($_SESSION['username']) ?>@binary-alive:~$</span>
+                    <span class="input-group-text d-none d-sm-flex" id="prompt-label-full"><?= htmlspecialchars($sysUser) ?>@<?= htmlspecialchars($sysHost) ?>:~$</span>
                     <span class="input-group-text d-sm-none" id="prompt-label-short" style="font-family: 'Consolas', monospace; color: #0056b3; font-weight: bold;">~$</span>
                     <input type="text" id="term-input" class="form-control" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command and press Enter (try: help)" autofocus>
                     <button id="run-btn" class="btn btn-outline-success"><i class="bi bi-play-fill"></i></button>
@@ -87,27 +109,50 @@ const terminal = document.getElementById('terminal');
 const input = document.getElementById('term-input');
 const SESSION_USER = <?= json_encode(['username' => $_SESSION['username'], 'role' => $_SESSION['role']]) ?>;
 let currentCwd = <?= json_encode($_SESSION['terminal_cwd'] ?? __DIR__) ?>;
-let inputPromptLabel = SESSION_USER.username + '@binary-alive:~$';
 const SERVER_INFO = <?= json_encode(['server' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown', 'php' => phpversion(), 'os' => PHP_OS]) ?>;
 
-function createPromptNodes() {
-    const frag = document.createDocumentFragment();
-    const user = document.createElement('span');
-    user.className = 'prompt-user';
-    user.textContent = SESSION_USER.username + '@binary-alive:';
+function buildPromptDOM(cmdText) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cmd-wrapper';
     
-    const path = document.createElement('span');
-    path.className = 'prompt-path';
-    path.textContent = currentCwd;
+    const line1 = document.createElement('div');
+    line1.className = 'prompt-line-1';
     
-    const dollar = document.createElement('span');
-    dollar.className = 'prompt-user';
-    dollar.textContent = '$ ';
+    const conn1 = document.createElement('span');
+    conn1.className = 'prompt-connector';
+    conn1.textContent = '╭─ ';
     
-    frag.appendChild(user);
-    frag.appendChild(path);
-    frag.appendChild(dollar);
-    return frag;
+    const pathBlock = document.createElement('span');
+    pathBlock.className = 'powerline-path';
+    pathBlock.textContent = currentCwd;
+    
+    line1.appendChild(conn1);
+    line1.appendChild(pathBlock);
+    
+    const line2 = document.createElement('div');
+    line2.className = 'prompt-line-2';
+    
+    const conn2 = document.createElement('span');
+    conn2.className = 'prompt-connector';
+    conn2.textContent = '╰─';
+    
+    const symbol = document.createElement('span');
+    symbol.className = 'prompt-symbol';
+    symbol.textContent = '$ ';
+    
+    line2.appendChild(conn2);
+    line2.appendChild(symbol);
+    
+    if (cmdText !== null) {
+        const cmdSpan = document.createElement('span');
+        cmdSpan.className = 'cmd-text';
+        cmdSpan.textContent = cmdText;
+        line2.appendChild(cmdSpan);
+    }
+    
+    wrapper.appendChild(line1);
+    wrapper.appendChild(line2);
+    return wrapper;
 }
 
 let history = [];
@@ -123,19 +168,19 @@ function print(text, cls) {
 }
 
 function printPrompt() {
-    const div = document.createElement('div');
-    div.className = 'cmd-line';
-    div.appendChild(createPromptNodes());
-    terminal.appendChild(div);
+    terminal.appendChild(buildPromptDOM(null));
     terminal.scrollTop = terminal.scrollHeight;
 }
 
 function printExecutedLine(cmd) {
-    const div = document.createElement('div');
-    div.className = 'cmd-line';
-    div.appendChild(createPromptNodes());
-    div.appendChild(document.createTextNode(cmd));
-    terminal.appendChild(div);
+    const lastChild = terminal.lastElementChild;
+    if (lastChild && lastChild.classList.contains('cmd-wrapper')) {
+        const line2 = lastChild.querySelector('.prompt-line-2');
+        if (line2 && !line2.querySelector('.cmd-text')) {
+            terminal.removeChild(lastChild);
+        }
+    }
+    terminal.appendChild(buildPromptDOM(cmd));
     terminal.scrollTop = terminal.scrollHeight;
 }
 
@@ -262,7 +307,7 @@ input.addEventListener('keydown', function(e) {
     }
 });
 
-$('#clear-btn').click(function() { terminal.innerHTML = ''; });
+$('#clear-btn').click(function() { runCommand('clear'); });
 
 terminal.addEventListener('click', function() { input.focus(); });
 

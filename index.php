@@ -62,7 +62,6 @@ require_once 'components/navbar.php';
                     <button id="bulk-restart" class="btn btn-sm btn-outline-warning"><i class="bi bi-arrow-repeat"></i> Restart Selected</button>
                 </div>
                 <?php endif; ?>
-                </div>
                 <button id="refresh-btn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
             </div>
         </div>

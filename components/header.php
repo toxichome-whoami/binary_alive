@@ -15,7 +15,7 @@ if (session_status() === PHP_SESSION_NONE) {
         body { margin: 0 !important; padding: 0 !important; }
         [data-bs-theme="light"] body { background-color: #f8f9fa; }
         [data-bs-theme="dark"] body { background-color: #121416; }
-        [data-bs-theme="dark"] .card { background-color: #1e2226; border-color: #2b3035; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        [data-bs-theme="dark"] .card { background-color: #1e2226; border-color: #2b3035; }
         [data-bs-theme="dark"] .group-header { background-color: #2b3035 !important; color: #f8f9fa; }
         [data-bs-theme="light"] .group-header { background-color: #e9ecef !important; color: #212529; }
         [data-bs-theme="dark"] .table { --bs-table-bg: #1e2226; --bs-table-color: #dee2e6; --bs-table-hover-bg: #2b3035; border-color: #373b3e; }
