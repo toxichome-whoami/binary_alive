@@ -13,10 +13,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     
     $targetUsername = "Unknown";
+    $targetRole = "viewer";
     if (isset($_POST['id'])) {
-        $stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT username, role FROM users WHERE id = ?");
         $stmt->execute([$_POST['id']]);
-        $targetUsername = $stmt->fetchColumn() ?: "ID " . $_POST['id'];
+        $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($userRow) {
+            $targetUsername = $userRow['username'];
+            $targetRole = $userRow['role'];
+        } else {
+            $targetUsername = "ID " . $_POST['id'];
+        }
     }
     
     if ($action === 'create') {
@@ -24,7 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = $_POST['password'] ?? '';
         $role = $_POST['role'] ?? 'viewer';
         
-        if ($username && $password) {
+        if ($_SESSION['user_id'] != 1 && $role === 'admin') {
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">Only the master admin can create other admin accounts.</div>';
+        } elseif ($username && $password) {
             $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
             try {
                 $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)");
@@ -37,7 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'delete') {
         $id = $_POST['id'] ?? 0;
-        if ($id != $_SESSION['user_id']) { // Can't delete self
+        if ($id == 1) {
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">The master admin account cannot be deleted.</div>';
+        } elseif ($id == $_SESSION['user_id']) {
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">You cannot delete your own account.</div>';
+        } elseif ($_SESSION['user_id'] != 1 && $targetRole === 'admin') {
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">Only the master admin can delete other admin accounts.</div>';
+        } else {
             $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
             $stmt->execute([$id]);
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_user', "Deleted user: $targetUsername");
@@ -49,37 +64,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $new_password = $_POST['new_password'] ?? '';
         $new_role = $_POST['new_role'] ?? '';
         
-        try {
-            $updates = [];
-            $params = [];
-            
-            if (!empty($new_username)) {
-                $updates[] = "username = ?";
-                $params[] = $new_username;
-            }
-            if (!empty($new_password)) {
-                $updates[] = "password_hash = ?";
-                $params[] = password_hash($new_password, PASSWORD_BCRYPT, ['cost' => 12]);
-            }
-            if (!empty($new_role)) {
-                $updates[] = "role = ?";
-                $params[] = $new_role;
-            }
-            
-            if (!empty($updates)) {
-                $params[] = $id;
-                $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute($params);
-                $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_user', "Updated details for user: $targetUsername");
-                $_SESSION['flash_message'] = '<div class="alert alert-success">User updated successfully.</div>';
+        $error = false;
+        if ($id == 1 && $_SESSION['user_id'] != 1) {
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">Only the master admin can modify the master account.</div>';
+            $error = true;
+        } elseif ($id == 1 && !empty($new_role) && $new_role !== 'admin') {
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">The master admin role cannot be changed.</div>';
+            $error = true;
+        } elseif ($_SESSION['user_id'] != 1 && $targetRole === 'admin' && $id != $_SESSION['user_id']) {
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">Only the master admin can modify other admin accounts.</div>';
+            $error = true;
+        } elseif ($_SESSION['user_id'] != 1 && !empty($new_role) && $new_role === 'admin' && $targetRole !== 'admin') {
+            $_SESSION['flash_message'] = '<div class="alert alert-danger">Only the master admin can grant the admin role.</div>';
+            $error = true;
+        }
+        
+        if (!$error) {
+            try {
+                $updates = [];
+                $params = [];
                 
-                if ($id == $_SESSION['user_id'] && !empty($new_username)) {
-                    $_SESSION['username'] = $new_username;
+                if (!empty($new_username)) {
+                    $updates[] = "username = ?";
+                    $params[] = $new_username;
                 }
+                if (!empty($new_password)) {
+                    $updates[] = "password_hash = ?";
+                    $params[] = password_hash($new_password, PASSWORD_BCRYPT, ['cost' => 12]);
+                }
+                if (!empty($new_role)) {
+                    $updates[] = "role = ?";
+                    $params[] = $new_role;
+                }
+                
+                if (!empty($updates)) {
+                    $params[] = $id;
+                    $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
+                    $stmt = $pdo->prepare($sql);
+                    $stmt->execute($params);
+                    $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_user', "Updated details for user: $targetUsername");
+                    $_SESSION['flash_message'] = '<div class="alert alert-success">User updated successfully.</div>';
+                    
+                    if ($id == $_SESSION['user_id'] && !empty($new_username)) {
+                        $_SESSION['username'] = $new_username;
+                    }
+                }
+            } catch (PDOException $e) {
+                $_SESSION['flash_message'] = '<div class="alert alert-danger">Failed to update user. The username might already exist.</div>';
             }
-        } catch (PDOException $e) {
-            $_SESSION['flash_message'] = '<div class="alert alert-danger">Failed to update user. The username might already exist.</div>';
         }
     } elseif ($action === 'generate_token') {
         $id = $_POST['id'] ?? 0;
@@ -147,7 +179,7 @@ require_once 'components/navbar.php';
                 </div>
                 <div class="col-sm-3">
                     <select class="form-select" name="role">
-                        <option value="admin">Admin</option>
+                        <option value="admin" <?= $_SESSION['user_id'] == 1 ? '' : 'disabled' ?>>Admin</option>
                         <option value="operator">Operator</option>
                         <option value="viewer" selected>Viewer</option>
                         <option value="auditor">Auditor</option>
@@ -179,21 +211,38 @@ require_once 'components/navbar.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($users as $u): ?>
+                    <?php foreach ($users as $u): 
+                        $isMasterAdmin = ($u['id'] == 1);
+                        $isSelf = ($u['id'] == $_SESSION['user_id']);
+                        $isOtherAdmin = ($u['role'] === 'admin' && !$isSelf);
+                        $canEdit = ($_SESSION['user_id'] == 1 || (!$isMasterAdmin && !$isOtherAdmin) || $isSelf);
+                        $canDelete = ($_SESSION['user_id'] == 1 ? !$isMasterAdmin && !$isSelf : !$isMasterAdmin && !$isOtherAdmin && !$isSelf);
+                        
+                        // Pass a flag to JS so it knows if role field should be disabled
+                        $disableRoleSelect = ($isMasterAdmin) ? 'true' : 'false';
+                    ?>
                     <tr>
                         <td><?= $u['id'] ?></td>
                         <td><?= htmlspecialchars($u['username']) ?></td>
-                        <td><span class="badge bg-secondary"><?= ucfirst($u['role']) ?></span></td>
+                        <td>
+                            <?php if ($isMasterAdmin): ?>
+                                <span class="badge" style="background-color: #ffc107; color: #000;">Master Admin</span>
+                            <?php else: ?>
+                                <span class="badge bg-secondary"><?= ucfirst($u['role']) ?></span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <?php if ($u['api_token']): ?>
                                 <div class="input-group input-group-sm" style="max-width: 250px;">
                                     <input type="text" class="form-control" id="token-<?= $u['id'] ?>" value="<?= htmlspecialchars($u['api_token']) ?>" readonly>
                                     <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('token-<?= $u['id'] ?>').value); alert('Copied!');" title="Copy Token"><i class="bi bi-clipboard"></i></button>
+                                    <?php if ($canEdit): ?>
                                     <form method="POST" class="d-inline" onsubmit="return confirm('Delete API token? This breaks any scripts using it!');">
                                         <input type="hidden" name="action" value="delete_token">
                                         <input type="hidden" name="id" value="<?= $u['id'] ?>">
                                         <button type="submit" class="btn btn-outline-danger" title="Delete Token"><i class="bi bi-trash"></i></button>
                                     </form>
+                                    <?php endif; ?>
                                 </div>
                             <?php else: ?>
                                 <span class="text-muted">None</span>
@@ -208,7 +257,8 @@ require_once 'components/navbar.php';
                         </td>
                         <td><?= $u['failed_attempts'] ?></td>
                         <td class="text-nowrap">
-                            <button class="btn btn-sm btn-info text-white" onclick="openPasswordModal(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username']) ?>', '<?= htmlspecialchars($u['role']) ?>')"><i class="bi bi-pencil-square"></i> Edit</button>
+                            <?php if ($canEdit): ?>
+                            <button class="btn btn-sm btn-info text-white" onclick="openPasswordModal(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username']) ?>', '<?= htmlspecialchars($u['role']) ?>', <?= $disableRoleSelect ?>)"><i class="bi bi-pencil-square"></i> Edit</button>
                             <form method="POST" class="d-inline" onsubmit="return confirm('Generate new API token?');">
                                 <input type="hidden" name="action" value="generate_token">
                                 <input type="hidden" name="id" value="<?= $u['id'] ?>">
@@ -221,7 +271,9 @@ require_once 'components/navbar.php';
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove 2FA"><i class="bi bi-shield-x"></i></button>
                             </form>
                             <?php endif; ?>
-                            <?php if ($u['id'] != $_SESSION['user_id']): ?>
+                            <?php endif; ?>
+                            
+                            <?php if ($canDelete): ?>
                             <form method="POST" class="d-inline" onsubmit="return confirm('Delete this user?');">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="<?= $u['id'] ?>">
@@ -277,7 +329,7 @@ require_once 'components/navbar.php';
             <div class="mb-3">
                 <label>Role</label>
                 <select class="form-select" name="new_role" id="inputNewRole" onchange="checkModalChanges()">
-                    <option value="admin">Admin</option>
+                    <option value="admin" id="opt-admin">Admin</option>
                     <option value="operator">Operator</option>
                     <option value="viewer">Viewer</option>
                     <option value="auditor">Auditor</option>
@@ -311,7 +363,7 @@ function checkModalChanges() {
     }
 }
 
-function openPasswordModal(id, username, role) {
+function openPasswordModal(id, username, role, disableRoleSelect) {
     document.getElementById('modalUserId').value = id;
     document.getElementById('modalUsername').innerText = username;
     
@@ -319,8 +371,28 @@ function openPasswordModal(id, username, role) {
     document.getElementById('inputNewUsername').value = username;
     originalUsername = username;
     
-    document.getElementById('inputNewRole').value = role;
+    let roleSelect = document.getElementById('inputNewRole');
+    roleSelect.value = role;
     originalRole = role;
+    
+    // Disable role select if it's the master admin to prevent demotion
+    if (disableRoleSelect) {
+        roleSelect.setAttribute('disabled', 'true');
+    } else {
+        roleSelect.removeAttribute('disabled');
+    }
+    
+    // UI role restriction for regular admins
+    if (<?= $_SESSION['user_id'] ?> != 1) {
+        let adminOpt = document.getElementById('opt-admin');
+        if (role === 'admin') {
+            adminOpt.disabled = false;
+            roleSelect.setAttribute('disabled', 'true'); // Lock their own role
+        } else {
+            adminOpt.disabled = true; // Block granting admin to others
+            if (!disableRoleSelect) roleSelect.removeAttribute('disabled');
+        }
+    }
     
     // Clear password box
     document.getElementById('inputNewPassword').value = '';
@@ -331,5 +403,9 @@ function openPasswordModal(id, username, role) {
     var modal = new bootstrap.Modal(document.getElementById('passwordModal'));
     modal.show();
 }
+// Remove disabled attribute before submit so value is passed (optional, since PHP blocks it anyway)
+document.querySelector('#passwordModal form').addEventListener('submit', function() {
+    document.getElementById('inputNewRole').removeAttribute('disabled');
+});
 </script>
 <?php require_once 'components/footer.php'; ?>
