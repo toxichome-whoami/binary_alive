@@ -67,7 +67,10 @@ require_once 'components/navbar.php';
                     <?php if (empty($user['totp_secret'])): ?>
                         <p>Protect your account by enabling 2FA using Google Authenticator or Authy.</p>
                         <div class="text-center mb-3">
-                            <img src="<?= htmlspecialchars($qrUrl) ?>" alt="QR Code" class="img-thumbnail">
+                            <div id="qr-skeleton" class="placeholder-glow mx-auto" style="width: 200px; height: 200px;">
+                                <div class="placeholder w-100 h-100 img-thumbnail"></div>
+                            </div>
+                            <img src="<?= htmlspecialchars($qrUrl) ?>" alt="QR Code" id="qr-image" class="img-thumbnail" style="display: none; width: 200px; height: 200px;" onload="document.getElementById('qr-skeleton').style.display='none'; this.style.display='inline-block';">
                         </div>
                         <p class="text-center"><strong>Secret Key:</strong> <?= htmlspecialchars($secret) ?></p>
                         <form method="POST">

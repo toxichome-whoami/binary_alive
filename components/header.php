@@ -22,7 +22,7 @@ if (session_status() === PHP_SESSION_NONE) {
         .navbar { margin-top: 0 !important; border-radius: 0 !important; }
         [data-bs-theme="dark"] .navbar { background-color: #1e2226 !important; border-bottom: 1px solid #2b3035; }
         [data-bs-theme="light"] .navbar { background-color: #2c3e50 !important; }
-        .navbar-brand, .nav-link { color: white !important; }
+        .navbar .navbar-brand, .navbar .nav-link { color: white !important; }
         .status-running { color: #20c997; }
         .status-stopped { color: #ff6b6b; }
         .group-header { font-weight: bold; }

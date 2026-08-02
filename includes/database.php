@@ -88,6 +88,9 @@ class Database {
         try {
             $this->pdo->exec("ALTER TABLE users ADD COLUMN api_token TEXT");
         } catch (PDOException $e) {}
+        try {
+            $this->pdo->exec("ALTER TABLE audit_logs ADD COLUMN username TEXT");
+        } catch (PDOException $e) {}
     }
 
     public function getPdo() {

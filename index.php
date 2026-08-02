@@ -66,7 +66,8 @@ require_once 'components/navbar.php';
             </div>
         </div>
         <div class="card-body p-0">
-            <table class="table table-hover mb-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
                 <thead class="table-dark">
                     <tr>
                         <?php if ($auth->hasRole(['admin', 'operator'])): ?>
@@ -85,7 +86,8 @@ require_once 'components/navbar.php';
                 <tbody id="process-list">
                     <tr><td colspan="9" class="text-center">Loading...</td></tr>
                 </tbody>
-            </table>
+                </table>
+            </div>
         </div>
     </div>
 </div>

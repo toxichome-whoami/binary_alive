@@ -12,17 +12,61 @@ require_once 'components/header.php';
 require_once 'components/navbar.php';
 ?>
 
+<style>
+    /* Shared */
+    #terminal {
+        height: 65vh;
+        overflow-y: auto;
+        padding: 15px;
+        font-size: 14px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    /* Default (Light Mode) */
+    .terminal-header { background-color: #f8f9fa; color: #212529; border-bottom: 1px solid #dee2e6; }
+    .terminal-container { background-color: #ffffff; color: #333333; font-family: 'Consolas', 'Courier New', monospace; border-radius: 0 0 5px 5px; border: 1px solid #dee2e6; border-top: none; }
+    .cmd-line { color: #007936; font-weight: bold; } 
+    .prompt { color: #0056b3; font-weight: bold; } 
+    .output { color: #333333; }
+    .err { color: #dc3545; }
+    .muted { color: #6c757d; }
+    .ok { color: #198754; }
+    .warn { color: #ffc107; }
+    .term-footer { background-color: #f8f9fa; padding: 10px 15px; border-top: 1px solid #dee2e6; border-radius: 0 0 5px 5px; }
+    #prompt-label { background-color: #ffffff; border-color: #dee2e6; color: #0056b3; border-right: none; font-family: 'Consolas', 'Courier New', monospace; font-weight: bold; }
+    #term-input { background-color: #ffffff; color: #333333; border: 1px solid #dee2e6; border-left: none; font-family: 'Consolas', 'Courier New', monospace; }
+    #term-input:focus { outline: none; border-color: #dee2e6; box-shadow: none; }
+
+    /* Dark Mode Overrides */
+    [data-bs-theme="dark"] .terminal-card { border: 1px solid #333940; }
+    [data-bs-theme="dark"] .terminal-header { background-color: #2b3035 !important; border-bottom: 1px solid #333940; color: #f8f9fa; }
+    [data-bs-theme="dark"] .terminal-container { background-color: #0c0c0c; color: #d4d4d4; border: none; }
+    [data-bs-theme="dark"] .cmd-line { color: #4ec9b0; font-weight: normal; }
+    [data-bs-theme="dark"] .prompt { color: #569cd6; font-weight: normal; }
+    [data-bs-theme="dark"] .output { color: #d4d4d4; }
+    [data-bs-theme="dark"] .err { color: #f44747; }
+    [data-bs-theme="dark"] .muted { color: #808080; }
+    [data-bs-theme="dark"] .ok { color: #6a9955; }
+    [data-bs-theme="dark"] .warn { color: #e2b93d; }
+    [data-bs-theme="dark"] .term-footer { background-color: #1e1e1e; border-top: 1px solid #333; }
+    [data-bs-theme="dark"] #prompt-label { background-color: #1e1e1e; border-color: #333; color: #569cd6; font-weight: normal; }
+    [data-bs-theme="dark"] #term-input { background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #333; }
+    [data-bs-theme="dark"] #term-input:focus { border-color: #333; }
+</style>
+
 <div class="container mt-4 mb-4">
-    <div class="card shadow">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+    <div class="card terminal-card">
+        <div class="card-header terminal-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-terminal"></i> Root Terminal (Admin)</span>
-            <button id="clear-btn" class="btn btn-sm btn-outline-light"><i class="bi bi-eraser"></i> Clear</button>
+            <button id="clear-btn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eraser"></i> Clear</button>
         </div>
         <div class="card-body p-0 terminal-container">
             <div id="terminal"></div>
-            <div class="term-footer" style="background-color: #1e1e1e; padding: 10px 15px; border-top: 1px solid #333; border-radius: 0 0 5px 5px;">
+            <div class="term-footer">
                 <div class="input-group">
-                    <span class="input-group-text" style="background-color:#1e1e1e; border-color:#333; color:#569cd6; border-right: none;" id="prompt-label">root@binary-alive:~$</span>
+                    <span class="input-group-text" id="prompt-label">root@binary-alive:~$</span>
                     <input type="text" id="term-input" class="form-control" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command and press Enter (try: help)" autofocus>
                     <button id="run-btn" class="btn btn-outline-success"><i class="bi bi-play-fill"></i></button>
                 </div>

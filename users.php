@@ -12,6 +12,13 @@ $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     
+    $targetUsername = "Unknown";
+    if (isset($_POST['id'])) {
+        $stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
+        $stmt->execute([$_POST['id']]);
+        $targetUsername = $stmt->fetchColumn() ?: "ID " . $_POST['id'];
+    }
+    
     if ($action === 'create') {
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
@@ -33,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id != $_SESSION['user_id']) { // Can't delete self
             $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
             $stmt->execute([$id]);
-            $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_user', "Deleted user ID: $id");
+            $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_user', "Deleted user: $targetUsername");
             $_SESSION['flash_message'] = '<div class="alert alert-success">User deleted.</div>';
         }
     } elseif ($action === 'change_password') {
@@ -64,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute($params);
-                $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_user', "Updated details for user ID: $id");
+                $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_user', "Updated details for user: $targetUsername");
                 $_SESSION['flash_message'] = '<div class="alert alert-success">User updated successfully.</div>';
                 
                 if ($id == $_SESSION['user_id'] && !empty($new_username)) {
@@ -79,19 +86,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $token = bin2hex(random_bytes(32));
         $stmt = $pdo->prepare("UPDATE users SET api_token = ? WHERE id = ?");
         $stmt->execute([$token, $id]);
-        $auth->getLogger()->logAudit($_SESSION['user_id'], 'generate_api_token', "Generated for user ID: $id");
+        $auth->getLogger()->logAudit($_SESSION['user_id'], 'generate_api_token', "Generated API Token for user: $targetUsername");
         $_SESSION['flash_message'] = '<div class="alert alert-success">API Token generated successfully.</div>';
     } elseif ($action === 'delete_token') {
         $id = $_POST['id'] ?? 0;
         $stmt = $pdo->prepare("UPDATE users SET api_token = NULL WHERE id = ?");
         $stmt->execute([$id]);
-        $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_api_token', "Deleted token for user ID: $id");
+        $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_api_token', "Deleted API Token for user: $targetUsername");
         $_SESSION['flash_message'] = '<div class="alert alert-success">API Token deleted.</div>';
     } elseif ($action === 'remove_2fa') {
         $id = $_POST['id'] ?? 0;
         $stmt = $pdo->prepare("UPDATE users SET totp_secret = NULL WHERE id = ?");
         $stmt->execute([$id]);
-        $auth->getLogger()->logAudit($_SESSION['user_id'], 'disable_2fa', "Removed 2FA for user ID: $id");
+        $auth->getLogger()->logAudit($_SESSION['user_id'], 'disable_2fa', "Removed 2FA for user: $targetUsername");
         $_SESSION['flash_message'] = '<div class="alert alert-success">2FA disabled for user.</div>';
     }
     
@@ -158,7 +165,8 @@ require_once 'components/navbar.php';
             <h4><i class="bi bi-people"></i> Manage Users</h4>
         </div>
         <div class="card-body p-0">
-            <table class="table table-hover mb-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
                 <thead class="table-dark">
                     <tr>
                         <th>ID</th>
@@ -224,7 +232,8 @@ require_once 'components/navbar.php';
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
-            </table>
+                </table>
+            </div>
         </div>
         <div class="card-footer d-flex justify-content-between align-items-center">
             <?php if ($page > 1): ?>
