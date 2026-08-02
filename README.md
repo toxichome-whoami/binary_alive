@@ -8,9 +8,12 @@ A PHP-based monitoring and process management system designed to keep Linux bina
 
 ## Key Features
 - **Auto-Restart**: Automatically restarts binaries if they stop or if the server reboots.
-- **Security**: Role-Based Access Control (RBAC), 2FA/TOTP support, CAPTCHA protection, IP Whitelisting, and Security Headers.
-- **Audit Logging**: Tracks login attempts, process start/stop actions, and API key generation with pagination.
-- **API Access**: Control processes remotely using API tokens.
+- **Security**: Role-Based Access Control (RBAC), 2FA/TOTP support, live CAPTCHA protection, IP Whitelisting, and Security Headers.
+- **Master Admin Hierarchy**: The first registered account becomes the permanent Master Admin. Regular admins cannot delete, demote, or modify other admin accounts.
+- **Web Terminal**: Admin-only browser terminal (`terminal.php`) to run shell commands directly on the server with session-persistent working directory, command history, and a 30-second timeout guard.
+- **Audit Logging**: Tracks login attempts, process start/stop/restart actions, terminal commands, and API key generation with pagination.
+- **API Access**: Control and monitor processes remotely using API tokens via cURL or custom scripts.
+- **In-App Process Management**: Add, edit, delete, and group monitored processes directly from the dashboard UI.
 - **CPanel Native**: Runs entirely on standard PHP 7.4+ and SQLite. No Composer, Node.js, or PM2 required on the host server.
 
 ## Installation Instructions

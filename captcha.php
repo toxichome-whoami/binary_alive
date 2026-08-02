@@ -21,6 +21,7 @@ for ($i = 0; $i < 6; $i++) {
     $code .= $chars[rand(0, strlen($chars) - 1)];
 }
 $_SESSION['captcha_code'] = $code;
+$_SESSION['captcha_attempts'] = 0;
 
 // Add text using largest built-in font (5) and slight staggering
 $x = 15;

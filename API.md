@@ -8,21 +8,35 @@ You can control the system remotely using an API token generated from the Users 
 
 ### 1. Fetch Process Status (GET)
 **Required Role:** `Admin`, `Operator`, `Viewer`, or `Auditor` (All roles)
-Returns a JSON array of all monitored processes and their current CPU/Memory metrics.
+Returns a JSON array of all monitored processes and their current CPU/Memory metrics, plus the server system load average.
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" \
      "https://yourdomain.com/watch/api.php?action=status"
 ```
+**Response fields:**
+- `data` — array of processes with `status`, `pid`, `cpu`, `mem`, `uptime` fields.
+- `sys_load` — current 1-minute server load average.
 
 ### 2. Control a Process (POST)
 **Required Role:** `Admin` or `Operator`
-Starts, stops, or restarts a specific process.
+Starts, stops, or restarts one or more processes.
 - **cmd options:** `start`, `stop`, `restart`
+- **id:** Single process ID (e.g. `id=1`)
+- **ids[]:** Multiple process IDs for bulk control (e.g. `ids[]=1&ids[]=2`)
 ```bash
+# Single process
 curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
      -d "action=control" \
      -d "cmd=restart" \
      -d "id=1" \
+     "https://yourdomain.com/watch/api.php"
+
+# Multiple processes at once
+curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
+     -d "action=control" \
+     -d "cmd=stop" \
+     -d "ids[]=1" \
+     -d "ids[]=2" \
      "https://yourdomain.com/watch/api.php"
 ```
 
@@ -91,9 +105,11 @@ curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
   "success": true,
   "output": "drwxr-xr-x 2 user user 4096 Aug 02 12:00 .",
   "exit_code": 0,
-  "timed_out": false
+  "timed_out": false,
+  "cwd": "/home/username/watch"
 }
 ```
 - `output` — combined stdout/stderr from the command.
 - `exit_code` — the process exit code (non-zero usually means an error).
 - `timed_out` — `true` if the command was killed because it exceeded the 30-second limit.
+- `cwd` — the current working directory the command ran in.

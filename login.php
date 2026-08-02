@@ -148,8 +148,11 @@ if (isset($_SESSION['login_error'])) {
             <div class="mb-3">
                 <label class="form-label">Security Check</label>
                 <div class="d-flex align-items-center mb-2">
-                    <img src="captcha.php" alt="CAPTCHA" class="rounded border me-3" style="cursor: pointer; min-width: 160px; min-height: 50px;" onclick="this.src='captcha.php?'+Math.random()" title="Click to refresh image">
-                    <input type="text" name="captcha" class="form-control" placeholder="Enter code" required autocomplete="off" style="text-transform: uppercase;">
+                    <img src="captcha.php" alt="CAPTCHA" id="captcha-img" class="rounded border me-3" style="cursor: pointer; min-width: 160px; min-height: 50px;" onclick="refreshCaptcha()" title="Click to refresh image">
+                    <div class="position-relative w-100">
+                        <input type="text" name="captcha" id="captcha-input" class="form-control" placeholder="Enter code" required autocomplete="off" style="text-transform: uppercase; padding-right: 35px;" maxlength="6">
+                        <span id="captcha-status" class="position-absolute" style="right: 10px; top: 50%; transform: translateY(-50%); font-size: 1.2rem;"></span>
+                    </div>
                 </div>
                 <small class="text-muted" style="font-size: 0.75rem;">Click the image to generate a new code.</small>
             </div>
@@ -165,5 +168,48 @@ if (isset($_SESSION['login_error'])) {
             <?php endif; ?>
         </form>
     </div>
+    
+    <script>
+    function refreshCaptcha() {
+        document.getElementById('captcha-img').src = 'captcha.php?' + Math.random();
+        document.getElementById('captcha-input').value = '';
+        document.getElementById('captcha-status').innerHTML = '';
+        document.getElementById('captcha-input').style.borderColor = '';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const captchaInput = document.getElementById('captcha-input');
+        if (captchaInput) {
+            captchaInput.addEventListener('input', function() {
+                const val = this.value.trim();
+                const status = document.getElementById('captcha-status');
+                if (val.length === 6) {
+                    status.innerHTML = '<span class="spinner-border spinner-border-sm text-secondary"></span>';
+                    const fd = new FormData();
+                    fd.append('captcha', val);
+                    fetch('captcha_check.php', { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.valid) {
+                            status.innerHTML = '<span class="text-success fw-bold">✔</span>';
+                            captchaInput.style.borderColor = '#198754';
+                        } else {
+                            status.innerHTML = '<span class="text-danger fw-bold">✘</span>';
+                            captchaInput.style.borderColor = '#dc3545';
+                            if (data.reload) {
+                                refreshCaptcha();
+                            }
+                        }
+                    }).catch(() => {
+                        status.innerHTML = '';
+                    });
+                } else {
+                    status.innerHTML = '';
+                    captchaInput.style.borderColor = '';
+                }
+            });
+        }
+    });
+    </script>
 </body>
 </html>

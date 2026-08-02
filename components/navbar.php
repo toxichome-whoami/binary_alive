@@ -9,8 +9,8 @@ $username = $_SESSION['username'] ?? 'User';
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="mainNavbar">
-            <span class="navbar-text text-white me-3 ms-auto d-none d-xl-inline">User: <?= htmlspecialchars($username) ?> (<?= ucfirst(htmlspecialchars($currentRole)) ?>)</span>
-            <div class="d-flex flex-column flex-xl-row align-items-stretch align-items-xl-center gap-2 mt-3 mt-xl-0 ms-xl-auto">
+            <div class="d-flex flex-column flex-xl-row align-items-stretch align-items-xl-center gap-2 mt-3 mt-xl-0 ms-auto">
+                <span class="navbar-text text-white me-3 d-none d-xl-inline">User: <?= htmlspecialchars($username) ?> (<?= ucfirst(htmlspecialchars($currentRole)) ?>)</span>
                 <a href="index.php" class="btn btn-outline-light btn-sm"><i class="bi bi-speedometer2"></i> Dashboard</a>
                 <?php if (in_array($currentRole, ['admin'])): ?>
                     <a href="users.php" class="btn btn-outline-success btn-sm"><i class="bi bi-people"></i> Users</a>

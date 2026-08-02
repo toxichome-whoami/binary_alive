@@ -9,6 +9,9 @@
 - **Master Admin Security**: Implemented a strict hierarchy where the Master Admin (User ID 1) cannot be deleted or demoted. 
 - **Role Restrictions**: Regular admins can no longer assign the `admin` role, nor can they edit or delete other admin accounts.
 - **Admin Hierarchy UI**: The Master Admin now features a distinct golden "Master Admin" badge in the users list, and restricted actions (like upgrading someone to admin) are securely disabled in the UI for regular admins.
+- **Live CAPTCHA Validation**: The login page now shows a real-time green checkmark (✔) or red cross (✘) as you type the CAPTCHA code, so you know instantly if it's right without submitting the form. Includes anti-brute-force protection that invalidates and refreshes the CAPTCHA after too many bad attempts.
+- **Navbar Layout Fix**: The logged-in username and role label is now correctly positioned inside the right-side button group in the navigation bar.
+- **API Docs Sync**: Updated `API.md` to document the bulk process control (`ids[]`), the `sys_load` field in the status response, and the `cwd` field in the terminal response.
 
 ## Version 1.0.1 Updates
 - **In-App Process Management**: Add, edit, delete, and group processes directly from the user interface.
