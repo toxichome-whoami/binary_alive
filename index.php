@@ -49,9 +49,9 @@ require_once 'components/navbar.php';
 
     <!-- Process Table -->
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
             <span><i class="bi bi-list-task"></i> Monitored Processes</span>
-            <div>
+            <div class="d-flex flex-wrap gap-2">
                 <?php if ($auth->hasRole(['admin'])): ?>
                 <button class="btn btn-sm btn-primary me-2" onclick="new bootstrap.Modal(document.getElementById('addProcessModal')).show();"><i class="bi bi-plus-circle"></i> Add Process</button>
                 <?php endif; ?>
@@ -62,6 +62,7 @@ require_once 'components/navbar.php';
                     <button id="bulk-restart" class="btn btn-sm btn-outline-warning"><i class="bi bi-arrow-repeat"></i> Restart Selected</button>
                 </div>
                 <?php endif; ?>
+                </div>
                 <button id="refresh-btn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
             </div>
         </div>
@@ -80,7 +81,7 @@ require_once 'components/navbar.php';
                         <th>Memory</th>
                         <th>Uptime</th>
                         <th>Restarts</th>
-                        <th>Actions</th>
+                        <th class="text-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="process-list">
@@ -269,7 +270,7 @@ function fetchStatus() {
                     <td>${p.mem || '0 MB'}</td>
                     <td><span class="uptime-ticker" data-seconds="${p.uptime ? parseUptimeToSeconds(p.uptime) : 0}">${p.uptime || '---'}</span></td>
                     <td><span class="badge bg-secondary">${p.restart_count}</span></td>
-                    <td>${actions}</td>
+                    <td class="text-nowrap">${actions}</td>
                 </tr>`;
             });
         }

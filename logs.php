@@ -99,7 +99,7 @@ require_once 'components/navbar.php';
                         <table class="table table-striped mb-0">
                         <thead class="table-dark">
                             <tr>
-                                <th>Timestamp</th>
+                                <th class="text-nowrap">Timestamp</th>
                                 <th>User</th>
                                 <th>IP Address</th>
                                 <th>Action</th>
@@ -109,7 +109,7 @@ require_once 'components/navbar.php';
                         <tbody>
                             <?php foreach ($auditLogs as $log): ?>
                             <tr>
-                                <td><?= $log['timestamp'] ?></td>
+                                <td class="text-nowrap"><?= $log['timestamp'] ?></td>
                                 <td><?= htmlspecialchars($log['username'] ?? 'System') ?></td>
                                 <td><?= htmlspecialchars($log['ip_address']) ?></td>
                                 <td><span class="badge bg-primary"><?= htmlspecialchars($log['action']) ?></span></td>
@@ -145,7 +145,7 @@ require_once 'components/navbar.php';
                         <table class="table table-striped mb-0">
                         <thead class="table-dark">
                             <tr>
-                                <th>Timestamp</th>
+                                <th class="text-nowrap">Timestamp</th>
                                 <th>Username Attempted</th>
                                 <th>IP Address</th>
                                 <th>Event Type</th>
@@ -154,7 +154,7 @@ require_once 'components/navbar.php';
                         <tbody>
                             <?php foreach ($loginLogs as $log): ?>
                             <tr>
-                                <td><?= $log['timestamp'] ?></td>
+                                <td class="text-nowrap"><?= $log['timestamp'] ?></td>
                                 <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
                                 <td><?= htmlspecialchars($log['ip_address']) ?></td>
                                 <td>
@@ -200,7 +200,7 @@ require_once 'components/navbar.php';
                         <table class="table table-striped mb-0">
                         <thead class="table-dark">
                             <tr>
-                                <th>Timestamp</th>
+                                <th class="text-nowrap">Timestamp</th>
                                 <th>Admin User</th>
                                 <th>IP Address</th>
                                 <th>Executed Command</th>
@@ -209,7 +209,7 @@ require_once 'components/navbar.php';
                         <tbody>
                             <?php foreach ($termLogs as $log): ?>
                             <tr>
-                                <td><?= $log['timestamp'] ?></td>
+                                <td class="text-nowrap"><?= $log['timestamp'] ?></td>
                                 <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
                                 <td><?= htmlspecialchars($log['ip_address']) ?></td>
                                 <td><code><?= htmlspecialchars($log['details']) ?></code></td>

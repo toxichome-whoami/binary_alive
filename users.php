@@ -175,7 +175,7 @@ require_once 'components/navbar.php';
                         <th>API Token</th>
                         <th>2FA</th>
                         <th>Failed Logins</th>
-                        <th>Actions</th>
+                        <th class="text-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -207,7 +207,7 @@ require_once 'components/navbar.php';
                             <?php endif; ?>
                         </td>
                         <td><?= $u['failed_attempts'] ?></td>
-                        <td>
+                        <td class="text-nowrap">
                             <button class="btn btn-sm btn-info text-white" onclick="openPasswordModal(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username']) ?>', '<?= htmlspecialchars($u['role']) ?>')"><i class="bi bi-pencil-square"></i> Edit</button>
                             <form method="POST" class="d-inline" onsubmit="return confirm('Generate new API token?');">
                                 <input type="hidden" name="action" value="generate_token">

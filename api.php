@@ -230,18 +230,43 @@ if ($action === 'terminal') {
 
     $auth->getLogger()->logAudit($_SESSION['user_id'], 'terminal_command', "Command: $cmd");
 
+    $cwd = $_SESSION['terminal_cwd'] ?? __DIR__;
+
+    // Intercept 'cd' command to update session state
+    if (preg_match('/^cd\s*(.*)$/', $cmd, $matches)) {
+        $target = trim($matches[1]);
+        if (empty($target) || $target === '~') {
+            $target = (PHP_OS_FAMILY === 'Windows') ? (getenv('USERPROFILE') ?: 'C:\\') : (getenv('HOME') ?: '/');
+        }
+        $target = trim($target, "\"'");
+        
+        $newCwd = realpath(is_dir($target) ? $target : $cwd . DIRECTORY_SEPARATOR . $target);
+        
+        if ($newCwd && is_dir($newCwd)) {
+            $_SESSION['terminal_cwd'] = $newCwd;
+            echo json_encode(['success' => true, 'output' => '', 'exit_code' => 0, 'timed_out' => false, 'cwd' => $newCwd]);
+        } else {
+            echo json_encode(['success' => true, 'output' => "cd: $target: No such file or directory", 'exit_code' => 1, 'timed_out' => false, 'cwd' => $cwd]);
+        }
+        exit;
+    }
+
     $timeout = 30; // Seconds before the command is force-killed
     $output = '';
     $exitCode = -1;
 
-    // Run via the shell with stderr merged into stdout so we capture everything
+    // Use bash for a richer environment, and force stderr to stdout (2>&1)
+    if (PHP_OS_FAMILY !== 'Windows') {
+        $cmd = '/bin/bash -c ' . escapeshellarg($cmd . ' 2>&1');
+    }
+
     $descriptorspec = [
         0 => ['pipe', 'r'],
         1 => ['pipe', 'w'],
         2 => ['pipe', 'w']
     ];
 
-    $proc = proc_open($cmd, $descriptorspec, $pipes, __DIR__);
+    $proc = proc_open($cmd, $descriptorspec, $pipes, $cwd);
     if (!is_resource($proc)) {
         echo json_encode(['success' => false, 'message' => 'Failed to start command process']);
         exit;
@@ -282,7 +307,8 @@ if ($action === 'terminal') {
         'success' => true,
         'output' => $output,
         'exit_code' => $exitCode,
-        'timed_out' => $timedOut
+        'timed_out' => $timedOut,
+        'cwd' => $cwd
     ]);
     exit;
 }

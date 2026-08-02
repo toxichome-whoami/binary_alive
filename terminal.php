@@ -34,8 +34,9 @@ require_once 'components/navbar.php';
     .muted { color: #6c757d; }
     .ok { color: #198754; }
     .warn { color: #ffc107; }
+    .prompt-user { color: #0056b3; font-weight: bold; }
+    .prompt-path { color: #198754; font-weight: bold; }
     .term-footer { background-color: #f8f9fa; padding: 10px 15px; border-top: 1px solid #dee2e6; border-radius: 0 0 5px 5px; }
-    #prompt-label { background-color: #ffffff; border-color: #dee2e6; color: #0056b3; border-right: none; font-family: 'Consolas', 'Courier New', monospace; font-weight: bold; }
     #term-input { background-color: #ffffff; color: #333333; border: 1px solid #dee2e6; border-left: none; font-family: 'Consolas', 'Courier New', monospace; }
     #term-input:focus { outline: none; border-color: #dee2e6; box-shadow: none; }
 
@@ -50,8 +51,12 @@ require_once 'components/navbar.php';
     [data-bs-theme="dark"] .muted { color: #808080; }
     [data-bs-theme="dark"] .ok { color: #6a9955; }
     [data-bs-theme="dark"] .warn { color: #e2b93d; }
+    [data-bs-theme="dark"] .prompt-user { color: #569cd6; font-weight: normal; }
+    [data-bs-theme="dark"] .prompt-path { color: #4ec9b0; font-weight: normal; }
     [data-bs-theme="dark"] .term-footer { background-color: #1e1e1e; border-top: 1px solid #333; }
-    [data-bs-theme="dark"] #prompt-label { background-color: #1e1e1e; border-color: #333; color: #569cd6; font-weight: normal; }
+    [data-bs-theme="dark"] #prompt-label-full, [data-bs-theme="dark"] #prompt-label-short { background-color: #1e1e1e; border-color: #333; color: #569cd6 !important; font-weight: normal !important; border-right: none; }
+    [data-bs-theme="light"] #prompt-label-full, [data-bs-theme="light"] #prompt-label-short { background-color: #ffffff; border-color: #dee2e6; color: #0056b3; font-weight: bold; border-right: none; }
+    #prompt-label-full, #prompt-label-short { font-family: 'Consolas', 'Courier New', monospace; }
     [data-bs-theme="dark"] #term-input { background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #333; }
     [data-bs-theme="dark"] #term-input:focus { border-color: #333; }
 </style>
@@ -66,7 +71,8 @@ require_once 'components/navbar.php';
             <div id="terminal"></div>
             <div class="term-footer">
                 <div class="input-group">
-                    <span class="input-group-text" id="prompt-label">root@binary-alive:~$</span>
+                    <span class="input-group-text d-none d-sm-flex" id="prompt-label-full"><?= htmlspecialchars($_SESSION['username']) ?>@binary-alive:~$</span>
+                    <span class="input-group-text d-sm-none" id="prompt-label-short" style="font-family: 'Consolas', monospace; color: #0056b3; font-weight: bold;">~$</span>
                     <input type="text" id="term-input" class="form-control" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command and press Enter (try: help)" autofocus>
                     <button id="run-btn" class="btn btn-outline-success"><i class="bi bi-play-fill"></i></button>
                 </div>
@@ -79,9 +85,31 @@ require_once 'components/navbar.php';
 <script>
 const terminal = document.getElementById('terminal');
 const input = document.getElementById('term-input');
-const promptLabel = 'root@binary-alive:~$';
 const SESSION_USER = <?= json_encode(['username' => $_SESSION['username'], 'role' => $_SESSION['role']]) ?>;
+let currentCwd = <?= json_encode($_SESSION['terminal_cwd'] ?? __DIR__) ?>;
+let inputPromptLabel = SESSION_USER.username + '@binary-alive:~$';
 const SERVER_INFO = <?= json_encode(['server' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown', 'php' => phpversion(), 'os' => PHP_OS]) ?>;
+
+function createPromptNodes() {
+    const frag = document.createDocumentFragment();
+    const user = document.createElement('span');
+    user.className = 'prompt-user';
+    user.textContent = SESSION_USER.username + '@binary-alive:';
+    
+    const path = document.createElement('span');
+    path.className = 'prompt-path';
+    path.textContent = currentCwd;
+    
+    const dollar = document.createElement('span');
+    dollar.className = 'prompt-user';
+    dollar.textContent = '$ ';
+    
+    frag.appendChild(user);
+    frag.appendChild(path);
+    frag.appendChild(dollar);
+    return frag;
+}
+
 let history = [];
 let historyIndex = -1;
 
@@ -96,11 +124,8 @@ function print(text, cls) {
 
 function printPrompt() {
     const div = document.createElement('div');
-    const span = document.createElement('span');
-    span.className = 'prompt';
-    span.textContent = promptLabel + ' ';
-    div.appendChild(span);
-    div.classList.add('cmd-line');
+    div.className = 'cmd-line';
+    div.appendChild(createPromptNodes());
     terminal.appendChild(div);
     terminal.scrollTop = terminal.scrollHeight;
 }
@@ -108,7 +133,8 @@ function printPrompt() {
 function printExecutedLine(cmd) {
     const div = document.createElement('div');
     div.className = 'cmd-line';
-    div.textContent = promptLabel + ' ' + cmd;
+    div.appendChild(createPromptNodes());
+    div.appendChild(document.createTextNode(cmd));
     terminal.appendChild(div);
     terminal.scrollTop = terminal.scrollHeight;
 }
@@ -187,6 +213,9 @@ function runCommand(rawCmd) {
 
     $.post('api.php?action=terminal', { cmd: cmd }, function(res) {
         if (res.success) {
+            if (res.cwd) {
+                currentCwd = res.cwd;
+            }
             if (res.timed_out) {
                 print('[Command timed out after 30 seconds]', 'err');
             }
