@@ -44,16 +44,28 @@ require_once 'components/navbar.php';
     .muted { color: #6c757d; }
     .ok { color: #198754; }
     .warn { color: #ffc107; }
-    .prompt-connector { color: #6c757d; font-weight: bold; margin-right: 5px; font-family: monospace; }
-    .powerline-path {
-        background-color: #0d6efd; color: #ffffff; padding: 2px 18px 2px 10px;
-        font-weight: bold; font-size: 0.9em;
-        clip-path: polygon(0% 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 0% 100%);
-        border-radius: 3px 0 0 3px; display: inline-block;
-    }
-    .prompt-symbol { color: #198754; font-weight: bold; margin-right: 8px; }
+    .prompt-path { color: rgb(106, 153, 85); font-weight: bold; }
+    .prompt-symbol { color: rgb(86, 156, 214); font-weight: bold; margin-right: 8px; }
     .cmd-text { color: #000000; font-weight: bold; }
-    .cmd-wrapper { margin-top: 10px; margin-bottom: 5px; }
+    .cmd-wrapper { 
+        position: relative; 
+        padding-left: 18px; 
+        margin-top: 8px; 
+        margin-bottom: 8px; 
+    }
+    .cmd-wrapper::before {
+        content: '';
+        position: absolute;
+        left: 2px;
+        top: 0.75em;
+        bottom: 0.75em;
+        width: 10px;
+        border-left: 2px solid #6c757d;
+        border-top: 2px solid #6c757d;
+        border-bottom: 2px solid #6c757d;
+        border-top-left-radius: 6px;
+        border-bottom-left-radius: 6px;
+    }
     .prompt-line-1 { display: flex; align-items: center; margin-bottom: 2px; }
     .prompt-line-2 { display: flex; align-items: center; }
     .term-footer { background-color: #f8f9fa; padding: 10px 15px; border-top: 1px solid #dee2e6; border-radius: 0 0 5px 5px; }
@@ -71,10 +83,8 @@ require_once 'components/navbar.php';
     [data-bs-theme="dark"] .muted { color: #808080; }
     [data-bs-theme="dark"] .ok { color: #6a9955; }
     [data-bs-theme="dark"] .warn { color: #e2b93d; }
-    [data-bs-theme="dark"] .prompt-connector { color: #808080; }
-    [data-bs-theme="dark"] .powerline-path { background-color: #007acc; color: #ffffff; }
-    [data-bs-theme="dark"] .prompt-symbol { color: #4ec9b0; }
     [data-bs-theme="dark"] .cmd-text { color: #d4d4d4; font-weight: normal; }
+    [data-bs-theme="dark"] .cmd-wrapper::before { border-color: #808080; }
     [data-bs-theme="dark"] .term-footer { background-color: #1e1e1e; border-top: 1px solid #333; }
     [data-bs-theme="dark"] #prompt-label-full, [data-bs-theme="dark"] #prompt-label-short { background-color: #1e1e1e; border-color: #333; color: #569cd6 !important; font-weight: normal !important; border-right: none; }
     [data-bs-theme="light"] #prompt-label-full, [data-bs-theme="light"] #prompt-label-short { background-color: #ffffff; border-color: #dee2e6; color: #0056b3; font-weight: bold; border-right: none; }
@@ -118,29 +128,19 @@ function buildPromptDOM(cmdText) {
     const line1 = document.createElement('div');
     line1.className = 'prompt-line-1';
     
-    const conn1 = document.createElement('span');
-    conn1.className = 'prompt-connector';
-    conn1.textContent = '╭─ ';
-    
     const pathBlock = document.createElement('span');
-    pathBlock.className = 'powerline-path';
+    pathBlock.className = 'prompt-path';
     pathBlock.textContent = currentCwd;
     
-    line1.appendChild(conn1);
     line1.appendChild(pathBlock);
     
     const line2 = document.createElement('div');
     line2.className = 'prompt-line-2';
     
-    const conn2 = document.createElement('span');
-    conn2.className = 'prompt-connector';
-    conn2.textContent = '╰─';
-    
     const symbol = document.createElement('span');
     symbol.className = 'prompt-symbol';
     symbol.textContent = '$ ';
     
-    line2.appendChild(conn2);
     line2.appendChild(symbol);
     
     if (cmdText !== null) {
