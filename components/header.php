@@ -31,6 +31,23 @@ if (session_status() === PHP_SESSION_NONE) {
         const theme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-bs-theme', theme);
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
+<script>
+// Lightweight navbar toggle — no Bootstrap JS dependency to avoid double-fire
+document.addEventListener('DOMContentLoaded', function() {
+    var toggler = document.querySelector('.navbar-toggler');
+    var collapse = document.getElementById('mainNavbar');
+    if (toggler && collapse) {
+        toggler.addEventListener('click', function() {
+            if (collapse.classList.contains('show')) {
+                collapse.classList.remove('show');
+                toggler.setAttribute('aria-expanded', 'false');
+            } else {
+                collapse.classList.add('show');
+                toggler.setAttribute('aria-expanded', 'true');
+            }
+        });
+    }
+});
+</script>
