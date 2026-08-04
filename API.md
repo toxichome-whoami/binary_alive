@@ -1,8 +1,8 @@
-# API Documentation
+# API Documentation — v1.0.4
 
 You can control the system remotely using an API token generated from the Users page. Pass the token either as a URL parameter (`?api_token=YOUR_TOKEN`) or as an HTTP header (`Authorization: Bearer YOUR_TOKEN`).
 
-*Note: Your API token inherits the exact same role and permissions as your web user account.*
+*Note: Your API token inherits the exact same role and permissions as your web user account. Tokens are stored as SHA-256 hashes in the database — always copy the token immediately after generating it, as it cannot be retrieved again.*
 
 ---
 
