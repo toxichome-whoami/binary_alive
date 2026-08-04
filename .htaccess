@@ -27,6 +27,12 @@ Options -Indexes
     Deny from all
 </FilesMatch>
 
+# Explicitly block access to configuration file
+<Files "config.php">
+    Order deny,allow
+    Deny from all
+</Files>
+
 # Block hidden files (dot files like .gitattributes, .env)
 <FilesMatch "^\.">
     Order deny,allow

@@ -20,12 +20,15 @@ class Database {
             if (empty($dbName)) {
                 $dbName = 'monitor_' . bin2hex(random_bytes(16)) . '.sqlite';
                 $cfg['system']['db_filename'] = $dbName;
-                saveAppConfig($cfg);
-                
-                if (file_exists($dbDir . 'monitor.sqlite') && !file_exists($dbDir . $dbName)) {
-                    @rename($dbDir . 'monitor.sqlite', $dbDir . $dbName);
-                    @rename($dbDir . 'monitor.sqlite-wal', $dbDir . $dbName . '-wal');
-                    @rename($dbDir . 'monitor.sqlite-shm', $dbDir . $dbName . '-shm');
+                if (!saveAppConfig($cfg)) {
+                    error_log("Failed to write db_filename to config.php. Falling back to default database filename to prevent data loss.");
+                    $dbName = 'monitor.sqlite'; // Fall back to fixed name if config is not writable (finding #3)
+                } else {
+                    if (file_exists($dbDir . 'monitor.sqlite') && !file_exists($dbDir . $dbName)) {
+                        @rename($dbDir . 'monitor.sqlite', $dbDir . $dbName);
+                        @rename($dbDir . 'monitor.sqlite-wal', $dbDir . $dbName . '-wal');
+                        @rename($dbDir . 'monitor.sqlite-shm', $dbDir . $dbName . '-shm');
+                    }
                 }
             }
             $this->dbPath = $dbDir . $dbName;

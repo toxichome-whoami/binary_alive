@@ -11,31 +11,28 @@ $stmt = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'ena
 $captchaSetting = $stmt->fetchColumn();
 $captchaEnabled = ($captchaSetting === false) ? true : ($captchaSetting === '1');
 
-// Handle Export
-if (isset($_GET['export'])) {
-    $type = $_GET['export'];
-    $auth->getLogger()->logAudit($_SESSION['user_id'], 'export_data', "Type: $type");
-    
-    if ($type === 'config') {
-        header('Content-Type: application/json');
-        header('Content-Disposition: attachment; filename="config_backup.json"');
-        echo json_encode(getAppConfig(), JSON_PRETTY_PRINT);
-        exit;
-    } elseif ($type === 'database') {
-        $file = (new Database())->getDbPath();
-        if (file_exists($file)) {
-            header('Content-Type: application/x-sqlite3');
-            header('Content-Disposition: attachment; filename="database_backup.sqlite"');
-            readfile($file);
-            exit;
-        }
-    }
-}
-
-// Handle Import / Toggle
+// Handle POST actions (Export, Import, Toggle)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     verifyCsrfToken();
-    if ($_POST['action'] === 'toggle_captcha') {
+    if ($_POST['action'] === 'export' && isset($_POST['export_type'])) {
+        $type = $_POST['export_type'];
+        $auth->getLogger()->logAudit($_SESSION['user_id'], 'export_data', "Type: $type");
+        
+        if ($type === 'config') {
+            header('Content-Type: application/json');
+            header('Content-Disposition: attachment; filename="config_backup.json"');
+            echo json_encode(getAppConfig(), JSON_PRETTY_PRINT);
+            exit;
+        } elseif ($type === 'database') {
+            $file = (new Database())->getDbPath();
+            if (file_exists($file)) {
+                header('Content-Type: application/x-sqlite3');
+                header('Content-Disposition: attachment; filename="database_backup.sqlite"');
+                readfile($file);
+                exit;
+            }
+        }
+    } elseif ($_POST['action'] === 'toggle_captcha') {
         $newValue = $captchaEnabled ? '0' : '1';
         $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('enable_captcha', ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?");
         $stmt->execute([$newValue, $newValue]);
@@ -130,8 +127,18 @@ require_once 'components/navbar.php';
                     
                     <h5 class="mt-4 border-bottom pb-2">Export Data</h5>
                     <p>Download a backup of your configuration or entire database.</p>
-                    <a href="?export=config" class="btn btn-outline-primary mb-2"><i class="bi bi-download"></i> Download config backup (JSON)</a>
-                    <a href="?export=database" class="btn btn-outline-primary mb-2"><i class="bi bi-download"></i> Download database.sqlite</a>
+                    <form method="POST" class="d-inline-block me-1 mb-2">
+                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                        <input type="hidden" name="action" value="export">
+                        <input type="hidden" name="export_type" value="config">
+                        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-download"></i> Download config backup (JSON)</button>
+                    </form>
+                    <form method="POST" class="d-inline-block mb-2">
+                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                        <input type="hidden" name="action" value="export">
+                        <input type="hidden" name="export_type" value="database">
+                        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-download"></i> Download database.sqlite</button>
+                    </form>
                     
                     <h5 class="mt-4 border-bottom pb-2">Import Data</h5>
                     <p>Restore your configuration or database from a previous backup.</p>

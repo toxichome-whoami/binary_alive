@@ -7,13 +7,12 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
 }
 
 if (session_status() === PHP_SESSION_NONE) {
-    $isLocal = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);
     session_set_cookie_params([
         'lifetime' => 0,
         'path'     => '/',
-        'secure'   => !$isLocal, // Unconditionally secure in production (finding #5)
+        'secure'   => true,     // Unconditionally secure per security finding
         'httponly' => true,
-        'samesite' => 'Strict'  // Omitted domain to prevent host header attacks (finding #6)
+        'samesite' => 'Strict'  // Omitted domain to prevent host header attacks
     ]);
     session_start();
 }

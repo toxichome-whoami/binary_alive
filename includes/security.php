@@ -29,7 +29,13 @@ function getAppConfig() {
     // Auto-generate secure key if weak default is detected (finding #4)
     if (empty($config['security']['secret_key']) || $config['security']['secret_key'] === 'generate_a_random_key_in_production' || $config['security']['secret_key'] === 'default_fallback_secret_binary_alive_2026') {
         $config['security']['secret_key'] = bin2hex(random_bytes(32));
-        saveAppConfig($config);
+        if (!saveAppConfig($config)) {
+            error_log("CRITICAL: Could not write new secret_key to config.php. Check file permissions.");
+            if (php_sapi_name() !== 'cli') {
+                http_response_code(500);
+                die("Configuration error: Cannot save security settings. Please make config.php writable by the server.");
+            }
+        }
     }
 
     return $config;
@@ -39,7 +45,10 @@ function saveAppConfig($config) {
     $phpConfig = __DIR__ . '/../config.php';
     $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     $content = "<?php die('Access denied'); ?>\n" . $json;
-    @file_put_contents($phpConfig, $content);
+    $bytes = @file_put_contents($phpConfig, $content);
+    if ($bytes === false) {
+        return false;
+    }
     @chmod($phpConfig, 0600);
     return true;
 }
