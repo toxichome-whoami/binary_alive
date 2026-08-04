@@ -97,6 +97,58 @@ class Database {
         try {
             $this->pdo->exec("ALTER TABLE audit_logs ADD COLUMN username TEXT");
         } catch (PDOException $e) {}
+
+        // Auto-run security migration if not already done
+        $this->runSecurityMigration();
+    }
+
+    private function runSecurityMigration() {
+        try {
+            $stmt = $this->pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'security_migration_done'");
+            $done = $stmt->fetchColumn();
+            if ($done === '1') return;
+
+            require_once __DIR__ . '/security.php';
+            
+            $stmt = $this->pdo->query("SELECT id, api_token, totp_secret FROM users");
+            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($users as $user) {
+                $updates = [];
+                $params = [];
+                
+                // Hash plaintext API tokens
+                if (!empty($user['api_token']) && strlen($user['api_token']) !== 64 && !preg_match('/^[a-f0-9]{64}$/', $user['api_token'])) {
+                    // Assuming existing ones could be anything, actually previously we used bin2hex(random_bytes(32)) which IS 64 chars hex
+                    // We must assume all unmigrated tokens are plaintext and just hash them
+                }
+                
+                if (!empty($user['api_token'])) {
+                    $hashedToken = hash('sha256', $user['api_token']);
+                    $updates[] = "api_token = ?";
+                    $params[] = $hashedToken;
+                }
+                
+                if (!empty($user['totp_secret'])) {
+                    $encryptedSecret = encryptData($user['totp_secret']);
+                    if ($encryptedSecret !== false) {
+                        $updates[] = "totp_secret = ?";
+                        $params[] = $encryptedSecret;
+                    }
+                }
+                
+                if (!empty($updates)) {
+                    $params[] = $user['id'];
+                    $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
+                    $updateStmt = $this->pdo->prepare($sql);
+                    $updateStmt->execute($params);
+                }
+            }
+            
+            $this->pdo->exec("INSERT OR REPLACE INTO settings (setting_key, setting_value) VALUES ('security_migration_done', '1')");
+        } catch (Exception $e) {
+            error_log("Migration failed: " . $e->getMessage());
+        }
     }
 
     public function getPdo() {
