@@ -23,17 +23,20 @@ require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/totp_helper.php';
 
 class Auth {
+    /** @var \PDO */
     private $pdo;
+    /** @var \Logger */
     private $logger;
+    /** @var array */
     private $config;
 
     public function __construct() {
         $db = new Database();
         $this->pdo = $db->getPdo();
         $this->logger = new Logger($this->pdo);
-        
+
         $this->config = getAppConfig();
-        
+
         // IP Whitelist Check
         if (!empty($this->config['security']['allowed_ips'])) {
             enforceIpWhitelist($this->config['security']['allowed_ips']);
@@ -51,7 +54,7 @@ class Auth {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['password_hash'])) {
-            
+
             // TOTP Verification if secret is set
             if (!empty($user['totp_secret'])) {
                 $decryptedSecret = decryptData($user['totp_secret']);
@@ -65,7 +68,7 @@ class Auth {
             $this->resetFailedAttempts($username);
             $this->logger->logLoginAttempt($username, true);
             $this->logger->logAudit($user['id'], 'login_success');
-            
+
             session_regenerate_id(true);
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Rotate CSRF token on login (finding #7)
             $_SESSION['user_id'] = $user['id'];
@@ -130,7 +133,7 @@ class Auth {
             $stmt = $this->pdo->prepare("SELECT role FROM users WHERE id = ?");
             $stmt->execute([$_SESSION['user_id']]);
             $currentRole = $stmt->fetchColumn();
-            
+
             if ($currentRole) {
                 $_SESSION['role'] = $currentRole; // Instantly apply role changes
             } else {
@@ -154,12 +157,12 @@ class Auth {
             exit();
         }
     }
-    
+
     public function hasRole($allowedRoles) {
         $userRole = $_SESSION['role'] ?? '';
         return in_array($userRole, (array)$allowedRoles);
     }
-    
+
     public function requireRole($allowedRoles) {
         if (!$this->hasRole($allowedRoles)) {
             if (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) {
@@ -171,11 +174,11 @@ class Auth {
             die("403 Forbidden - You do not have permission to access this resource.");
         }
     }
-    
+
     public function getLogger() {
         return $this->logger;
     }
-    
+
     public function getPdo() {
         return $this->pdo;
     }

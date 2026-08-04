@@ -7,6 +7,29 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
 }
 
 // Configuration helpers and protection against direct download (finding #2)
+/**
+ * Saves the application configuration to config.php
+ *
+ * @param array $config
+ * @return bool
+ */
+function saveAppConfig($config) {
+    $phpConfig = __DIR__ . '/../config.php';
+    $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    $content = "<?php die('Access denied'); ?>\n" . $json;
+    $bytes = @file_put_contents($phpConfig, $content);
+    if ($bytes === false) {
+        return false;
+    }
+    @chmod($phpConfig, 0600);
+    return true;
+}
+
+/**
+ * Retrieves the application configuration
+ *
+ * @return array
+ */
 function getAppConfig() {
     static $config = null;
     if ($config !== null) return $config;
@@ -41,18 +64,6 @@ function getAppConfig() {
     return $config;
 }
 
-function saveAppConfig($config) {
-    $phpConfig = __DIR__ . '/../config.php';
-    $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    $content = "<?php die('Access denied'); ?>\n" . $json;
-    $bytes = @file_put_contents($phpConfig, $content);
-    if ($bytes === false) {
-        return false;
-    }
-    @chmod($phpConfig, 0600);
-    return true;
-}
-
 // Enforce HTTPS redirection in production web environment (finding #5)
 if (php_sapi_name() !== 'cli' && !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1'])) {
     $cfg = getAppConfig();
@@ -77,9 +88,9 @@ header_remove("X-Powered-By");
 // Basic IP Whitelist Check (callable early in the lifecycle)
 function enforceIpWhitelist($allowedIps = []) {
     if (empty($allowedIps)) return;
-    
+
     $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
-    
+
     // Simple direct match for now (no CIDR block parsing to keep it lightweight)
     if (!in_array($clientIp, $allowedIps)) {
         header("HTTP/1.1 403 Forbidden");

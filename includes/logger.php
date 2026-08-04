@@ -7,8 +7,12 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
 }
 
 class Logger {
+    /** @var \PDO */
     private $pdo;
 
+    /**
+     * @param \PDO $pdo
+     */
     public function __construct($pdo) {
         $this->pdo = $pdo;
     }
@@ -26,7 +30,7 @@ class Logger {
                 $username = $stmt->fetchColumn() ?: null;
             }
         }
-        
+
         // Handle database schema upgrade gracefully if the column exists
         try {
             $stmt = $this->pdo->prepare("INSERT INTO audit_logs (user_id, username, action, details, ip_address) VALUES (?, ?, ?, ?, ?)");

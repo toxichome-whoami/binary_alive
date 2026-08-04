@@ -6,17 +6,20 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
     exit('Access denied.');
 }
 
+require_once __DIR__ . '/security.php';
+
 class Database {
+    /** @var \PDO */
     private $pdo;
+    /** @var string */
     private $dbPath;
 
     public function __construct($dbPath = null) {
         if ($dbPath === null) {
-            require_once __DIR__ . '/security.php';
             $cfg = getAppConfig();
             $dbName = $cfg['system']['db_filename'] ?? null;
             $dbDir = __DIR__ . '/../db/';
-            
+
             if (empty($dbName)) {
                 $dbName = 'monitor_' . bin2hex(random_bytes(16)) . '.sqlite';
                 $cfg['system']['db_filename'] = $dbName;
@@ -57,7 +60,7 @@ class Database {
             $this->pdo = new PDO("sqlite:" . $this->dbPath);
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->pdo->exec("PRAGMA journal_mode = WAL;");
-            
+
             if (file_exists($this->dbPath)) {
                 @chmod($this->dbPath, 0600);
             }
@@ -143,26 +146,26 @@ class Database {
             if ($done === '1') return;
 
             require_once __DIR__ . '/security.php';
-            
+
             $stmt = $this->pdo->query("SELECT id, api_token, totp_secret FROM users");
             $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($users as $user) {
                 $updates = [];
                 $params = [];
-                
+
                 // Hash plaintext API tokens
                 if (!empty($user['api_token']) && strlen($user['api_token']) !== 64 && !preg_match('/^[a-f0-9]{64}$/', $user['api_token'])) {
                     // Assuming existing ones could be anything, actually previously we used bin2hex(random_bytes(32)) which IS 64 chars hex
                     // We must assume all unmigrated tokens are plaintext and just hash them
                 }
-                
+
                 if (!empty($user['api_token'])) {
                     $hashedToken = hash('sha256', $user['api_token']);
                     $updates[] = "api_token = ?";
                     $params[] = $hashedToken;
                 }
-                
+
                 if (!empty($user['totp_secret'])) {
                     $encryptedSecret = encryptData($user['totp_secret']);
                     if ($encryptedSecret !== false) {
@@ -170,7 +173,7 @@ class Database {
                         $params[] = $encryptedSecret;
                     }
                 }
-                
+
                 if (!empty($updates)) {
                     $params[] = $user['id'];
                     $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
@@ -178,7 +181,7 @@ class Database {
                     $updateStmt->execute($params);
                 }
             }
-            
+
             $this->pdo->exec("INSERT OR REPLACE INTO settings (setting_key, setting_value) VALUES ('security_migration_done', '1')");
         } catch (Exception $e) {
             error_log("Migration failed: " . $e->getMessage());
