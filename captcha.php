@@ -7,7 +7,7 @@ $height = 50;
 $image = imagecreatetruecolor($width, $height);
 
 // Colors
-$bg_color = imagecolorallocate($image, 240, 248, 255); 
+$bg_color = imagecolorallocate($image, 240, 248, 255);
 $text_color = imagecolorallocate($image, 20, 40, 100);
 $noise_color = imagecolorallocate($image, 150, 180, 220);
 $noise_color2 = imagecolorallocate($image, 180, 200, 240);
@@ -38,8 +38,8 @@ $warped_image = imagecreatetruecolor($width, $height);
 imagefilledrectangle($warped_image, 0, 0, $width, $height, $bg_color);
 
 // Randomize the wave shape
-$period = rand(12, 25); 
-$amplitude = rand(3, 5); 
+$period = rand(12, 25);
+$amplitude = rand(3, 5);
 
 for ($px = 0; $px < $width; $px++) {
     $y_offset = (int)($amplitude * sin($px / $period));

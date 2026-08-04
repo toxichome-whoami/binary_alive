@@ -27,18 +27,18 @@ $totalAuditPages = ceil($totalAudit / $limit);
 $totalLoginPages = ceil($totalLogin / $limit);
 
 $stmt = $pdo->prepare("
-    SELECT a.*, COALESCE(a.username, u.username) as username 
-    FROM audit_logs a 
-    LEFT JOIN users u ON a.user_id = u.id 
+    SELECT a.*, COALESCE(a.username, u.username) as username
+    FROM audit_logs a
+    LEFT JOIN users u ON a.user_id = u.id
     WHERE a.action NOT IN ('terminal_command', 'login_success', 'logout')
-    ORDER BY a.timestamp DESC 
+    ORDER BY a.timestamp DESC
     LIMIT ? OFFSET ?
 ");
 $stmt->execute([$limit, $auditOffset]);
 $auditLogs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $stmt2 = $pdo->prepare("
-    SELECT timestamp, username, ip_address, 
+    SELECT timestamp, username, ip_address,
            CASE WHEN is_successful = 1 THEN 'login_success' ELSE 'login_failed' END as event_type
     FROM login_attempts
     UNION ALL
@@ -46,7 +46,7 @@ $stmt2 = $pdo->prepare("
     FROM audit_logs a
     LEFT JOIN users u ON a.user_id = u.id
     WHERE a.action = 'logout'
-    ORDER BY timestamp DESC 
+    ORDER BY timestamp DESC
     LIMIT ? OFFSET ?
 ");
 $stmt2->execute([$limit, $loginOffset]);
@@ -60,10 +60,10 @@ if ($isAdmin) {
     $totalTermPages = ceil($totalTerm / $limit);
     $stmt3 = $pdo->prepare("
         SELECT a.*, COALESCE(a.username, u.username) as username
-        FROM audit_logs a 
-        LEFT JOIN users u ON a.user_id = u.id 
+        FROM audit_logs a
+        LEFT JOIN users u ON a.user_id = u.id
         WHERE a.action = 'terminal_command'
-        ORDER BY a.timestamp DESC 
+        ORDER BY a.timestamp DESC
         LIMIT ? OFFSET ?
     ");
     $stmt3->execute([$limit, $termOffset]);
@@ -90,7 +90,7 @@ require_once 'components/navbar.php';
         </li>
         <?php endif; ?>
     </ul>
-    
+
     <div class="tab-content" id="logTabsContent">
         <div class="tab-pane fade <?= $activeTab === 'audit' ? 'show active' : '' ?>" id="audit" role="tabpanel">
             <div class="card">
@@ -126,9 +126,9 @@ require_once 'components/navbar.php';
                     <?php else: ?>
                         <button class="btn btn-outline-secondary btn-sm" disabled>Previous</button>
                     <?php endif; ?>
-                    
+
                     <span class="text-muted small">Page <?= $auditPage ?> of <?= max(1, $totalAuditPages) ?> (Total: <?= $totalAudit ?>)</span>
-                    
+
                     <?php if ($auditPage < $totalAuditPages): ?>
                         <a href="?tab=audit&audit_page=<?= $auditPage + 1 ?>&login_page=<?= $loginPage ?>" class="btn btn-outline-primary btn-sm">Next</a>
                     <?php else: ?>
@@ -137,7 +137,7 @@ require_once 'components/navbar.php';
                 </div>
             </div>
         </div>
-        
+
         <div class="tab-pane fade <?= $activeTab === 'login' ? 'show active' : '' ?>" id="login" role="tabpanel">
             <div class="card">
                 <div class="card-body p-0">
@@ -180,9 +180,9 @@ require_once 'components/navbar.php';
                     <?php else: ?>
                         <button class="btn btn-outline-secondary btn-sm" disabled>Previous</button>
                     <?php endif; ?>
-                    
+
                     <span class="text-muted small">Page <?= $loginPage ?> of <?= max(1, $totalLoginPages) ?> (Total: <?= $totalLogin ?>)</span>
-                    
+
                     <?php if ($loginPage < $totalLoginPages): ?>
                         <a href="?tab=login&audit_page=<?= $auditPage ?>&login_page=<?= $loginPage + 1 ?>&term_page=<?= $termPage ?>" class="btn btn-outline-primary btn-sm">Next</a>
                     <?php else: ?>
@@ -225,9 +225,9 @@ require_once 'components/navbar.php';
                     <?php else: ?>
                         <button class="btn btn-outline-secondary btn-sm" disabled>Previous</button>
                     <?php endif; ?>
-                    
+
                     <span class="text-muted small">Page <?= $termPage ?> of <?= max(1, $totalTermPages) ?> (Total: <?= $totalTerm ?>)</span>
-                    
+
                     <?php if ($termPage < $totalTermPages): ?>
                         <a href="?tab=terminal&audit_page=<?= $auditPage ?>&login_page=<?= $loginPage ?>&term_page=<?= $termPage + 1 ?>" class="btn btn-outline-primary btn-sm">Next</a>
                     <?php else: ?>
@@ -241,4 +241,3 @@ require_once 'components/navbar.php';
 </div>
 
 <?php require_once 'components/footer.php'; ?>
-

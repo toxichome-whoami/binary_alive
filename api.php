@@ -25,16 +25,16 @@ $action = $_GET['action'] ?? '';
 if ($action === 'status') {
     $stmt = $pdo->query("SELECT * FROM processes");
     $processes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
     foreach ($processes as &$process) {
         $actual_pid = Monitor::isRunning($process);
-        
+
         if ($actual_pid) {
             $process['status'] = 'running';
             $process['pid'] = $actual_pid;
             $metrics = Monitor::getMetrics($actual_pid);
             $process = array_merge($process, $metrics);
-            
+
             // Only update the PID, DO NOT touch the status (status is our desired state)
             $update = $pdo->prepare("UPDATE processes SET pid = ? WHERE id = ?");
             $update->execute([$actual_pid, $process['id']]);
@@ -45,13 +45,13 @@ if ($action === 'status') {
             $process['cpu'] = 0;
             $process['mem'] = '0 MB';
             $process['uptime'] = '00:00:00';
-            
+
             // Clear the PID, DO NOT touch the desired status
             $update = $pdo->prepare("UPDATE processes SET pid = NULL WHERE id = ?");
             $update->execute([$process['id']]);
         }
     }
-    
+
     // Get system load
     $sysLoad = '---';
     if (function_exists('sys_getloadavg')) {
@@ -69,7 +69,7 @@ if ($action === 'status') {
             }
         }
     }
-    
+
     echo json_encode(['success' => true, 'data' => $processes, 'sys_load' => $sysLoad]);
     exit;
 }
@@ -81,7 +81,7 @@ if ($action === 'control') {
         $ids = [$_POST['id']];
     }
     $cmd = $_POST['cmd'] ?? '';
-    
+
     if (empty($ids)) {
         echo json_encode(['success' => false, 'message' => 'No processes selected']);
         exit;
@@ -91,12 +91,12 @@ if ($action === 'control') {
     $stmt = $pdo->prepare("SELECT * FROM processes WHERE id IN ($placeholders)");
     $stmt->execute($ids);
     $processes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
     if (!$processes) {
         echo json_encode(['success' => false, 'message' => 'Processes not found']);
         exit;
     }
-    
+
     $results = [];
     foreach ($processes as $process) {
         if ($cmd === 'start') {
@@ -125,25 +125,25 @@ if ($action === 'control') {
             $results[$process['id']] = ['success' => (bool)$newPid, 'pid' => $newPid];
         }
     }
-    
+
     echo json_encode(['success' => true, 'results' => $results]);
     exit;
 }
 
 if ($action === 'add_process') {
     $auth->requireRole(['admin']); // Only admin can add processes
-    
+
     $name = $_POST['name'] ?? '';
     $command = $_POST['command'] ?? '';
     $group = $_POST['group_name'] ?? 'Default';
     $dir = $_POST['working_dir'] ?? '';
     $log = $_POST['log_file'] ?? '';
-    
+
     if (empty($name) || empty($command)) {
         echo json_encode(['success' => false, 'message' => 'Name and command are required']);
         exit;
     }
-    
+
     try {
         $stmt = $pdo->prepare("INSERT INTO processes (name, group_name, command, working_dir, log_file) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$name, $group, $command, $dir, $log]);
@@ -177,12 +177,12 @@ if ($action === 'edit_process') {
     $group = $_POST['group_name'] ?? 'Default';
     $dir = $_POST['working_dir'] ?? '';
     $log = $_POST['log_file'] ?? '';
-    
+
     if (empty($name) || empty($command)) {
         echo json_encode(['success' => false, 'message' => 'Name and command are required']);
         exit;
     }
-    
+
     try {
         $stmt = $pdo->prepare("UPDATE processes SET name = ?, group_name = ?, command = ?, working_dir = ?, log_file = ? WHERE id = ?");
         $stmt->execute([$name, $group, $command, $dir, $log, $id]);
@@ -201,7 +201,7 @@ if ($action === 'delete_process') {
         echo json_encode(['success' => false, 'message' => 'Process ID required']);
         exit;
     }
-    
+
     // Stop it if it's running before deleting
     $stmt = $pdo->prepare("SELECT * FROM processes WHERE id = ?");
     $stmt->execute([$id]);
@@ -209,7 +209,7 @@ if ($action === 'delete_process') {
     if ($process) {
         $pid = Monitor::isRunning($process);
         if ($pid) Monitor::stopProcess($pid);
-        
+
         $pdo->prepare("DELETE FROM processes WHERE id = ?")->execute([$id]);
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_process', "Deleted process: {$process['name']}");
         echo json_encode(['success' => true]);
@@ -243,9 +243,9 @@ if ($action === 'terminal') {
             $target = (PHP_OS_FAMILY === 'Windows') ? (getenv('USERPROFILE') ?: 'C:\\') : (getenv('HOME') ?: '/');
         }
         $target = trim($target, "\"'");
-        
+
         $newCwd = realpath(is_dir($target) ? $target : $cwd . DIRECTORY_SEPARATOR . $target);
-        
+
         if ($newCwd && is_dir($newCwd)) {
             $_SESSION['terminal_cwd'] = $newCwd;
             echo json_encode(['success' => true, 'output' => '', 'exit_code' => 0, 'timed_out' => false, 'cwd' => $newCwd]);

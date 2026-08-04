@@ -218,11 +218,11 @@ function formatSecondsToUptime(totalSecs) {
     totalSecs %= 3600;
     let m = Math.floor(totalSecs / 60);
     let s = totalSecs % 60;
-    
+
     let hStr = h.toString().padStart(2, '0');
     let mStr = m.toString().padStart(2, '0');
     let sStr = s.toString().padStart(2, '0');
-    
+
     if (d > 0 || h > 0) {
         return (d > 0 ? d + '-' : '') + hStr + ':' + mStr + ':' + sStr;
     }
@@ -232,14 +232,14 @@ function formatSecondsToUptime(totalSecs) {
 function fetchStatus() {
     // Prevent hammering the server if the user is in a different browser tab
     if (document.hidden) return;
-    
+
     $.getJSON('api.php?action=status', function(res) {
         if (!res.success) return;
-        
+
         let html = '';
         let running = 0, stopped = 0;
         let groups = {};
-        
+
         // Group processes
         res.data.forEach(p => {
             if (p.status === 'running') running++; else stopped++;
@@ -247,16 +247,16 @@ function fetchStatus() {
             if (!groups[g]) groups[g] = [];
             groups[g].push(p);
         });
-        
+
         // Render rows by group
         for (let groupName in groups) {
             html += `<tr class="group-header"><td colspan="9"><i class="bi bi-folder2-open"></i> ${groupName}</td></tr>`;
-            
+
             groups[groupName].forEach(p => {
-                let statusIcon = p.status === 'running' 
-                    ? '<i class="bi bi-circle-fill status-running"></i> RUNNING' 
+                let statusIcon = p.status === 'running'
+                    ? '<i class="bi bi-circle-fill status-running"></i> RUNNING'
                     : '<i class="bi bi-circle border rounded-circle status-stopped"></i> STOPPED';
-                
+
                 let actions = canControl ? `
                         <button class="btn btn-sm btn-success me-1 ctl-btn" data-id="${p.id}" data-cmd="start" ${p.status==='running'?'disabled':''} title="Start"><i class="bi bi-play-fill"></i></button>
                         <button class="btn btn-sm btn-danger me-1 ctl-btn" data-id="${p.id}" data-cmd="stop" ${p.status==='stopped'?'disabled':''} title="Stop"><i class="bi bi-stop-fill"></i></button>
@@ -280,11 +280,11 @@ function fetchStatus() {
                 </tr>`;
             });
         }
-        
+
         if(res.data.length === 0) {
             html = '<tr><td colspan="9" class="text-center">No processes configured.</td></tr>';
         }
-        
+
         $('#process-list').html(html);
         $('#stat-total').text(res.data.length);
         $('#stat-running').text(running);
@@ -292,7 +292,7 @@ function fetchStatus() {
         if (res.sys_load !== undefined) {
             $('#stat-load').text(res.sys_load);
         }
-        
+
         // Restore checked state based on selection might be needed in a real app, but for now it resets on refresh
         $('#select-all').prop('checked', false);
     });
@@ -305,9 +305,9 @@ function handleControl(id_or_ids, cmd, btn) {
     } else {
         data.id = id_or_ids;
     }
-    
+
     if(btn) btn.prop('disabled', true);
-    
+
     $.post('api.php?action=control', data, function(res) {
         fetchStatus();
     }, 'json');
@@ -336,14 +336,14 @@ $('#select-all').change(function() {
 $('#refresh-btn').click(function() {
     let btn = $(this);
     if (btn.prop('disabled')) return;
-    
+
     // Disable button to prevent spam clicking
     btn.prop('disabled', true);
     let originalHtml = btn.html();
     btn.html('<i class="bi bi-hourglass-split"></i> Refreshing...');
-    
+
     fetchStatus();
-    
+
     // Re-enable after 2 seconds
     setTimeout(function() {
         btn.prop('disabled', false);

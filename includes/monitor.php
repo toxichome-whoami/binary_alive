@@ -15,12 +15,12 @@ class Monitor {
                 return $pid;
             }
         }
-        
+
         // Fallback: search by the actual command, not the arbitrary DB name
         $cmd = escapeshellarg($process['command']);
         $output = shell_exec("ps aux | grep $cmd | grep -v grep | awk '{print $2}'");
         $pid = trim(explode("\n", $output)[0] ?? '');
-        
+
         return !empty($pid) ? $pid : false;
     }
 
@@ -47,17 +47,17 @@ class Monitor {
         $cmd = escapeshellcmd($process['command']); // Sanitize command line execution
         $dir = !empty($process['working_dir']) ? $process['working_dir'] : __DIR__;
         $log = !empty($process['log_file']) ? $process['log_file'] : '/dev/null';
-        
+
         // Build nohup command
         $fullCmd = "nohup $cmd > " . escapeshellarg($log) . " 2>&1 & echo $!";
-        
+
         // Using proc_open is the only 100% bulletproof way to prevent PHP from hanging on cPanel/LiteSpeed
         $descriptorspec = [
             0 => ["file", "/dev/null", "r"],  // stdin is empty
             1 => ["pipe", "w"],               // stdout is a pipe to read the PID
             2 => ["file", "/dev/null", "w"]   // stderr is discarded
         ];
-        
+
         $proc = proc_open($fullCmd, $descriptorspec, $pipes, $dir);
         if (is_resource($proc)) {
             $pid = trim(stream_get_contents($pipes[1]));
@@ -65,7 +65,7 @@ class Monitor {
             proc_close($proc);
             return $pid;
         }
-        
+
         return false;
     }
 

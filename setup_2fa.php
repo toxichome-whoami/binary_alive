@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'enable') {
         $secret = $_POST['secret'];
         $code = $_POST['code'];
-        
+
         if (TotpHelper::verifyCode($secret, $code)) {
             $encryptedSecret = encryptData($secret);
             $stmt = $pdo->prepare("UPDATE users SET totp_secret = ? WHERE id = ?");
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $auth->getLogger()->logAudit($userId, 'disable_2fa');
         $_SESSION['flash_message'] = '<div class="alert alert-success">Two-Factor Authentication disabled.</div>';
     }
-    
+
     header("Location: " . $_SERVER['REQUEST_URI']);
     exit;
 }
@@ -65,7 +65,7 @@ require_once 'components/navbar.php';
                 </div>
                 <div class="card-body">
                     <?= $message ?>
-                    
+
                     <?php if (empty($user['totp_secret'])): ?>
                         <p>Protect your account by enabling 2FA using Google Authenticator or Authy.</p>
                         <div class="text-center mb-3">
@@ -100,4 +100,3 @@ require_once 'components/navbar.php';
 </div>
 
 <?php require_once 'components/footer.php'; ?>
-

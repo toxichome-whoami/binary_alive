@@ -38,26 +38,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($captchaEnabled) {
         $captcha_answer = strtoupper(trim($_POST['captcha'] ?? ''));
         $expected = $_SESSION['captcha_code'] ?? '';
-        
+
         // Always unset on submit to prevent replay attacks
         unset($_SESSION['captcha_code']);
-        
+
         if (empty($expected) || $captcha_answer !== $expected) {
             $captchaValid = false;
             $error = "Incorrect Security CAPTCHA. Please try again.";
         }
     }
-    
+
     if ($captchaValid) {
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
-    
+
     if ($isSetupMode) {
         if (!empty($username) && !empty($password)) {
             $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
             $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'admin')");
             $stmt->execute([$username, $hash]);
-            
+
             // Auto login after setup
             $auth->login($username, $password, '');
             header("Location: index.php");
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     }
-    
+
     // PRG Pattern: Redirect back to login.php with flash messages to prevent form resubmission warnings on reload
     if ($error) {
         $_SESSION['login_error'] = $error;
@@ -111,7 +111,7 @@ if (isset($_SESSION['login_error'])) {
 <body>
     <div class="login-card">
         <h3 class="text-center mb-4">Binary Alive</h3>
-        
+
         <?php if ($isSetupMode): ?>
             <div class="alert alert-info">
                 <strong>Welcome!</strong> No users found in the database. Please create the initial Administrator account below.
@@ -121,7 +121,7 @@ if (isset($_SESSION['login_error'])) {
         <?php if ($error): ?>
             <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
-        
+
         <form method="POST" action="">
             <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
             <div class="mb-3">
@@ -132,14 +132,14 @@ if (isset($_SESSION['login_error'])) {
                 <label>Password</label>
                 <input type="password" name="password" class="form-control" required>
             </div>
-            
+
             <?php if (!$isSetupMode): ?>
             <div class="mb-3">
                 <label>2FA Code (If enabled)</label>
                 <input type="text" name="totp" class="form-control" placeholder="123456" autocomplete="off">
             </div>
             <?php endif; ?>
-            
+
             <!-- Image Captcha -->
             <?php if ($captchaEnabled): ?>
             <div class="mb-3">
@@ -154,10 +154,10 @@ if (isset($_SESSION['login_error'])) {
                 <small class="text-muted" style="font-size: 0.75rem;">Click the image to generate a new code.</small>
             </div>
             <?php endif; ?>
-            
+
             <!-- Honeypot -->
             <input type="text" name="website" class="honeypot" tabindex="-1" autocomplete="off">
-            
+
             <?php if ($isSetupMode): ?>
                 <button type="submit" class="btn btn-success w-100">Create Admin Account</button>
             <?php else: ?>
@@ -165,7 +165,7 @@ if (isset($_SESSION['login_error'])) {
             <?php endif; ?>
         </form>
     </div>
-    
+
     <script>
     function refreshCaptcha() {
         document.getElementById('captcha-img').src = 'captcha.php?' + Math.random();

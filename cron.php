@@ -22,10 +22,10 @@ try {
 
     foreach ($processes as $process) {
         $pid = Monitor::isRunning($process);
-        
+
         if (!$pid) {
             $newPid = Monitor::startProcess($process);
-            
+
             if ($newPid) {
                 $stmt = $pdo->prepare("UPDATE processes SET pid = ?, last_restart = CURRENT_TIMESTAMP, restart_count = restart_count + 1 WHERE id = ?");
                 $stmt->execute([$newPid, $process['id']]);

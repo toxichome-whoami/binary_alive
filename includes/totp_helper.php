@@ -30,25 +30,25 @@ class TotpHelper {
 
     private static function getCode($secret, $timeSlice) {
         $secretKey = self::base32Decode($secret);
-        
+
         // Pack time into 8 bytes
         $timeData = chr(0).chr(0).chr(0).chr(0).pack('N*', $timeSlice);
-        
+
         // Generate HMAC-SHA1
         $hmac = hash_hmac('SHA1', $timeData, $secretKey, true);
-        
+
         // Get offset
         $offset = ord(substr($hmac, -1)) & 0x0F;
-        
+
         // Calculate OTP
         $hashPart = substr($hmac, $offset, 4);
         $value = unpack('N', $hashPart);
         $value = $value[1];
         $value = $value & 0x7FFFFFFF;
-        
+
         $modulo = pow(10, 6);
         $otp = str_pad($value % $modulo, 6, '0', STR_PAD_LEFT);
-        
+
         return $otp;
     }
 

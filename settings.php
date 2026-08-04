@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'export' && isset($_POST['export_type'])) {
         $type = $_POST['export_type'];
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'export_data', "Type: $type");
-        
+
         if ($type === 'config') {
             header('Content-Type: application/json');
             header('Content-Disposition: attachment; filename="config_backup.json"');
@@ -36,10 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $newValue = $captchaEnabled ? '0' : '1';
         $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('enable_captcha', ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?");
         $stmt->execute([$newValue, $newValue]);
-        
+
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'toggle_captcha', "Captcha set to " . ($newValue === '1' ? 'enabled' : 'disabled'));
         $_SESSION['flash_message'] = '<div class="alert alert-success">Login CAPTCHA ' . ($newValue === '1' ? 'enabled' : 'disabled') . '.</div>';
-        
+
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit;
     } elseif ($_POST['action'] === 'import') {
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $tmpName = $_FILES['backup_file']['tmp_name'];
         $fileName = $_FILES['backup_file']['name'];
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        
+
         if ($ext === 'json') {
             $content = file_get_contents($tmpName);
             $parsed = json_decode($content, true);
@@ -107,7 +107,7 @@ require_once 'components/navbar.php';
                 </div>
                 <div class="card-body">
                     <?= $message ?>
-                    
+
                     <h5 class="mt-3 border-bottom pb-2">Security Settings</h5>
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <div>
@@ -124,7 +124,7 @@ require_once 'components/navbar.php';
                             <?php endif; ?>
                         </form>
                     </div>
-                    
+
                     <h5 class="mt-4 border-bottom pb-2">Export Data</h5>
                     <p>Download a backup of your configuration or entire database.</p>
                     <form method="POST" class="d-inline-block me-1 mb-2">
@@ -139,7 +139,7 @@ require_once 'components/navbar.php';
                         <input type="hidden" name="export_type" value="database">
                         <button type="submit" class="btn btn-outline-primary"><i class="bi bi-download"></i> Download database.sqlite</button>
                     </form>
-                    
+
                     <h5 class="mt-4 border-bottom pb-2">Import Data</h5>
                     <p>Restore your configuration or database from a previous backup.</p>
                     <form method="POST" enctype="multipart/form-data">
@@ -157,4 +157,3 @@ require_once 'components/navbar.php';
 </div>
 
 <?php require_once 'components/footer.php'; ?>
-

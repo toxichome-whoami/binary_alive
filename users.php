@@ -12,7 +12,7 @@ $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrfToken();
     $action = $_POST['action'] ?? '';
-    
+
     $targetUsername = "Unknown";
     $targetRole = "viewer";
     if (isset($_POST['id'])) {
@@ -26,12 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $targetUsername = "ID " . $_POST['id'];
         }
     }
-    
+
     if ($action === 'create') {
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
         $role = $_POST['role'] ?? 'viewer';
-        
+
         if ($_SESSION['user_id'] != 1 && $role === 'admin') {
             $_SESSION['flash_message'] = '<div class="alert alert-danger">Only the master admin can create other admin accounts.</div>';
         } elseif ($username && $password) {
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $new_username = $_POST['new_username'] ?? '';
         $new_password = $_POST['new_password'] ?? '';
         $new_role = $_POST['new_role'] ?? '';
-        
+
         $error = false;
         if ($id == 1 && $_SESSION['user_id'] != 1) {
             $_SESSION['flash_message'] = '<div class="alert alert-danger">Only the master admin can modify the master account.</div>';
@@ -79,12 +79,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_message'] = '<div class="alert alert-danger">Only the master admin can grant the admin role.</div>';
             $error = true;
         }
-        
+
         if (!$error) {
             try {
                 $updates = [];
                 $params = [];
-                
+
                 if (!empty($new_username)) {
                     $updates[] = "username = ?";
                     $params[] = $new_username;
@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $updates[] = "role = ?";
                     $params[] = $new_role;
                 }
-                
+
                 if (!empty($updates)) {
                     $params[] = $id;
                     $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute($params);
                     $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_user', "Updated details for user: $targetUsername");
                     $_SESSION['flash_message'] = '<div class="alert alert-success">User updated successfully.</div>';
-                    
+
                     if ($id == $_SESSION['user_id'] && !empty($new_username)) {
                         $_SESSION['username'] = $new_username;
                     }
@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'disable_2fa', "Removed 2FA for user: $targetUsername");
         $_SESSION['flash_message'] = '<div class="alert alert-success">2FA disabled for user.</div>';
     }
-    
+
     // PRG Pattern: Redirect back to the same URL to prevent form resubmission
     header("Location: " . $_SERVER['REQUEST_URI']);
     exit;
@@ -165,7 +165,7 @@ require_once 'components/navbar.php';
 
 <div class="container mt-4">
     <?= $message ?>
-    
+
     <div class="card mb-4">
         <div class="card-header">
             <h4><i class="bi bi-person-plus"></i> Add New User</h4>
@@ -214,13 +214,13 @@ require_once 'components/navbar.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($users as $u): 
+                    <?php foreach ($users as $u):
                         $isMasterAdmin = ($u['id'] == 1);
                         $isSelf = ($u['id'] == $_SESSION['user_id']);
                         $isOtherAdmin = ($u['role'] === 'admin' && !$isSelf);
                         $canEdit = ($_SESSION['user_id'] == 1 || (!$isMasterAdmin && !$isOtherAdmin) || $isSelf);
                         $canDelete = ($_SESSION['user_id'] == 1 ? !$isMasterAdmin && !$isSelf : !$isMasterAdmin && !$isOtherAdmin && !$isSelf);
-                        
+
                         // Pass a flag to JS so it knows if role field should be disabled
                         $disableRoleSelect = ($isMasterAdmin) ? 'true' : 'false';
                     ?>
@@ -275,7 +275,7 @@ require_once 'components/navbar.php';
                             </form>
                             <?php endif; ?>
                             <?php endif; ?>
-                            
+
                             <?php if ($canDelete): ?>
                             <form method="POST" class="d-inline" onsubmit="return confirm('Delete this user?');">
                                 <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
@@ -297,9 +297,9 @@ require_once 'components/navbar.php';
             <?php else: ?>
                 <button class="btn btn-outline-secondary btn-sm" disabled>Previous</button>
             <?php endif; ?>
-            
+
             <span class="text-muted small">Page <?= $page ?> of <?= max(1, $totalPages) ?> (Total: <?= $totalUsers ?>)</span>
-            
+
             <?php if ($page < $totalPages): ?>
                 <a href="?page=<?= $page + 1 ?>" class="btn btn-outline-primary btn-sm">Next</a>
             <?php else: ?>
@@ -360,7 +360,7 @@ function checkModalChanges() {
     const currentRole = document.getElementById('inputNewRole').value;
     const currentPassword = document.getElementById('inputNewPassword').value;
     const saveBtn = document.getElementById('saveChangesBtn');
-    
+
     if (currentUsername !== originalUsername || currentRole !== originalRole || currentPassword.length > 0) {
         saveBtn.disabled = false;
     } else {
@@ -371,22 +371,22 @@ function checkModalChanges() {
 function openPasswordModal(id, username, role, disableRoleSelect) {
     document.getElementById('modalUserId').value = id;
     document.getElementById('modalUsername').innerText = username;
-    
+
     // Set and store original values
     document.getElementById('inputNewUsername').value = username;
     originalUsername = username;
-    
+
     let roleSelect = document.getElementById('inputNewRole');
     roleSelect.value = role;
     originalRole = role;
-    
+
     // Disable role select if it's the master admin to prevent demotion
     if (disableRoleSelect) {
         roleSelect.setAttribute('disabled', 'true');
     } else {
         roleSelect.removeAttribute('disabled');
     }
-    
+
     // UI role restriction for regular admins
     if (<?= $_SESSION['user_id'] ?> != 1) {
         let adminOpt = document.getElementById('opt-admin');
@@ -398,13 +398,13 @@ function openPasswordModal(id, username, role, disableRoleSelect) {
             if (!disableRoleSelect) roleSelect.removeAttribute('disabled');
         }
     }
-    
+
     // Clear password box
     document.getElementById('inputNewPassword').value = '';
-    
+
     // Disable save button by default
     document.getElementById('saveChangesBtn').disabled = true;
-    
+
     var modal = new bootstrap.Modal(document.getElementById('passwordModal'));
     modal.show();
 }
