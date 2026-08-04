@@ -2,6 +2,11 @@
 // cron.php
 // This should be called every minute via system cron
 
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit('Access denied. This script must be run from the command line.');
+}
+
 require_once __DIR__ . '/includes/database.php';
 require_once __DIR__ . '/includes/monitor.php';
 

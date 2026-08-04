@@ -17,15 +17,12 @@ if (isset($_GET['export'])) {
     $auth->getLogger()->logAudit($_SESSION['user_id'], 'export_data', "Type: $type");
     
     if ($type === 'config') {
-        $file = __DIR__ . '/config.json';
-        if (file_exists($file)) {
-            header('Content-Type: application/json');
-            header('Content-Disposition: attachment; filename="config_backup.json"');
-            readfile($file);
-            exit;
-        }
+        header('Content-Type: application/json');
+        header('Content-Disposition: attachment; filename="config_backup.json"');
+        echo json_encode(getAppConfig(), JSON_PRETTY_PRINT);
+        exit;
     } elseif ($type === 'database') {
-        $file = __DIR__ . '/db/monitor.sqlite';
+        $file = (new Database())->getDbPath();
         if (file_exists($file)) {
             header('Content-Type: application/x-sqlite3');
             header('Content-Disposition: attachment; filename="database_backup.sqlite"');
@@ -62,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 header("Location: " . $_SERVER['REQUEST_URI']);
                 exit;
             }
-            move_uploaded_file($tmpName, __DIR__ . '/config.json');
+            saveAppConfig($parsed);
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'import_data', "Type: config");
             $_SESSION['flash_message'] = '<div class="alert alert-success">Configuration imported successfully.</div>';
         } elseif ($ext === 'sqlite') {
@@ -79,7 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 header("Location: " . $_SERVER['REQUEST_URI']);
                 exit;
             }
-            move_uploaded_file($tmpName, __DIR__ . '/db/monitor.sqlite');
+            $dbPath = (new Database())->getDbPath();
+            move_uploaded_file($tmpName, $dbPath);
+            @chmod($dbPath, 0600);
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'import_data', "Type: database");
             $_SESSION['flash_message'] = '<div class="alert alert-success">Database imported successfully.</div>';
         } else {
@@ -131,7 +130,7 @@ require_once 'components/navbar.php';
                     
                     <h5 class="mt-4 border-bottom pb-2">Export Data</h5>
                     <p>Download a backup of your configuration or entire database.</p>
-                    <a href="?export=config" class="btn btn-outline-primary mb-2"><i class="bi bi-download"></i> Download config.json</a>
+                    <a href="?export=config" class="btn btn-outline-primary mb-2"><i class="bi bi-download"></i> Download config backup (JSON)</a>
                     <a href="?export=database" class="btn btn-outline-primary mb-2"><i class="bi bi-download"></i> Download database.sqlite</a>
                     
                     <h5 class="mt-4 border-bottom pb-2">Import Data</h5>

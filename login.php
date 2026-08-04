@@ -7,16 +7,6 @@ header("Pragma: no-cache");
 require_once 'includes/security.php';
 require_once 'includes/auth.php';
 
-if (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
-    if (file_exists(__DIR__ . '/config.json')) {
-        $cfg = json_decode(file_get_contents(__DIR__ . '/config.json'), true);
-        if (!empty($cfg['security']['force_https'])) {
-            header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
-            exit();
-        }
-    }
-}
-
 $auth = new Auth();
 $pdo = $auth->getPdo();
 

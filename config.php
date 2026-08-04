@@ -1,10 +1,11 @@
+<?php die('Access denied'); ?>
 {
   "security": {
     "allowed_ips": [],
     "max_login_attempts": 5,
     "block_duration_minutes": 15,
     "session_timeout_minutes": 15,
-    "force_https": false,
+    "force_https": true,
     "secret_key": "generate_a_random_key_in_production"
   },
   "system": {

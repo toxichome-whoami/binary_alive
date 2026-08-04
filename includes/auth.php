@@ -7,14 +7,13 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
 }
 
 if (session_status() === PHP_SESSION_NONE) {
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] ?? 80) == 443 || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    $isLocal = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1']);
     session_set_cookie_params([
         'lifetime' => 0,
         'path'     => '/',
-        'domain'   => $_SERVER['HTTP_HOST'] ?? '',
-        'secure'   => $isHttps,
+        'secure'   => !$isLocal, // Unconditionally secure in production (finding #5)
         'httponly' => true,
-        'samesite' => 'Strict'
+        'samesite' => 'Strict'  // Omitted domain to prevent host header attacks (finding #6)
     ]);
     session_start();
 }
@@ -34,10 +33,7 @@ class Auth {
         $this->pdo = $db->getPdo();
         $this->logger = new Logger($this->pdo);
         
-        $configFile = __DIR__ . '/../config.json';
-        if (file_exists($configFile)) {
-            $this->config = json_decode(file_get_contents($configFile), true);
-        }
+        $this->config = getAppConfig();
         
         // IP Whitelist Check
         if (!empty($this->config['security']['allowed_ips'])) {
@@ -72,6 +68,7 @@ class Auth {
             $this->logger->logAudit($user['id'], 'login_success');
             
             session_regenerate_id(true);
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Rotate CSRF token on login (finding #7)
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];

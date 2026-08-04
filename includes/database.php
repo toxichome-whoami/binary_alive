@@ -10,23 +10,54 @@ class Database {
     private $pdo;
     private $dbPath;
 
-    public function __construct($dbPath = __DIR__ . '/../db/monitor.sqlite') {
-        $this->dbPath = $dbPath;
+    public function __construct($dbPath = null) {
+        if ($dbPath === null) {
+            require_once __DIR__ . '/security.php';
+            $cfg = getAppConfig();
+            $dbName = $cfg['system']['db_filename'] ?? null;
+            $dbDir = __DIR__ . '/../db/';
+            
+            if (empty($dbName)) {
+                $dbName = 'monitor_' . bin2hex(random_bytes(16)) . '.sqlite';
+                $cfg['system']['db_filename'] = $dbName;
+                saveAppConfig($cfg);
+                
+                if (file_exists($dbDir . 'monitor.sqlite') && !file_exists($dbDir . $dbName)) {
+                    @rename($dbDir . 'monitor.sqlite', $dbDir . $dbName);
+                    @rename($dbDir . 'monitor.sqlite-wal', $dbDir . $dbName . '-wal');
+                    @rename($dbDir . 'monitor.sqlite-shm', $dbDir . $dbName . '-shm');
+                }
+            }
+            $this->dbPath = $dbDir . $dbName;
+        } else {
+            $this->dbPath = $dbPath;
+        }
         $this->connect();
         $this->initSchema();
     }
 
     private function connect() {
         try {
-            // Ensure directory exists
+            // Ensure directory exists with restricted permissions (finding #2)
             $dir = dirname($this->dbPath);
             if (!is_dir($dir)) {
-                mkdir($dir, 0750, true);
+                mkdir($dir, 0700, true);
+            } else {
+                @chmod($dir, 0700);
+            }
+
+            $indexFile = $dir . '/index.php';
+            if (!file_exists($indexFile)) {
+                @file_put_contents($indexFile, "<?php http_response_code(403); exit('Access denied.'); ?>");
             }
 
             $this->pdo = new PDO("sqlite:" . $this->dbPath);
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->pdo->exec("PRAGMA journal_mode = WAL;");
+            
+            if (file_exists($this->dbPath)) {
+                @chmod($this->dbPath, 0600);
+            }
         } catch (PDOException $e) {
             error_log("Database connection failed: " . $e->getMessage());
             die("A temporary system error occurred. Please try again later.");
@@ -153,5 +184,9 @@ class Database {
 
     public function getPdo() {
         return $this->pdo;
+    }
+
+    public function getDbPath() {
+        return $this->dbPath;
     }
 }

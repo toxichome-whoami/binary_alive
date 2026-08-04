@@ -6,6 +6,54 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
     exit('Access denied.');
 }
 
+// Configuration helpers and protection against direct download (finding #2)
+function getAppConfig() {
+    static $config = null;
+    if ($config !== null) return $config;
+
+    $phpConfig = __DIR__ . '/../config.php';
+    $jsonConfig = __DIR__ . '/../config.json';
+
+    if (file_exists($phpConfig)) {
+        $raw = file_get_contents($phpConfig);
+        $json = preg_replace('/^<\?php.*?\?>\s*/s', '', $raw);
+        $config = json_decode($json, true) ?? [];
+    } elseif (file_exists($jsonConfig)) {
+        $config = json_decode(file_get_contents($jsonConfig), true) ?? [];
+        saveAppConfig($config);
+        @unlink($jsonConfig);
+    } else {
+        $config = [];
+    }
+
+    // Auto-generate secure key if weak default is detected (finding #4)
+    if (empty($config['security']['secret_key']) || $config['security']['secret_key'] === 'generate_a_random_key_in_production' || $config['security']['secret_key'] === 'default_fallback_secret_binary_alive_2026') {
+        $config['security']['secret_key'] = bin2hex(random_bytes(32));
+        saveAppConfig($config);
+    }
+
+    return $config;
+}
+
+function saveAppConfig($config) {
+    $phpConfig = __DIR__ . '/../config.php';
+    $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    $content = "<?php die('Access denied'); ?>\n" . $json;
+    @file_put_contents($phpConfig, $content);
+    @chmod($phpConfig, 0600);
+    return true;
+}
+
+// Enforce HTTPS redirection in production web environment (finding #5)
+if (php_sapi_name() !== 'cli' && !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1'])) {
+    $cfg = getAppConfig();
+    $forceHttps = !isset($cfg['security']['force_https']) || $cfg['security']['force_https'] !== false;
+    if ($forceHttps && (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') && ($_SERVER['SERVER_PORT'] ?? 80) != 443 && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') !== 'https') {
+        header("Location: https://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $_SERVER['REQUEST_URI']);
+        exit();
+    }
+}
+
 // Force strict security headers
 header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
 header("Content-Security-Policy: default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com; img-src 'self' data: https://chart.googleapis.com https://api.qrserver.com; frame-ancestors 'none';");
@@ -62,16 +110,8 @@ function verifyCsrfToken($token = null) {
 
 // Symmetric Encryption Helpers using AES-256-CBC
 function getSecretKey() {
-    static $key = null;
-    if ($key === null) {
-        $configFile = __DIR__ . '/../config.json';
-        if (file_exists($configFile)) {
-            $cfg = json_decode(file_get_contents($configFile), true);
-            $key = $cfg['security']['secret_key'] ?? 'default_fallback_secret_binary_alive_2026';
-        } else {
-            $key = 'default_fallback_secret_binary_alive_2026';
-        }
-    }
+    $cfg = getAppConfig();
+    $key = $cfg['security']['secret_key'] ?? 'default_fallback_secret_binary_alive_2026';
     return hash('sha256', $key, true);
 }
 
