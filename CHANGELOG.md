@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.0.3 Updates
+- **Security Hardening**: Implemented comprehensive `.htaccess` rules across the root, `db/`, `includes/`, and `components/` directories. This completely blocks direct web access to sensitive files like `config.json`, SQLite databases, logs, and internal PHP partials.
+- **Terminal Reliability**: Replaced all `shell_exec()` calls with a `safe_exec()` wrapper to prevent fatal crashes on restricted cPanel hosts where the function is disabled.
+- **Smart Directory Resolution**: The terminal now falls back to parsing the server path to determine the user's home directory if standard shell commands are unavailable.
+- **Navbar Toggle Fix**: Rebuilt the mobile hamburger menu toggle using custom JavaScript to prevent conflicts and double-firing caused by Bootstrap JS loading issues.
+
 ## Version 1.0.2 Updates
 - **Admin Web Terminal**: Added a `terminal.php` page (admin only) with a dark terminal-style UI where admins can run shell commands directly from the browser, with command history, built-in `help`/`clear`/`processes`/`system` commands, and a 30-second timeout to prevent hangs.
 - **Terminal API**: New `action=terminal` endpoint in `api.php` (admin only) that executes a shell command and returns stdout/stderr, exit code, and timeout status. Every command is recorded in the audit logs.

@@ -1,10 +1,10 @@
-# Secure Binary Alive System (v1.0.2)
+# Secure Binary Alive System (v1.0.3)
 
 A PHP-based monitoring and process management system designed to keep Linux binaries (such as Discord bots, Node apps, or Go/C++ binaries) running continuously on cPanel/WHM servers.
 
 ## Documentation Links
 - **[View the API Documentation](API.md)**: Learn how to manage your bots remotely via cURL or custom scripts.
-- **[View the Changelog](CHANGELOG.md)**: See all the latest features and security updates for version 1.0.2.
+- **[View the Changelog](CHANGELOG.md)**: See all the latest features and security updates for version 1.0.3.
 
 ## Key Features
 - **Auto-Restart**: Automatically restarts binaries if they stop or if the server reboots.
@@ -18,8 +18,8 @@ A PHP-based monitoring and process management system designed to keep Linux bina
 
 ## Installation Instructions
 
-1. **Upload the files**: 
-   Upload the entire system directory to a public folder on cPanel (e.g. `public_html/watch`).
+1. **Upload the files**:
+   Upload the entire system directory to any folder that is mapped to a domain or subdomain on your server (e.g. `public_html/watch`, an addon domain folder like `watch.yourdomain.com`, or any subdomain directory). Make sure hidden files are included — specifically the `.htaccess` files in the root, `db/`, `includes/`, and `components/` folders.
 
 2. **Set up the Cron Job**:
    For the auto-restart feature to work, you must configure a cron job in cPanel to run the `cron.php` file every minute.
@@ -35,4 +35,5 @@ A PHP-based monitoring and process management system designed to keep Linux bina
 
 ## Security Notes
 - If you receive a **403 Forbidden - IP not allowed** error, edit `config.json` and ensure the `"allowed_ips"` array either contains your public IP address or is empty `[]` to disable the whitelist.
-- The `db` and `includes` folders are protected by `.htaccess` files. Ensure your Apache server allows `.htaccess` overrides so unauthorized users cannot download your files.
+- Four `.htaccess` files protect the system: the **root** (blocks `config.json`, markdown, logs, backups), **`db/`** (blocks database downloads), **`includes/`** (blocks internal PHP files), and **`components/`** (blocks partial PHP files). Ensure your Apache server has `AllowOverride All` enabled for these to work.
+- If your FTP client does not show hidden files, enable "Show Hidden Files" before uploading — otherwise the `.htaccess` files will not be transferred and your sensitive files will be exposed.

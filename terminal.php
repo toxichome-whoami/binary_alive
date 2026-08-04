@@ -6,11 +6,24 @@ $auth = new Auth();
 $auth->requireAuth();
 $auth->requireRole(['admin']); // Only admins can access the terminal
 
+// Safe helper — only calls shell_exec if it's not disabled by the host
+function safe_exec($cmd) {
+    if (function_exists('shell_exec') && !in_array('shell_exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+        $result = @shell_exec($cmd);
+        return ($result !== null && $result !== false) ? trim($result) : '';
+    }
+    return '';
+}
+
 $sysUser = get_current_user();
 if (empty($sysUser) && PHP_OS_FAMILY !== 'Windows') {
-    $sysUser = trim(shell_exec('whoami'));
+    $sysUser = safe_exec('whoami');
 }
-if (empty($sysUser)) $sysUser = 'root';
+if (empty($sysUser)) {
+    // Last resort: parse from the web root path e.g. /home/toxichom/...
+    $parts = explode('/', __DIR__);
+    $sysUser = (isset($parts[2]) && $parts[1] === 'home') ? $parts[2] : 'admin';
+}
 
 $sysHost = gethostname();
 if (empty($sysHost)) $sysHost = php_uname('n');
@@ -19,18 +32,30 @@ if (empty($sysHost)) $sysHost = 'binary-alive';
 // Determine the real home directory to use as the default terminal path
 if (!isset($_SESSION['terminal_cwd'])) {
     if (PHP_OS_FAMILY === 'Windows') {
-        $homeDir = getenv('USERPROFILE') ?: getenv('HOMEDRIVE') . getenv('HOMEPATH') ?: 'C:\\';
+        $homeDir = getenv('USERPROFILE') ?: (getenv('HOMEDRIVE') . getenv('HOMEPATH')) ?: 'C:\\';
     } else {
-        // On Linux/BSD/Mac: try HOME env, then read from /etc/passwd, then fall back
+        // Try HOME env first (safest, no shell needed)
         $homeDir = getenv('HOME');
         if (empty($homeDir)) {
-            $homeDir = trim(shell_exec('echo ~'));
+            // Try reading from /etc/passwd directly — no shell needed
+            $passwdLine = safe_exec('getent passwd ' . escapeshellarg($sysUser));
+            if (!empty($passwdLine)) {
+                $fields = explode(':', $passwdLine);
+                $homeDir = $fields[5] ?? '';
+            }
         }
-        if (empty($homeDir) || $homeDir === '~') {
+        if (empty($homeDir)) {
+            // Parse from __DIR__ path: /home/username/public_html/...
+            $parts = explode('/', __DIR__);
+            if (isset($parts[2]) && $parts[1] === 'home') {
+                $homeDir = '/home/' . $parts[2];
+            }
+        }
+        if (empty($homeDir)) {
             $homeDir = '/home/' . $sysUser;
         }
     }
-    // If the resolved home dir actually exists, use it; otherwise fall back to web root
+    // Use home dir if it exists, otherwise fall back to web root
     $_SESSION['terminal_cwd'] = (is_dir($homeDir)) ? $homeDir : __DIR__;
 }
 ?>

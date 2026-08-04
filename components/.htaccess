@@ -1,7 +1,7 @@
 # ============================================================
-# Binary Alive — includes/ folder protection
-# This folder contains auth, security, and database logic.
-# PHP files here are only used internally via require_once.
+# Binary Alive — components/ folder protection
+# This folder contains header, footer, and navbar partials.
+# These are only used internally via require_once.
 # No file should be directly accessible from the web.
 # ============================================================
 

@@ -4,7 +4,7 @@ $username = $_SESSION['username'] ?? 'User';
 ?>
 <nav class="navbar navbar-expand-xl shadow-sm navbar-dark" data-bs-theme="dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="index.php"><i class="bi bi-shield-lock"></i> Binary Alive v1.0.2</a>
+        <a class="navbar-brand" href="index.php"><i class="bi bi-shield-lock"></i> Binary Alive v1.0.3</a>
         <button class="navbar-toggler border-white" type="button" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
