@@ -299,7 +299,7 @@ function runCommand(rawCmd) {
         return;
     }
 
-    $.post('api.php?action=terminal', { cmd: cmd }, function(res) {
+    $.post('api.php?action=terminal', { cmd: cmd, csrf_token: document.querySelector('meta[name="csrf-token"]')?.content || '' }, function(res) {
         if (res.success) {
             if (res.cwd) {
                 currentCwd = res.cwd;

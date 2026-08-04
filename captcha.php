@@ -18,7 +18,7 @@ imagefilledrectangle($image, 0, 0, $width, $height, $bg_color);
 $chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 $code = '';
 for ($i = 0; $i < 6; $i++) {
-    $code .= $chars[rand(0, strlen($chars) - 1)];
+    $code .= $chars[random_int(0, strlen($chars) - 1)];
 }
 $_SESSION['captcha_code'] = $code;
 $_SESSION['captcha_attempts'] = 0;

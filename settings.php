@@ -37,6 +37,7 @@ if (isset($_GET['export'])) {
 
 // Handle Import / Toggle
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    verifyCsrfToken();
     if ($_POST['action'] === 'toggle_captcha') {
         $newValue = $captchaEnabled ? '0' : '1';
         $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('enable_captcha', ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?");
@@ -54,10 +55,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
         
         if ($ext === 'json') {
+            $content = file_get_contents($tmpName);
+            $parsed = json_decode($content, true);
+            if (!is_array($parsed) || (!isset($parsed['security']) && !isset($parsed['system']))) {
+                $_SESSION['flash_message'] = '<div class="alert alert-danger">Invalid JSON configuration format. Import aborted.</div>';
+                header("Location: " . $_SERVER['REQUEST_URI']);
+                exit;
+            }
             move_uploaded_file($tmpName, __DIR__ . '/config.json');
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'import_data', "Type: config");
             $_SESSION['flash_message'] = '<div class="alert alert-success">Configuration imported successfully.</div>';
         } elseif ($ext === 'sqlite') {
+            try {
+                $testPdo = new PDO("sqlite:" . $tmpName);
+                $testPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                $testQuery = $testPdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
+                if (!$testQuery->fetch()) {
+                    throw new Exception("Missing 'users' table in database.");
+                }
+                $testPdo = null;
+            } catch (Exception $e) {
+                $_SESSION['flash_message'] = '<div class="alert alert-danger">Invalid or corrupt SQLite database file. Import aborted.</div>';
+                header("Location: " . $_SERVER['REQUEST_URI']);
+                exit;
+            }
             move_uploaded_file($tmpName, __DIR__ . '/db/monitor.sqlite');
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'import_data', "Type: database");
             $_SESSION['flash_message'] = '<div class="alert alert-success">Database imported successfully.</div>';
@@ -98,6 +119,7 @@ require_once 'components/navbar.php';
                             <p class="text-muted small mb-0">Require users to solve an image CAPTCHA when logging in to prevent bot brute-force attacks.</p>
                         </div>
                         <form method="POST">
+                            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                             <input type="hidden" name="action" value="toggle_captcha">
                             <?php if ($captchaEnabled): ?>
                                 <button type="submit" class="btn btn-success">Enabled (Click to Disable)</button>
@@ -115,6 +137,7 @@ require_once 'components/navbar.php';
                     <h5 class="mt-4 border-bottom pb-2">Import Data</h5>
                     <p>Restore your configuration or database from a previous backup.</p>
                     <form method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                         <input type="hidden" name="action" value="import">
                         <div class="mb-3">
                             <input class="form-control" type="file" name="backup_file" accept=".json,.sqlite" required>

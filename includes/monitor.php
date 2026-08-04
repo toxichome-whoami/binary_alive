@@ -1,6 +1,11 @@
 <?php
 // includes/monitor.php
 
+if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
+    http_response_code(403);
+    exit('Access denied.');
+}
+
 class Monitor {
     public static function isRunning($process) {
         if (!empty($process['pid'])) {
@@ -39,7 +44,7 @@ class Monitor {
     }
 
     public static function startProcess($process) {
-        $cmd = $process['command']; // We trust the admin's command
+        $cmd = escapeshellcmd($process['command']); // Sanitize command line execution
         $dir = !empty($process['working_dir']) ? $process['working_dir'] : __DIR__;
         $log = !empty($process['log_file']) ? $process['log_file'] : '/dev/null';
         

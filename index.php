@@ -103,6 +103,7 @@ require_once 'components/navbar.php';
           </div>
           <div class="modal-body">
             <div id="addProcessError" class="alert alert-danger d-none"></div>
+            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
             <div class="mb-3">
                 <label>Process Name (Unique)</label>
                 <input type="text" name="name" class="form-control" placeholder="e.g. mrtx_bot" required>
@@ -144,6 +145,7 @@ require_once 'components/navbar.php';
           </div>
           <div class="modal-body">
             <div id="editProcessError" class="alert alert-danger d-none"></div>
+            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
             <input type="hidden" name="id" id="editProcessId">
             <div class="mb-3">
                 <label>Process Name (Unique)</label>
@@ -181,8 +183,13 @@ require_once 'components/navbar.php';
 const userRole = "<?= $_SESSION['role'] ?>";
 const canControl = ['admin', 'operator'].includes(userRole);
 
-// Force jQuery to append a timestamp to GET requests so the browser NEVER caches them
-$.ajaxSetup({ cache: false });
+// Force jQuery to avoid caching and automatically attach the CSRF token header to all AJAX requests
+$.ajaxSetup({
+    cache: false,
+    headers: {
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+    }
+});
 
 function parseUptimeToSeconds(str) {
     if (!str || str === '---') return 0;

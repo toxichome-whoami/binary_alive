@@ -10,6 +10,7 @@ $pdo = $auth->getPdo();
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     $action = $_POST['action'] ?? '';
     
     $targetUsername = "Unknown";
@@ -116,10 +117,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'generate_token') {
         $id = $_POST['id'] ?? 0;
         $token = bin2hex(random_bytes(32));
+        $hashedToken = hash('sha256', $token);
         $stmt = $pdo->prepare("UPDATE users SET api_token = ? WHERE id = ?");
-        $stmt->execute([$token, $id]);
+        $stmt->execute([$hashedToken, $id]);
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'generate_api_token', "Generated API Token for user: $targetUsername");
-        $_SESSION['flash_message'] = '<div class="alert alert-success">API Token generated successfully.</div>';
+        $_SESSION['flash_message'] = '<div class="alert alert-success">API Token generated successfully for user <strong>' . htmlspecialchars($targetUsername) . '</strong>.<br><strong>IMPORTANT:</strong> Copy your new token now. You won\'t be able to see it again!<br><code class="d-block bg-dark text-warning p-2 mt-2 user-select-all rounded">' . htmlspecialchars($token) . '</code></div>';
     } elseif ($action === 'delete_token') {
         $id = $_POST['id'] ?? 0;
         $stmt = $pdo->prepare("UPDATE users SET api_token = NULL WHERE id = ?");
@@ -170,6 +172,7 @@ require_once 'components/navbar.php';
         </div>
         <div class="card-body">
             <form method="POST" class="row gx-3 gy-2 align-items-center">
+                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                 <input type="hidden" name="action" value="create">
                 <div class="col-sm-3">
                     <input type="text" class="form-control" name="username" placeholder="Username" required>
@@ -233,17 +236,15 @@ require_once 'components/navbar.php';
                         </td>
                         <td>
                             <?php if ($u['api_token']): ?>
-                                <div class="input-group input-group-sm" style="max-width: 250px;">
-                                    <input type="text" class="form-control" id="token-<?= $u['id'] ?>" value="<?= htmlspecialchars($u['api_token']) ?>" readonly>
-                                    <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('token-<?= $u['id'] ?>').value); alert('Copied!');" title="Copy Token"><i class="bi bi-clipboard"></i></button>
-                                    <?php if ($canEdit): ?>
-                                    <form method="POST" class="d-inline" onsubmit="return confirm('Delete API token? This breaks any scripts using it!');">
-                                        <input type="hidden" name="action" value="delete_token">
-                                        <input type="hidden" name="id" value="<?= $u['id'] ?>">
-                                        <button type="submit" class="btn btn-outline-danger" title="Delete Token"><i class="bi bi-trash"></i></button>
-                                    </form>
-                                    <?php endif; ?>
-                                </div>
+                                <span class="badge bg-success me-1"><i class="bi bi-key-fill"></i> Active</span>
+                                <?php if ($canEdit): ?>
+                                <form method="POST" class="d-inline" onsubmit="return confirm('Delete API token? This breaks any scripts using it!');">
+                                    <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                                    <input type="hidden" name="action" value="delete_token">
+                                    <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Token"><i class="bi bi-trash"></i></button>
+                                </form>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <span class="text-muted">None</span>
                             <?php endif; ?>
@@ -260,12 +261,14 @@ require_once 'components/navbar.php';
                             <?php if ($canEdit): ?>
                             <button class="btn btn-sm btn-info text-white" onclick="openPasswordModal(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username']) ?>', '<?= htmlspecialchars($u['role']) ?>', <?= $disableRoleSelect ?>)"><i class="bi bi-pencil-square"></i> Edit</button>
                             <form method="POST" class="d-inline" onsubmit="return confirm('Generate new API token?');">
+                                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                                 <input type="hidden" name="action" value="generate_token">
                                 <input type="hidden" name="id" value="<?= $u['id'] ?>">
                                 <button type="submit" class="btn btn-sm btn-warning" title="Generate API Token"><i class="bi bi-braces"></i></button>
                             </form>
                             <?php if (!empty($u['totp_secret'])): ?>
                             <form method="POST" class="d-inline" onsubmit="return confirm('Forcefully remove 2FA for this user?');">
+                                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                                 <input type="hidden" name="action" value="remove_2fa">
                                 <input type="hidden" name="id" value="<?= $u['id'] ?>">
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove 2FA"><i class="bi bi-shield-x"></i></button>
@@ -275,6 +278,7 @@ require_once 'components/navbar.php';
                             
                             <?php if ($canDelete): ?>
                             <form method="POST" class="d-inline" onsubmit="return confirm('Delete this user?');">
+                                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="<?= $u['id'] ?>">
                                 <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
@@ -316,6 +320,7 @@ require_once 'components/navbar.php';
           </div>
           <div class="modal-body">
             <div class="alert alert-warning text-sm">Leave fields blank if you do not want to change them.</div>
+            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
             <input type="hidden" name="action" value="change_password">
             <input type="hidden" name="id" id="modalUserId">
             <div class="mb-3">

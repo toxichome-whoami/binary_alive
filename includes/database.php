@@ -1,6 +1,11 @@
 <?php
 // includes/database.php
 
+if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
+    http_response_code(403);
+    exit('Access denied.');
+}
+
 class Database {
     private $pdo;
     private $dbPath;
@@ -23,7 +28,8 @@ class Database {
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->pdo->exec("PRAGMA journal_mode = WAL;");
         } catch (PDOException $e) {
-            die("Database connection failed: " . $e->getMessage());
+            error_log("Database connection failed: " . $e->getMessage());
+            die("A temporary system error occurred. Please try again later.");
         }
     }
 

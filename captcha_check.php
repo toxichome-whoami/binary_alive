@@ -18,8 +18,8 @@ if ($input === $expected) {
     echo json_encode(['valid' => true]);
 } else {
     $_SESSION['captcha_attempts']++;
-    // Invalidate captcha after 10 failed live checks to prevent brute-forcing
-    if ($_SESSION['captcha_attempts'] > 10) {
+    // Invalidate captcha after 3 failed live checks to prevent brute-forcing
+    if ($_SESSION['captcha_attempts'] >= 3) {
         unset($_SESSION['captcha_code']);
         unset($_SESSION['captcha_attempts']);
         echo json_encode(['valid' => false, 'reload' => true]);

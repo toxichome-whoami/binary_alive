@@ -1,5 +1,10 @@
-﻿<?php
+<?php
 // includes/totp_helper.php
+
+if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
+    http_response_code(403);
+    exit('Access denied.');
+}
 
 class TotpHelper {
     private static $base32chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';

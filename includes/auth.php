@@ -1,6 +1,23 @@
 <?php
 // includes/auth.php
-session_start();
+
+if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
+    http_response_code(403);
+    exit('Access denied.');
+}
+
+if (session_status() === PHP_SESSION_NONE) {
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] ?? 80) == 443 || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'domain'   => $_SERVER['HTTP_HOST'] ?? '',
+        'secure'   => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Strict'
+    ]);
+    session_start();
+}
 
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/logger.php';
@@ -42,7 +59,9 @@ class Auth {
             
             // TOTP Verification if secret is set
             if (!empty($user['totp_secret'])) {
-                if (empty($totpCode) || !TotpHelper::verifyCode($user['totp_secret'], $totpCode)) {
+                $decryptedSecret = decryptData($user['totp_secret']);
+                $secretToTest = !empty($decryptedSecret) ? $decryptedSecret : $user['totp_secret'];
+                if (empty($totpCode) || !TotpHelper::verifyCode($secretToTest, $totpCode)) {
                     $this->logger->logLoginAttempt($username, false);
                     return ["success" => false, "message" => "Invalid Two-Factor Authentication code."];
                 }
@@ -85,8 +104,9 @@ class Auth {
             }
 
             if (!empty($token)) {
-                $stmt = $this->pdo->prepare("SELECT id, username, role FROM users WHERE api_token = ?");
-                $stmt->execute([$token]);
+                $hashedToken = hash('sha256', $token);
+                $stmt = $this->pdo->prepare("SELECT id, username, role FROM users WHERE api_token = ? OR api_token = ?");
+                $stmt->execute([$hashedToken, $token]); // Supports new hashes while allowing smooth upgrade
                 $user = $stmt->fetch();
                 if ($user) {
                     // Set a pseudo-session for the rest of the script

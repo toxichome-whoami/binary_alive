@@ -6,6 +6,17 @@ header("Pragma: no-cache");
 
 require_once 'includes/security.php';
 require_once 'includes/auth.php';
+
+if (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
+    if (file_exists(__DIR__ . '/config.json')) {
+        $cfg = json_decode(file_get_contents(__DIR__ . '/config.json'), true);
+        if (!empty($cfg['security']['force_https'])) {
+            header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+            exit();
+        }
+    }
+}
+
 $auth = new Auth();
 $pdo = $auth->getPdo();
 
@@ -27,6 +38,7 @@ $userCount = $stmt->fetchColumn();
 $isSetupMode = ($userCount == 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     // Basic CSRF & Honeypot check
     if (!empty($_POST['website'])) {
         die("Bot detected."); // Honeypot filled
@@ -79,8 +91,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($error) {
         $_SESSION['login_error'] = $error;
         $_SESSION['login_old_username'] = $_POST['username'] ?? '';
-        $_SESSION['login_old_password'] = $_POST['password'] ?? '';
-        $_SESSION['login_old_totp'] = $_POST['totp'] ?? '';
         header("Location: login.php");
         exit();
     }
@@ -90,13 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (isset($_SESSION['login_error'])) {
     $error = $_SESSION['login_error'];
     $old_username = $_SESSION['login_old_username'] ?? '';
-    $old_password = $_SESSION['login_old_password'] ?? '';
-    $old_totp = $_SESSION['login_old_totp'] ?? '';
-    unset($_SESSION['login_error'], $_SESSION['login_old_username'], $_SESSION['login_old_password'], $_SESSION['login_old_totp']);
+    unset($_SESSION['login_error'], $_SESSION['login_old_username']);
 } else {
     $old_username = '';
-    $old_password = '';
-    $old_totp = '';
 }
 ?>
 <!DOCTYPE html>
@@ -127,19 +133,20 @@ if (isset($_SESSION['login_error'])) {
         <?php endif; ?>
         
         <form method="POST" action="">
+            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
             <div class="mb-3">
                 <label>Username</label>
                 <input type="text" name="username" class="form-control" value="<?= htmlspecialchars($old_username) ?>" required>
             </div>
             <div class="mb-3">
                 <label>Password</label>
-                <input type="password" name="password" class="form-control" value="<?= htmlspecialchars($old_password) ?>" required>
+                <input type="password" name="password" class="form-control" required>
             </div>
             
             <?php if (!$isSetupMode): ?>
             <div class="mb-3">
                 <label>2FA Code (If enabled)</label>
-                <input type="text" name="totp" class="form-control" placeholder="123456" autocomplete="off" value="<?= htmlspecialchars($old_totp) ?>">
+                <input type="text" name="totp" class="form-control" placeholder="123456" autocomplete="off">
             </div>
             <?php endif; ?>
             

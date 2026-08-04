@@ -17,13 +17,15 @@ $user = $stmt->fetch();
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    verifyCsrfToken();
     if ($_POST['action'] === 'enable') {
         $secret = $_POST['secret'];
         $code = $_POST['code'];
         
         if (TotpHelper::verifyCode($secret, $code)) {
+            $encryptedSecret = encryptData($secret);
             $stmt = $pdo->prepare("UPDATE users SET totp_secret = ? WHERE id = ?");
-            $stmt->execute([$secret, $userId]);
+            $stmt->execute([$encryptedSecret, $userId]);
             $auth->getLogger()->logAudit($userId, 'enable_2fa');
             $_SESSION['flash_message'] = '<div class="alert alert-success">Two-Factor Authentication enabled successfully!</div>';
         } else {
@@ -74,6 +76,7 @@ require_once 'components/navbar.php';
                         </div>
                         <p class="text-center"><strong>Secret Key:</strong> <?= htmlspecialchars($secret) ?></p>
                         <form method="POST">
+                            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                             <input type="hidden" name="action" value="enable">
                             <input type="hidden" name="secret" value="<?= htmlspecialchars($secret) ?>">
                             <div class="mb-3">
@@ -85,6 +88,7 @@ require_once 'components/navbar.php';
                     <?php else: ?>
                         <div class="alert alert-info">2FA is currently <strong>ENABLED</strong> on your account.</div>
                         <form method="POST" onsubmit="return confirm('Are you sure you want to disable 2FA?');">
+                            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                             <input type="hidden" name="action" value="disable">
                             <button type="submit" class="btn btn-danger w-100">Disable 2FA</button>
                         </form>
