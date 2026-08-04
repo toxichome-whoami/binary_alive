@@ -15,6 +15,24 @@ if (empty($sysUser)) $sysUser = 'root';
 $sysHost = gethostname();
 if (empty($sysHost)) $sysHost = php_uname('n');
 if (empty($sysHost)) $sysHost = 'binary-alive';
+
+// Determine the real home directory to use as the default terminal path
+if (!isset($_SESSION['terminal_cwd'])) {
+    if (PHP_OS_FAMILY === 'Windows') {
+        $homeDir = getenv('USERPROFILE') ?: getenv('HOMEDRIVE') . getenv('HOMEPATH') ?: 'C:\\';
+    } else {
+        // On Linux/BSD/Mac: try HOME env, then read from /etc/passwd, then fall back
+        $homeDir = getenv('HOME');
+        if (empty($homeDir)) {
+            $homeDir = trim(shell_exec('echo ~'));
+        }
+        if (empty($homeDir) || $homeDir === '~') {
+            $homeDir = '/home/' . $sysUser;
+        }
+    }
+    // If the resolved home dir actually exists, use it; otherwise fall back to web root
+    $_SESSION['terminal_cwd'] = (is_dir($homeDir)) ? $homeDir : __DIR__;
+}
 ?>
 <?php
 $pageTitle = 'Terminal';
@@ -33,12 +51,12 @@ require_once 'components/navbar.php';
         white-space: pre-wrap;
         word-wrap: break-word;
     }
-    
+
     /* Default (Light Mode) */
     .terminal-header { background-color: #f8f9fa; color: #212529; border-bottom: 1px solid #dee2e6; }
     .terminal-container { background-color: #ffffff; color: #333333; font-family: 'Consolas', 'Courier New', monospace; border-radius: 0 0 5px 5px; border: 1px solid #dee2e6; border-top: none; }
-    .cmd-line { color: #007936; font-weight: bold; } 
-    .prompt { color: #0056b3; font-weight: bold; } 
+    .cmd-line { color: #007936; font-weight: bold; }
+    .prompt { color: #0056b3; font-weight: bold; }
     .output { color: #333333; }
     .err { color: #dc3545; }
     .muted { color: #6c757d; }
@@ -47,11 +65,11 @@ require_once 'components/navbar.php';
     .prompt-path { color: rgb(106, 153, 85); font-weight: bold; }
     .prompt-symbol { color: rgb(86, 156, 214); font-weight: bold; margin-right: 8px; }
     .cmd-text { color: #000000; font-weight: bold; }
-    .cmd-wrapper { 
-        position: relative; 
-        padding-left: 18px; 
-        margin-top: 8px; 
-        margin-bottom: 8px; 
+    .cmd-wrapper {
+        position: relative;
+        padding-left: 18px;
+        margin-top: 8px;
+        margin-bottom: 8px;
     }
     .cmd-wrapper::before {
         content: '';
@@ -124,32 +142,32 @@ const SERVER_INFO = <?= json_encode(['server' => $_SERVER['SERVER_SOFTWARE'] ?? 
 function buildPromptDOM(cmdText) {
     const wrapper = document.createElement('div');
     wrapper.className = 'cmd-wrapper';
-    
+
     const line1 = document.createElement('div');
     line1.className = 'prompt-line-1';
-    
+
     const pathBlock = document.createElement('span');
     pathBlock.className = 'prompt-path';
     pathBlock.textContent = currentCwd;
-    
+
     line1.appendChild(pathBlock);
-    
+
     const line2 = document.createElement('div');
     line2.className = 'prompt-line-2';
-    
+
     const symbol = document.createElement('span');
     symbol.className = 'prompt-symbol';
     symbol.textContent = '$ ';
-    
+
     line2.appendChild(symbol);
-    
+
     if (cmdText !== null) {
         const cmdSpan = document.createElement('span');
         cmdSpan.className = 'cmd-text';
         cmdSpan.textContent = cmdText;
         line2.appendChild(cmdSpan);
     }
-    
+
     wrapper.appendChild(line1);
     wrapper.appendChild(line2);
     return wrapper;
