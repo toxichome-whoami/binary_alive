@@ -16,6 +16,10 @@
 - **saveAppConfig Failure Handling**: `saveAppConfig()` now returns `false` on a write failure. Any code that depends on a successful save (such as generating a new encryption key) detects the failure and stops with a clear error instead of continuing silently in a broken state.
 - **Automatic Database Migration**: Security data migration (hashing API tokens to SHA-256, encrypting TOTP secrets with AES-256-CBC) now runs automatically on first load and is permanently locked by a `security_migration_done` flag in the database. No manual migration script needs to be executed.
 - **htaccess Hardened**: Root `.htaccess` now includes an explicit `<Files "config.php">` block and rules denying access to all common backup file extensions (`.bak`, `.php~`, `.old`, `.swp`, etc.).
+- **PHPDoc Type Annotations**: Added `@var`, `@param`, and `@return` docblocks to all class properties and functions in `database.php`, `auth.php`, `logger.php`, and `security.php` for full IDE type resolution and autocompletion.
+- **Function Declaration Order**: `saveAppConfig()` is now declared before `getAppConfig()` in `security.php` so static analysis tools that require linear declaration order no longer report it as undefined.
+- **Absolute Include Paths**: All `require_once` calls in `settings.php` now use `__DIR__` prefixed absolute paths so language servers can reliably resolve and index the included files.
+
 
 ## Version 1.0.3 Updates
 - **Security Hardening**: Implemented comprehensive `.htaccess` rules across the root, `db/`, `includes/`, and `components/` directories. This completely blocks direct web access to sensitive files like `config.json`, SQLite databases, logs, and internal PHP partials.
