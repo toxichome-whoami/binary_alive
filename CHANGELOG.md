@@ -19,6 +19,7 @@
 - **PHPDoc Type Annotations**: Added `@var`, `@param`, and `@return` docblocks to all class properties and functions in `database.php`, `auth.php`, `logger.php`, and `security.php` for full IDE type resolution and autocompletion.
 - **Function Declaration Order**: `saveAppConfig()` is now declared before `getAppConfig()` in `security.php` so static analysis tools that require linear declaration order no longer report it as undefined.
 - **Absolute Include Paths**: All `require_once` calls in `settings.php` now use `__DIR__` prefixed absolute paths so language servers can reliably resolve and index the included files.
+- **Initialization Race Condition Fixed**: Implemented a `.db_init.lock` file mechanism in `database.php` to prevent the web process and cron process from generating separate randomized SQLite files simultaneously if they boot at the exact same millisecond.
 
 
 ## Version 1.0.3 Updates

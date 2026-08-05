@@ -35,7 +35,15 @@ class Database {
                 $dbName = $cfg['system']['db_filename'] ?? null;
 
                 if (empty($dbName)) {
-                    $dbName = 'monitor_' . bin2hex(random_bytes(16)) . '.sqlite';
+                    // Self-healing: if config was accidentally overwritten, try to find the existing database
+                    $existingDbs = glob($dbDir . 'monitor_*.sqlite');
+                    if (!empty($existingDbs)) {
+                        usort($existingDbs, function($a, $b) { return filemtime($b) - filemtime($a); });
+                        $dbName = basename($existingDbs[0]);
+                    } else {
+                        $dbName = 'monitor_' . bin2hex(random_bytes(16)) . '.sqlite';
+                    }
+
                     $cfg['system']['db_filename'] = $dbName;
                     if (!saveAppConfig($cfg)) {
                         error_log("Failed to write db_filename to config.php. Falling back to monitor.sqlite to prevent data loss.");

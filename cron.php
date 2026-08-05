@@ -2,9 +2,11 @@
 // cron.php
 // This should be called every minute via system cron
 
-if (php_sapi_name() !== 'cli') {
+// Relax CLI guard slightly for cPanel binaries
+$sapi = php_sapi_name();
+if ($sapi !== 'cli' && $sapi !== 'cgi-fcgi' && $sapi !== 'cgi') {
     http_response_code(403);
-    exit('Access denied. This script must be run from the command line.');
+    exit('Access denied.');
 }
 
 require_once __DIR__ . '/includes/database.php';
@@ -15,15 +17,12 @@ try {
     /** @var \PDO $pdo */
     $pdo = $db->getPdo();
 
-    // 1. If stop from binary alive, pass (status = 'stopped' is ignored)
-    // 2. If running, pass (we check isRunning inside loop)
-    // 3. If not using (crashed), restart it
     $stmt = $pdo->query("SELECT * FROM processes WHERE status = 'running'");
     $processes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($processes as $process) {
         $pid = Monitor::isRunning($process);
-
+        
         if (!$pid) {
             $newPid = Monitor::startProcess($process);
 
