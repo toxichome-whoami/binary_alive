@@ -16,24 +16,48 @@ class Database {
 
     public function __construct($dbPath = null) {
         if ($dbPath === null) {
-            $cfg = getAppConfig();
-            $dbName = $cfg['system']['db_filename'] ?? null;
-            $dbDir = __DIR__ . '/../db/';
+            $dbDir  = __DIR__ . '/../db/';
+            $lockFile = $dbDir . '.db_init.lock';
 
-            if (empty($dbName)) {
-                $dbName = 'monitor_' . bin2hex(random_bytes(16)) . '.sqlite';
-                $cfg['system']['db_filename'] = $dbName;
-                if (!saveAppConfig($cfg)) {
-                    error_log("Failed to write db_filename to config.php. Falling back to default database filename to prevent data loss.");
-                    $dbName = 'monitor.sqlite'; // Fall back to fixed name if config is not writable (finding #3)
-                } else {
-                    if (file_exists($dbDir . 'monitor.sqlite') && !file_exists($dbDir . $dbName)) {
-                        @rename($dbDir . 'monitor.sqlite', $dbDir . $dbName);
-                        @rename($dbDir . 'monitor.sqlite-wal', $dbDir . $dbName . '-wal');
-                        @rename($dbDir . 'monitor.sqlite-shm', $dbDir . $dbName . '-shm');
+            // Ensure db directory exists before acquiring lock
+            if (!is_dir($dbDir)) {
+                mkdir($dbDir, 0700, true);
+            }
+
+            // Use a file lock so only ONE process generates the filename.
+            // All other concurrent processes (cron + web) wait here and
+            // then read the filename that was written by the winner.
+            $lock = fopen($lockFile, 'c');
+            if ($lock && flock($lock, LOCK_EX)) {
+                // Re-read config inside the lock — another process may have
+                // already written db_filename while we were waiting.
+                $cfg    = getAppConfig(true); // true = force re-read
+                $dbName = $cfg['system']['db_filename'] ?? null;
+
+                if (empty($dbName)) {
+                    $dbName = 'monitor_' . bin2hex(random_bytes(16)) . '.sqlite';
+                    $cfg['system']['db_filename'] = $dbName;
+                    if (!saveAppConfig($cfg)) {
+                        error_log("Failed to write db_filename to config.php. Falling back to monitor.sqlite to prevent data loss.");
+                        $dbName = 'monitor.sqlite';
+                    } else {
+                        // Migrate existing plain monitor.sqlite if present
+                        if (file_exists($dbDir . 'monitor.sqlite') && !file_exists($dbDir . $dbName)) {
+                            @rename($dbDir . 'monitor.sqlite', $dbDir . $dbName);
+                            @rename($dbDir . 'monitor.sqlite-wal', $dbDir . $dbName . '-wal');
+                            @rename($dbDir . 'monitor.sqlite-shm', $dbDir . $dbName . '-shm');
+                        }
                     }
                 }
+
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            } else {
+                // Lock failed — fall back to reading config directly
+                $cfg    = getAppConfig(true);
+                $dbName = $cfg['system']['db_filename'] ?? 'monitor.sqlite';
             }
+
             $this->dbPath = $dbDir . $dbName;
         } else {
             $this->dbPath = $dbPath;

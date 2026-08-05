@@ -12,6 +12,7 @@ require_once __DIR__ . '/includes/monitor.php';
 
 try {
     $db = new Database();
+    /** @var \PDO $pdo */
     $pdo = $db->getPdo();
 
     // 1. If stop from binary alive, pass (status = 'stopped' is ignored)

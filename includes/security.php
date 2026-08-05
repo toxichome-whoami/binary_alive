@@ -28,11 +28,12 @@ function saveAppConfig($config) {
 /**
  * Retrieves the application configuration
  *
+ * @param bool $forceReread Set true to bypass the static cache (use inside file locks)
  * @return array
  */
-function getAppConfig() {
+function getAppConfig($forceReread = false) {
     static $config = null;
-    if ($config !== null) return $config;
+    if ($config !== null && !$forceReread) return $config;
 
     $phpConfig = __DIR__ . '/../config.php';
     $jsonConfig = __DIR__ . '/../config.json';
