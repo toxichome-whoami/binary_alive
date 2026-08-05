@@ -20,6 +20,7 @@
 - **Function Declaration Order**: `saveAppConfig()` is now declared before `getAppConfig()` in `security.php` so static analysis tools that require linear declaration order no longer report it as undefined.
 - **Absolute Include Paths**: All `require_once` calls in `settings.php` now use `__DIR__` prefixed absolute paths so language servers can reliably resolve and index the included files.
 - **Initialization Race Condition Fixed**: Implemented a `.db_init.lock` file mechanism in `database.php` to prevent the web process and cron process from generating separate randomized SQLite files simultaneously if they boot at the exact same millisecond.
+- **Self-Healing Database Discovery**: If `config.php` is accidentally overwritten (e.g. during an update) and loses the randomized database filename, the system will now automatically scan the `db/` folder to discover the existing database and fix its configuration, rather than creating a new empty database.
 
 
 ## Version 1.0.3 Updates

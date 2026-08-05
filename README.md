@@ -41,3 +41,6 @@ A PHP-based monitoring and process management system designed to keep Linux bina
 - Four `.htaccess` files protect the system: the **root** (blocks markdown, logs, backups, and `config.php`), **`db/`** (blocks database downloads), **`includes/`** (blocks internal PHP files), and **`components/`** (blocks partial PHP files). Ensure your Apache server has `AllowOverride All` enabled for these to work.
 - On first run, the system automatically generates a strong random encryption key and migrates any existing database records. No manual setup is required.
 - If your FTP client does not show hidden files, enable "Show Hidden Files" before uploading — otherwise the `.htaccess` files will not be transferred and your sensitive files will be exposed.
+
+## Updating the System
+When applying code updates (e.g., uploading a new zip file), **do not overwrite your live `config.php` file**. The `config.php` file contains your randomized database connection string and secret encryption key. Overwriting it will cause the system to lose connection to your database. (Note: A `.gitignore` file is included so `config.php` and your `db/*.sqlite` files are protected from being tracked in git or standard archives).
