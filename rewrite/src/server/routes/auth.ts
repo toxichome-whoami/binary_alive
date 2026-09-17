@@ -1,0 +1,213 @@
+import { Hono } from 'hono';
+import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
+import {
+  getUserByUsername,
+  countUsers,
+  createUser,
+  incrementFailedAttempts,
+  resetFailedAttempts,
+} from '../db/users.js';
+import { createSession, deleteSession } from '../db/sessions.js';
+import { logAudit, logLoginAttempt } from '../db/logs.js';
+import { getSetting } from '../db/settings.js';
+import {
+  verifyPassword,
+  hashPassword,
+  generateCsrfToken,
+  decryptData,
+} from '../lib/crypto.js';
+import { TotpService } from '../lib/totp.js';
+import { CaptchaService } from '../lib/captcha.js';
+import { requireAuth } from '../middleware/auth.js';
+import { loginRateLimiter } from '../middleware/rateLimit.js';
+import crypto from 'crypto';
+import os from 'os';
+
+export const authRouter = new Hono();
+
+// Setup status: checks if DB is empty
+authRouter.get('/setup', async (c) => {
+  const count = await countUsers();
+  return c.json({ setup_mode: count === 0 });
+});
+
+// Setup master admin (only when users table is empty)
+authRouter.post('/setup', async (c) => {
+  const count = await countUsers();
+  if (count > 0) {
+    return c.json({ success: false, message: 'Setup is already completed.' }, 403);
+  }
+
+  const { username, password } = await c.req.json();
+  if (!username || !password || password.length < 6) {
+    return c.json({ success: false, message: 'Username and password (min 6 chars) required.' }, 400);
+  }
+
+  const hash = await hashPassword(password);
+  const id = await createUser(username, hash, 'admin');
+
+  await logAudit(id, username, 'setup_first_admin', 'Initial master admin account initialized');
+  return c.json({ success: true, message: 'Master Administrator created successfully!' });
+});
+
+// Captcha generator
+authRouter.get('/captcha', async (c) => {
+  let sid = getCookie(c, 'captcha_sid');
+  if (!sid) {
+    sid = crypto.randomBytes(16).toString('hex');
+    setCookie(c, 'captcha_sid', sid, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'Strict',
+      maxAge: 300,
+    });
+  }
+
+  const { svg } = CaptchaService.generate(sid);
+  c.header('Content-Type', 'image/svg+xml');
+  c.header('Cache-Control', 'no-store, no-cache, must-revalidate');
+  return c.body(svg);
+});
+
+// Live captcha verification
+authRouter.post('/captcha/verify', async (c) => {
+  const sid = getCookie(c, 'captcha_sid');
+  const { answer } = await c.req.json();
+
+  if (!sid || !answer) {
+    return c.json({ valid: false });
+  }
+
+  const valid = CaptchaService.verify(sid, answer, false);
+  return c.json({ valid });
+});
+
+// Login
+authRouter.post('/login', loginRateLimiter(), async (c) => {
+  const ip =
+    c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
+    c.req.header('x-real-ip') ||
+    '127.0.0.1';
+
+  const body = await c.req.json();
+  const username = (body.username || '').trim();
+  const password = body.password || '';
+  const totpCode = (body.totp || '').trim();
+  const captchaAnswer = (body.captcha || '').trim();
+
+  // Check CAPTCHA if enabled
+  const captchaSetting = await getSetting('enable_captcha', '1');
+  if (captchaSetting === '1') {
+    const sid = getCookie(c, 'captcha_sid');
+    if (!sid || !CaptchaService.verify(sid, captchaAnswer)) {
+      await logLoginAttempt(username, false, ip);
+      return c.json({ success: false, message: 'Invalid security CAPTCHA code.' }, 401);
+    }
+  }
+
+  const user = await getUserByUsername(username);
+  if (!user) {
+    await logLoginAttempt(username, false, ip);
+    return c.json({ success: false, message: 'Invalid username or password.' }, 401);
+  }
+
+  // Check account lockout
+  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    return c.json({ success: false, message: 'Account is temporarily locked due to failed attempts.' }, 403);
+  }
+
+  // Verify password
+  const match = await verifyPassword(password, user.password_hash);
+  if (!match) {
+    await incrementFailedAttempts(username);
+    await logLoginAttempt(username, false, ip);
+    return c.json({ success: false, message: 'Invalid username or password.' }, 401);
+  }
+
+  // Verify 2FA if configured
+  if (user.totp_secret) {
+    const secret = decryptData(user.totp_secret);
+    if (!totpCode || !TotpService.verifyCode(secret, totpCode)) {
+      await logLoginAttempt(username, false, ip);
+      return c.json(
+        {
+          success: false,
+          requires_2fa: true,
+          message: 'Invalid or missing Two-Factor Authentication (2FA) code.',
+        },
+        401
+      );
+    }
+  }
+
+  // Login success
+  await resetFailedAttempts(username);
+  await logLoginAttempt(username, true, ip);
+  await logAudit(user.id, user.username, 'login_success', '', ip);
+
+  const sessionId = await createSession(user.id);
+  const csrfToken = generateCsrfToken();
+
+  // Set cookies
+  setCookie(c, 'session_id', sessionId, {
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+    maxAge: 15 * 60,
+  });
+
+  // CSRF cookie is non-HttpOnly so client JavaScript can read and pass it
+  setCookie(c, 'csrf_token', csrfToken, {
+    path: '/',
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+    maxAge: 15 * 60,
+  });
+
+  return c.json({
+    success: true,
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      hostname: os.hostname(),
+    },
+  });
+});
+
+// Logout
+authRouter.post('/logout', requireAuth(), async (c) => {
+  const user = c.get('user');
+  const sessionId = getCookie(c, 'session_id');
+
+  if (sessionId) {
+    await deleteSession(sessionId);
+  }
+
+  deleteCookie(c, 'session_id', { path: '/' });
+  deleteCookie(c, 'csrf_token', { path: '/' });
+
+  if (user) {
+    await logAudit(user.id, user.username, 'logout');
+  }
+
+  return c.json({ success: true, message: 'Logged out successfully.' });
+});
+
+// Current user profile bootstrap
+authRouter.get('/me', requireAuth(), async (c) => {
+  const user = c.get('user');
+  return c.json({
+    success: true,
+    data: {
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        hostname: os.hostname(),
+      },
+    },
+  });
+});

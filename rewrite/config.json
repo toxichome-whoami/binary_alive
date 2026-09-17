@@ -1,0 +1,12 @@
+{
+  "security": {
+    "secret_key": "aa5f4c637642ad890c53baea8c808a279b19b370fce77e46a38ec2b771133b3a",
+    "session_timeout_minutes": 15,
+    "allowed_ips": [],
+    "force_https": true
+  },
+  "system": {
+    "app_name": "Binary Alive",
+    "version": "2.0.0"
+  }
+}
