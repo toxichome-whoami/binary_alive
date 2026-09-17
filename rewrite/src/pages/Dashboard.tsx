@@ -241,9 +241,9 @@ export const Dashboard: React.FC = () => {
 
   // Adjustable column widths (Cloudflare DNS table draggable resizers)
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
-    status: 116,
-    name: 210,
-    restarts: 104,
+    status: 125,
+    name: 220,
+    restarts: 125,
   });
   const [resizingCol, setResizingCol] = useState<string | null>(null);
 
@@ -252,10 +252,12 @@ export const Dashboard: React.FC = () => {
     e.stopPropagation();
 
     const startX = e.clientX;
-    const defaultW = col === 'status' ? 116 : col === 'name' ? 210 : 104;
+    const defaultW = col === 'status' ? 125 : col === 'name' ? 220 : 125;
     const startWidth = columnWidths[col] || defaultW;
-    const minWidth = col === 'status' ? 80 : col === 'name' ? 120 : 90;
-    const maxWidth = col === 'status' ? 240 : col === 'name' ? 600 : 220;
+    const minWidth = col === 'status' ? 120 : col === 'name' ? 180 : 120;
+    const maxWidth = col === 'status' ? 240 : col === 'name' ? 550 : 200;
+
+    let hasMoved = false;
 
     setResizingCol(col);
     document.body.style.cursor = 'col-resize';
@@ -263,6 +265,9 @@ export const Dashboard: React.FC = () => {
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const delta = moveEvent.clientX - startX;
+      if (Math.abs(delta) > 2) {
+        hasMoved = true;
+      }
       const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + delta));
       setColumnWidths((prev) => ({ ...prev, [col]: newWidth }));
     };
@@ -273,6 +278,20 @@ export const Dashboard: React.FC = () => {
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+
+      if (hasMoved) {
+        // Prevent any click event resulting from dragging from triggering column sort
+        const preventClickCapture = (clickEvent: MouseEvent) => {
+          clickEvent.preventDefault();
+          clickEvent.stopPropagation();
+          clickEvent.stopImmediatePropagation();
+          window.removeEventListener('click', preventClickCapture, true);
+        };
+        window.addEventListener('click', preventClickCapture, true);
+        setTimeout(() => {
+          window.removeEventListener('click', preventClickCapture, true);
+        }, 100);
+      }
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -1398,7 +1417,7 @@ export const Dashboard: React.FC = () => {
                   aria-sort={sortField === 'status' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   onClick={() => handleSort('status')}
                   style={{ width: `${columnWidths.status}px` }}
-                  className={`group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none ${!canControl() ? 'rounded-tl-lg' : ''}`}
+                  className={`group relative flex items-center shrink-0 h-[40px] pl-3 pr-4 cursor-pointer select-none ${!canControl() ? 'rounded-tl-lg' : ''}`}
                 >
                   <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none">
                     <span>Status</span>
@@ -1410,9 +1429,14 @@ export const Dashboard: React.FC = () => {
                     aria-orientation="vertical"
                     aria-label="Resize Status column"
                     onMouseDown={(e) => handleResizeStart('status', e)}
-                    onDoubleClick={(e) => {
+                    onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
-                      setColumnWidths((prev) => ({ ...prev, status: 116 }));
+                    }}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setColumnWidths((prev) => ({ ...prev, status: 125 }));
                     }}
                     className="absolute -right-1.5 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer"
                     title="Drag to resize column (double-click to reset)"
@@ -1432,7 +1456,7 @@ export const Dashboard: React.FC = () => {
                   aria-sort={sortField === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   onClick={() => handleSort('name')}
                   style={{ width: `${columnWidths.name}px` }}
-                  className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
+                  className="group relative flex items-center shrink-0 h-[40px] pl-3 pr-4 cursor-pointer select-none"
                 >
                   <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none">
                     <span>Name</span>
@@ -1444,9 +1468,14 @@ export const Dashboard: React.FC = () => {
                     aria-orientation="vertical"
                     aria-label="Resize Name column"
                     onMouseDown={(e) => handleResizeStart('name', e)}
-                    onDoubleClick={(e) => {
+                    onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
-                      setColumnWidths((prev) => ({ ...prev, name: 210 }));
+                    }}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setColumnWidths((prev) => ({ ...prev, name: 220 }));
                     }}
                     className="absolute -right-1.5 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer"
                     title="Drag to resize column (double-click to reset)"
@@ -1529,11 +1558,16 @@ export const Dashboard: React.FC = () => {
                       aria-orientation="vertical"
                       aria-label="Resize Restarts column"
                       onMouseDown={(e) => handleResizeStart('restarts', e)}
-                      onDoubleClick={(e) => {
+                      onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
-                        setColumnWidths((prev) => ({ ...prev, restarts: 104 }));
                       }}
-                      className="absolute right-0 top-0 bottom-0 w-2.5 flex items-center justify-center cursor-col-resize z-20 group/resizer"
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setColumnWidths((prev) => ({ ...prev, restarts: 125 }));
+                      }}
+                      className="absolute -right-1.5 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer"
                       title="Drag to resize column (double-click to reset)"
                     >
                       <span
@@ -1619,7 +1653,7 @@ export const Dashboard: React.FC = () => {
                       <td
                         role="cell"
                         style={{ width: `${columnWidths.status}px` }}
-                        className="flex items-center shrink-0 h-[40px] px-3 overflow-hidden"
+                        className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           {isRunning ? (
@@ -1645,7 +1679,7 @@ export const Dashboard: React.FC = () => {
                       <td
                         role="cell"
                         style={{ width: `${columnWidths.name}px` }}
-                        className="flex items-center shrink-0 h-[40px] px-3 overflow-hidden"
+                        className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
                       >
                         <div className="flex items-center gap-1.5 min-w-0 w-full">
                           <button
