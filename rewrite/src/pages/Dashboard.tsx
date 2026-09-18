@@ -1317,19 +1317,19 @@ export const Dashboard: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleBulkControl('stop')}
-                  className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[14px] font-medium text-[#d4d4d4] hover:text-white bg-transparent ring-1 ring-[#262626] hover:ring-[#383838] hover:bg-[#161616] transition-colors cursor-pointer"
-                >
-                  <StopIcon className="w-4 h-4 shrink-0 text-[#8c8c8c]" />
-                  <span>Stop</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => handleBulkControl('restart')}
                   className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[14px] font-medium text-[#d4d4d4] hover:text-white bg-transparent ring-1 ring-[#262626] hover:ring-[#383838] hover:bg-[#161616] transition-colors cursor-pointer"
                 >
                   <RestartIcon className="w-4 h-4 shrink-0 text-[#8c8c8c]" />
                   <span>Restart</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkControl('stop')}
+                  className="group inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[14px] font-medium text-[#d4d4d4] hover:text-[#ef4444] bg-transparent ring-1 ring-[#262626] hover:ring-[#ef4444]/40 hover:bg-[#161616] transition-colors cursor-pointer"
+                >
+                  <StopIcon className="w-4 h-4 shrink-0 text-[#8c8c8c] group-hover:text-[#ef4444] transition-colors" />
+                  <span>Stop</span>
                 </button>
                 {selectedIds.length === 1 && (
                   <button

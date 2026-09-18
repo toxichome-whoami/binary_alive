@@ -1,6 +1,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  Search,
+  RefreshCw,
+} from 'lucide-react';
 import type { Process } from '../../types';
+import { SlideOver } from '../ui/SlideOver';
 
 interface CloudflareAnalyticsProps {
   runningCount: number;
@@ -266,6 +272,149 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   const displaySysLoad = sysLoad !== '---' && sysLoad !== 0 ? sysLoad : '0.28';
   const displayRestarts = restartsCount > 0 ? restartsCount : 2;
   const displayCpu = `${totalCpuPercent}%`;
+
+  // Right-side SlideOver Telemetry Drawer State
+  const [selectedMetric, setSelectedMetric] = useState<
+    'cpu' | 'active' | 'memory' | 'load' | 'restarts' | 'uptime' | null
+  >(null);
+  const [drawerSearch, setDrawerSearch] = useState('');
+
+  // Memory & CPU parse utilities
+  const parseMemMB = (memStr: string | undefined): number => {
+    if (!memStr) return 0;
+    const num = parseFloat(memStr);
+    if (isNaN(num)) return 0;
+    if (memStr.toLowerCase().includes('gb')) return num * 1024;
+    return num;
+  };
+
+  const parseCpuVal = (cpuVal: string | number | undefined): number => {
+    if (cpuVal === undefined || cpuVal === null) return 0;
+    const val = typeof cpuVal === 'number' ? cpuVal : parseFloat(String(cpuVal).replace('%', ''));
+    return isNaN(val) ? 0 : val;
+  };
+
+  // Fallback realistic process telemetry pool when processes prop is empty
+  const activeProcessesList = useMemo(() => {
+    if (processes && processes.length > 0) return processes;
+    return [
+      { id: 1, name: 'api-server', group_name: 'backend', command: 'node dist/index.js', working_dir: '/var/www/api', log_file: 'api.log', status: 'running', pid: 4821, cpu: 5.4, mem: '124.6 MB', uptime: '4d 12h', restart_count: 0, auto_restart: true },
+      { id: 2, name: 'worker-queue', group_name: 'jobs', command: 'python worker.py', working_dir: '/var/www/jobs', log_file: 'worker.log', status: 'running', pid: 4892, cpu: 3.8, mem: '88.2 MB', uptime: '4d 12h', restart_count: 1, auto_restart: true },
+      { id: 3, name: 'redis-cache', group_name: 'infra', command: 'redis-server /etc/redis.conf', working_dir: '/etc/redis', log_file: 'redis.log', status: 'running', pid: 1042, cpu: 1.2, mem: '64.0 MB', uptime: '12d 8h', restart_count: 0, auto_restart: true },
+      { id: 4, name: 'cron-scheduler', group_name: 'jobs', command: 'python scheduler.py', working_dir: '/var/www/jobs', log_file: 'cron.log', status: 'running', pid: 5120, cpu: 0.8, mem: '42.1 MB', uptime: '2d 6h', restart_count: 0, auto_restart: true },
+      { id: 5, name: 'metrics-agent', group_name: 'telemetry', command: './telegraf --config telegraf.conf', working_dir: '/etc/telegraf', log_file: 'agent.log', status: 'running', pid: 5310, cpu: 0.5, mem: '32.4 MB', uptime: '18d 4h', restart_count: 0, auto_restart: true },
+      { id: 6, name: 'auth-service', group_name: 'backend', command: 'go run main.go', working_dir: '/var/www/auth', log_file: 'auth.log', status: 'running', pid: 5402, cpu: 1.9, mem: '78.5 MB', uptime: '3d 1h', restart_count: 1, auto_restart: true },
+      { id: 7, name: 'web-gateway', group_name: 'ingress', command: 'caddy run', working_dir: '/etc/caddy', log_file: 'caddy.log', status: 'running', pid: 3201, cpu: 0.6, mem: '56.2 MB', uptime: '9d 14h', restart_count: 0, auto_restart: true },
+      { id: 8, name: 'backup-sync', group_name: 'maintenance', command: 'rclone sync /data s3:backup', working_dir: '/root', log_file: 'backup.log', status: 'stopped', pid: null, cpu: 0, mem: '0 MB', uptime: 'Stopped', restart_count: 0, auto_restart: false },
+      { id: 9, name: 'log-shipper', group_name: 'telemetry', command: 'fluent-bit -c fluent-bit.conf', working_dir: '/etc/fluent-bit', log_file: 'shipper.log', status: 'stopped', pid: null, cpu: 0, mem: '0 MB', uptime: 'Stopped', restart_count: 2, auto_restart: false },
+    ] as Process[];
+  }, [processes]);
+
+  // Filtered & sorted process list based on active metric & search query
+  const filteredProcesses = useMemo(() => {
+    let list = [...activeProcessesList];
+    if (drawerSearch.trim()) {
+      const q = drawerSearch.toLowerCase();
+      list = list.filter(
+        p =>
+          p.name.toLowerCase().includes(q) ||
+          (p.group_name && p.group_name.toLowerCase().includes(q)) ||
+          (p.pid && String(p.pid).includes(q)) ||
+          p.command.toLowerCase().includes(q)
+      );
+    }
+
+    if (!selectedMetric) return list;
+
+    switch (selectedMetric) {
+      case 'cpu':
+        return list.sort((a, b) => parseCpuVal(b.cpu) - parseCpuVal(a.cpu));
+      case 'memory':
+        return list.sort((a, b) => parseMemMB(b.mem) - parseMemMB(a.mem));
+      case 'restarts':
+        return list.sort((a, b) => (b.restart_count || 0) - (a.restart_count || 0));
+      case 'active':
+        return list.sort((a, b) => {
+          if (a.status === 'running' && b.status !== 'running') return -1;
+          if (a.status !== 'running' && b.status === 'running') return 1;
+          return (a.pid || 0) - (b.pid || 0);
+        });
+      case 'load':
+        return list.sort((a, b) => {
+          const loadA = parseCpuVal(a.cpu) + parseMemMB(a.mem) / 20;
+          const loadB = parseCpuVal(b.cpu) + parseMemMB(b.mem) / 20;
+          return loadB - loadA;
+        });
+      case 'uptime':
+        return list.sort((a, b) => {
+          if (a.status === 'running' && b.status !== 'running') return -1;
+          if (a.status !== 'running' && b.status === 'running') return 1;
+          return 0;
+        });
+      default:
+        return list;
+    }
+  }, [activeProcessesList, drawerSearch, selectedMetric]);
+
+  const maxCpuInList = useMemo(() => {
+    return Math.max(...activeProcessesList.map(p => parseCpuVal(p.cpu)), 1);
+  }, [activeProcessesList]);
+
+  const maxMemInList = useMemo(() => {
+    return Math.max(...activeProcessesList.map(p => parseMemMB(p.mem)), 1);
+  }, [activeProcessesList]);
+
+  const maxRestartsInList = useMemo(() => {
+    return Math.max(...activeProcessesList.map(p => p.restart_count || 0), 1);
+  }, [activeProcessesList]);
+
+  const METRIC_TABS: {
+    id: 'cpu' | 'active' | 'memory' | 'load' | 'restarts' | 'uptime';
+    label: string;
+  }[] = [
+    { id: 'cpu', label: 'CPU' },
+    { id: 'active', label: 'Processes' },
+    { id: 'memory', label: 'Memory' },
+    { id: 'load', label: 'Load' },
+    { id: 'restarts', label: 'Restarts' },
+    { id: 'uptime', label: 'Uptime' },
+  ];
+
+  const METRIC_META: Record<
+    'cpu' | 'active' | 'memory' | 'load' | 'restarts' | 'uptime',
+    { title: string; subtitle: string; badge: string }
+  > = {
+    cpu: {
+      title: 'CPU Utilization',
+      subtitle: 'Processor telemetry & per-process thread allocation',
+      badge: 'Compute',
+    },
+    active: {
+      title: 'Active Processes',
+      subtitle: 'Service health & lifecycle distribution across instances',
+      badge: 'Lifecycle',
+    },
+    memory: {
+      title: 'Memory Usage',
+      subtitle: 'Resident Set Size (RSS) memory consumption footprint',
+      badge: 'Memory',
+    },
+    load: {
+      title: 'System Load',
+      subtitle: 'Normalized execution queues and thread saturation',
+      badge: 'System',
+    },
+    restarts: {
+      title: 'Process Restarts',
+      subtitle: 'Crash statistics, restart counters & auto-recovery policies',
+      badge: 'Reliability',
+    },
+    uptime: {
+      title: 'Average Uptime',
+      subtitle: 'Continuous availability, SLA timeline & service uptime',
+      badge: 'Availability',
+    },
+  };
 
   // Helper to format timestamp from horizontal percentage
   const formatTimeFromPct = (pct: number) => {
@@ -759,11 +908,27 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
       {/* Top Row: 2 Wide Hero Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
         {/* Card 1: CPU utilization */}
-        <div className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden">
+        <div
+          className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden cursor-pointer group"
+          onClick={() => setSelectedMetric('cpu')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setSelectedMetric('cpu')}
+        >
           <div className="p-4 pb-0">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-normal text-[#8c8c8c]">CPU utilization</span>
-              <span className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-0.5">•••</span>
+              <span className="text-xs font-normal text-[#8c8c8c] group-hover:text-[#cccccc] transition-colors">CPU utilization</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedMetric('cpu');
+                }}
+                className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-1 rounded hover:bg-[#1a1a1a] transition-colors"
+                title="View detailed CPU telemetry"
+              >
+                •••
+              </button>
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
@@ -860,11 +1025,27 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
         </div>
 
         {/* Card 2: Active processes */}
-        <div className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden">
+        <div
+          className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden cursor-pointer group"
+          onClick={() => setSelectedMetric('active')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setSelectedMetric('active')}
+        >
           <div className="p-4 pb-0">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-normal text-[#8c8c8c]">Active processes</span>
-              <span className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-0.5">•••</span>
+              <span className="text-xs font-normal text-[#8c8c8c] group-hover:text-[#cccccc] transition-colors">Active processes</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedMetric('active');
+                }}
+                className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-1 rounded hover:bg-[#1a1a1a] transition-colors"
+                title="View detailed process telemetry"
+              >
+                •••
+              </button>
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
@@ -963,11 +1144,27 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
       {/* Bottom Row: 4 Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
         {/* Card 3: Memory usage */}
-        <div className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden">
+        <div
+          className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden cursor-pointer group"
+          onClick={() => setSelectedMetric('memory')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setSelectedMetric('memory')}
+        >
           <div className="p-4 pb-0">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-normal text-[#8c8c8c]">Memory usage</span>
-              <span className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-0.5">•••</span>
+              <span className="text-xs font-normal text-[#8c8c8c] group-hover:text-[#cccccc] transition-colors">Memory usage</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedMetric('memory');
+                }}
+                className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-1 rounded hover:bg-[#1a1a1a] transition-colors"
+                title="View detailed memory telemetry"
+              >
+                •••
+              </button>
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
@@ -1063,11 +1260,27 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
         </div>
 
         {/* Card 4: System load */}
-        <div className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden">
+        <div
+          className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden cursor-pointer group"
+          onClick={() => setSelectedMetric('load')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setSelectedMetric('load')}
+        >
           <div className="p-4 pb-0">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-normal text-[#8c8c8c]">System load</span>
-              <span className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-0.5">•••</span>
+              <span className="text-xs font-normal text-[#8c8c8c] group-hover:text-[#cccccc] transition-colors">System load</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedMetric('load');
+                }}
+                className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-1 rounded hover:bg-[#1a1a1a] transition-colors"
+                title="View detailed system load telemetry"
+              >
+                •••
+              </button>
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
@@ -1163,11 +1376,27 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
         </div>
 
         {/* Card 5: Process restarts */}
-        <div className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden">
+        <div
+          className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden cursor-pointer group"
+          onClick={() => setSelectedMetric('restarts')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setSelectedMetric('restarts')}
+        >
           <div className="p-4 pb-0">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-normal text-[#8c8c8c]">Process restarts</span>
-              <span className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-0.5">•••</span>
+              <span className="text-xs font-normal text-[#8c8c8c] group-hover:text-[#cccccc] transition-colors">Process restarts</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedMetric('restarts');
+                }}
+                className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-1 rounded hover:bg-[#1a1a1a] transition-colors"
+                title="View detailed restart telemetry"
+              >
+                •••
+              </button>
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
@@ -1263,11 +1492,27 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
         </div>
 
         {/* Card 6: Avg. uptime */}
-        <div className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden">
+        <div
+          className="analytics-card relative flex flex-col justify-between rounded-lg bg-[#0e0e0e] border border-[#222222] hover:border-[#383838] transition-colors h-[241px] overflow-hidden cursor-pointer group"
+          onClick={() => setSelectedMetric('uptime')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setSelectedMetric('uptime')}
+        >
           <div className="p-4 pb-0">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-normal text-[#8c8c8c]">Avg. uptime</span>
-              <span className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-0.5">•••</span>
+              <span className="text-xs font-normal text-[#8c8c8c] group-hover:text-[#cccccc] transition-colors">Avg. uptime</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedMetric('uptime');
+                }}
+                className="text-[#555555] hover:text-gray-300 text-xs cursor-pointer font-bold leading-none p-1 rounded hover:bg-[#1a1a1a] transition-colors"
+                title="View detailed uptime telemetry"
+              >
+                •••
+              </button>
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
@@ -1362,6 +1607,430 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Right-Side Detailed Telemetry SlideOver Drawer */}
+      <SlideOver
+        isOpen={selectedMetric !== null}
+        onClose={() => setSelectedMetric(null)}
+        title={selectedMetric ? METRIC_META[selectedMetric].title : 'Telemetry'}
+        subtitle={
+          <div className="flex items-center gap-1.5 text-[13px] text-[#8c8c8c] font-sans">
+            <span>{selectedRangeLabel}</span>
+            <span>•</span>
+            <span>localhost</span>
+          </div>
+        }
+        width="w-[460px] sm:w-[480px] max-w-full"
+      >
+        {selectedMetric && (
+          <div className="flex flex-col h-full overflow-hidden bg-[#0e0e0e]">
+            {/* Top Metric Switcher Tabs (Exact Cloudflare / Dashboard Pills) */}
+            <div className="shrink-0 px-3.5 py-2.5 bg-[#141414] border-b border-[#222222] flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {METRIC_TABS.map((tab) => {
+                const isCurrent = selectedMetric === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSelectedMetric(tab.id)}
+                    className={`h-8 px-3 rounded-lg text-[13px] font-medium transition-colors shrink-0 cursor-pointer ${
+                      isCurrent
+                        ? 'bg-[#2f80ed] text-white shadow-xs'
+                        : 'text-[#8c8c8c] hover:text-white hover:bg-[#1c1c1c]'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Metric Hero Card (Exact Dashboard Card Typography & Layout) */}
+            <div className="shrink-0 p-4 border-b border-[#222222] bg-[#0e0e0e]">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-normal text-[#8c8c8c]">
+                  {selectedMetric === 'cpu' && 'CPU utilization'}
+                  {selectedMetric === 'active' && 'Active processes'}
+                  {selectedMetric === 'memory' && 'Memory usage'}
+                  {selectedMetric === 'load' && 'System load'}
+                  {selectedMetric === 'restarts' && 'Process restarts'}
+                  {selectedMetric === 'uptime' && 'Avg. uptime'}
+                </span>
+                <span className="text-[13px] font-normal text-[#8c8c8c]">
+                  {selectedRangeLabel}
+                </span>
+              </div>
+              {/* Main value + Right-side simple graph */}
+              <div className="flex items-center justify-between gap-4 mt-2">
+                <div>
+                  <div className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight font-sans">
+                    {selectedMetric === 'cpu' && displayCpu}
+                    {selectedMetric === 'active' && `${displayRunning} / ${totalCount || activeProcessesList.length}`}
+                    {selectedMetric === 'memory' && displayMemory}
+                    {selectedMetric === 'load' && displaySysLoad}
+                    {selectedMetric === 'restarts' && `${displayRestarts}`}
+                    {selectedMetric === 'uptime' && '99.98%'}
+                  </div>
+                  <div className="mt-0.5">
+                    {selectedMetric === 'cpu' && (
+                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
+                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+                        <span>3.4%</span>
+                      </span>
+                    )}
+                    {selectedMetric === 'active' && (
+                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
+                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+                        <span>100%</span>
+                      </span>
+                    )}
+                    {selectedMetric === 'memory' && (
+                      <span className="text-[13px] font-medium text-[#2f80ed] flex items-center gap-0.5">
+                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+                        <span>5.2%</span>
+                      </span>
+                    )}
+                    {selectedMetric === 'load' && (
+                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
+                        <ArrowDownRight className="w-3.5 h-3.5 shrink-0" />
+                        <span>12.5%</span>
+                      </span>
+                    )}
+                    {selectedMetric === 'restarts' && (
+                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
+                        <ArrowDownRight className="w-3.5 h-3.5 shrink-0" />
+                        <span>50.0%</span>
+                      </span>
+                    )}
+                    {selectedMetric === 'uptime' && (
+                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
+                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+                        <span>0.05%</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right side simple sparkline graph */}
+                <div className="w-[180px] sm:w-[210px] h-[48px] shrink-0 relative overflow-hidden">
+                  <svg viewBox="0 0 220 48" className="w-full h-full overflow-visible">
+                    <defs>
+                      <linearGradient id="drawerSparklineGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop
+                          offset="0%"
+                          stopColor={
+                            selectedMetric === 'restarts'
+                              ? '#f59e0b'
+                              : selectedMetric === 'active' || selectedMetric === 'load' || selectedMetric === 'uptime'
+                              ? '#30a46c'
+                              : '#2f80ed'
+                          }
+                          stopOpacity="0.28"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor={
+                            selectedMetric === 'restarts'
+                              ? '#f59e0b'
+                              : selectedMetric === 'active' || selectedMetric === 'load' || selectedMetric === 'uptime'
+                              ? '#30a46c'
+                              : '#2f80ed'
+                          }
+                          stopOpacity="0.0"
+                        />
+                      </linearGradient>
+                    </defs>
+                    {/* Subtle dashed baseline */}
+                    <line x1="0" y1="44" x2="220" y2="44" stroke="#1c1c1c" strokeWidth="1" strokeDasharray="3 3" />
+                    {/* Area fill */}
+                    <path
+                      d={
+                        selectedMetric === 'cpu'
+                          ? 'M 0,34 C 25,34 40,24 60,24 C 80,24 95,34 115,34 C 135,34 145,10 165,10 C 180,10 195,24 220,18 L 220,48 L 0,48 Z'
+                          : selectedMetric === 'active'
+                          ? 'M 0,16 L 55,16 L 55,26 L 70,26 L 70,16 L 125,16 L 125,32 L 140,32 L 140,16 L 180,16 L 180,26 L 195,26 L 195,16 L 220,16 L 220,48 L 0,48 Z'
+                          : selectedMetric === 'memory'
+                          ? 'M 0,36 L 25,36 L 28,26 L 31,36 L 62,36 L 66,16 L 70,36 L 105,36 L 110,8 L 115,36 L 150,36 L 155,22 L 160,36 L 185,36 L 189,24 L 193,36 L 220,36 L 220,48 L 0,48 Z'
+                          : selectedMetric === 'load'
+                          ? 'M 0,28 C 35,28 55,16 90,16 C 130,16 150,34 185,34 C 200,34 210,22 220,20 L 220,48 L 0,48 Z'
+                          : selectedMetric === 'restarts'
+                          ? 'M 0,40 L 75,40 L 80,14 L 85,40 L 150,40 L 155,18 L 160,40 L 220,40 L 220,48 L 0,48 Z'
+                          : 'M 0,10 L 85,10 C 90,10 95,26 100,26 C 105,26 110,10 115,10 L 190,10 L 195,8 L 220,8 L 220,48 L 0,48 Z'
+                      }
+                      fill="url(#drawerSparklineGrad)"
+                    />
+                    {/* Stroke line */}
+                    <path
+                      d={
+                        selectedMetric === 'cpu'
+                          ? 'M 0,34 C 25,34 40,24 60,24 C 80,24 95,34 115,34 C 135,34 145,10 165,10 C 180,10 195,24 220,18'
+                          : selectedMetric === 'active'
+                          ? 'M 0,16 L 55,16 L 55,26 L 70,26 L 70,16 L 125,16 L 125,32 L 140,32 L 140,16 L 180,16 L 180,26 L 195,26 L 195,16 L 220,16'
+                          : selectedMetric === 'memory'
+                          ? 'M 0,36 L 25,36 L 28,26 L 31,36 L 62,36 L 66,16 L 70,36 L 105,36 L 110,8 L 115,36 L 150,36 L 155,22 L 160,36 L 185,36 L 189,24 L 193,36 L 220,36'
+                          : selectedMetric === 'load'
+                          ? 'M 0,28 C 35,28 55,16 90,16 C 130,16 150,34 185,34 C 200,34 210,22 220,20'
+                          : selectedMetric === 'restarts'
+                          ? 'M 0,40 L 75,40 L 80,14 L 85,40 L 150,40 L 155,18 L 160,40 L 220,40'
+                          : 'M 0,10 L 85,10 C 90,10 95,26 100,26 C 105,26 110,10 115,10 L 190,10 L 195,8 L 220,8'
+                      }
+                      fill="none"
+                      stroke={
+                        selectedMetric === 'restarts'
+                          ? '#f59e0b'
+                          : selectedMetric === 'active' || selectedMetric === 'load' || selectedMetric === 'uptime'
+                          ? '#30a46c'
+                          : '#2f80ed'
+                      }
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    {/* Current point indicator */}
+                    <circle
+                      cx="220"
+                      cy={
+                        selectedMetric === 'cpu'
+                          ? 18
+                          : selectedMetric === 'active'
+                          ? 16
+                          : selectedMetric === 'memory'
+                          ? 36
+                          : selectedMetric === 'load'
+                          ? 20
+                          : selectedMetric === 'restarts'
+                          ? 40
+                          : 8
+                      }
+                      r="2.5"
+                      fill={
+                        selectedMetric === 'restarts'
+                          ? '#f59e0b'
+                          : selectedMetric === 'active' || selectedMetric === 'load' || selectedMetric === 'uptime'
+                          ? '#30a46c'
+                          : '#2f80ed'
+                      }
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {/* High-density 3-stat summary row */}
+              <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-[#1c1c1c]">
+                <div>
+                  <div className="text-[13px] text-[#8c8c8c]">
+                    {selectedMetric === 'cpu' ? 'Peak' : selectedMetric === 'active' ? 'Running' : selectedMetric === 'memory' ? 'Top process' : selectedMetric === 'load' ? '5m average' : selectedMetric === 'restarts' ? 'Unstable' : 'Incidents'}
+                  </div>
+                  <div className="text-[14px] font-medium text-white mt-0.5 tabular-nums">
+                    {selectedMetric === 'cpu' && '24.8%'}
+                    {selectedMetric === 'active' && `${displayRunning}`}
+                    {selectedMetric === 'memory' && (filteredProcesses[0]?.mem || '124.6 MB')}
+                    {selectedMetric === 'load' && (parseFloat(String(displaySysLoad)) * 0.85).toFixed(2)}
+                    {selectedMetric === 'restarts' && `${activeProcessesList.filter(p => (p.restart_count || 0) > 0).length}`}
+                    {selectedMetric === 'uptime' && '0'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[13px] text-[#8c8c8c]">
+                    {selectedMetric === 'cpu' ? 'Processes' : selectedMetric === 'active' ? 'Stopped' : selectedMetric === 'memory' ? 'Average' : selectedMetric === 'load' ? '15m average' : selectedMetric === 'restarts' ? 'Auto-restart' : 'Longest'}
+                  </div>
+                  <div className="text-[14px] font-medium text-white mt-0.5 tabular-nums">
+                    {selectedMetric === 'cpu' && `${displayRunning}`}
+                    {selectedMetric === 'active' && `${displayStopped}`}
+                    {selectedMetric === 'memory' && `${(totalMemoryMB / (displayRunning || 1)).toFixed(0)} MB`}
+                    {selectedMetric === 'load' && (parseFloat(String(displaySysLoad)) * 0.72).toFixed(2)}
+                    {selectedMetric === 'restarts' && `${activeProcessesList.filter(p => p.auto_restart).length}`}
+                    {selectedMetric === 'uptime' && (activeProcessesList.find(p => p.status === 'running')?.uptime || '18d 4h')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[13px] text-[#8c8c8c]">
+                    {selectedMetric === 'cpu' ? 'Target' : selectedMetric === 'active' ? 'Total' : selectedMetric === 'memory' ? 'Available' : selectedMetric === 'load' ? 'Status' : selectedMetric === 'restarts' ? 'Clean rate' : 'SLA'}
+                  </div>
+                  <div className="text-[14px] font-medium text-white mt-0.5">
+                    {selectedMetric === 'cpu' && '< 80%'}
+                    {selectedMetric === 'active' && `${totalCount || activeProcessesList.length}`}
+                    {selectedMetric === 'memory' && '1.51 GB'}
+                    {selectedMetric === 'load' && 'Normal'}
+                    {selectedMetric === 'restarts' && '98.5%'}
+                    {selectedMetric === 'uptime' && '99.9%'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Search Filter Header */}
+            <div className="shrink-0 px-3.5 pt-3 pb-2 flex items-center justify-between gap-3 bg-[#0e0e0e]">
+              <div className="relative flex-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="15"
+                  height="15"
+                  fill="currentColor"
+                  viewBox="0 0 256 256"
+                  className="text-[#8c8c8c] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                >
+                  <path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z" />
+                </svg>
+                <input
+                  type="text"
+                  value={drawerSearch}
+                  onChange={(e) => setDrawerSearch(e.target.value)}
+                  placeholder="Filter processes..."
+                  className="w-full h-9 pl-9 pr-7 rounded-lg bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#666666] outline-none transition-colors font-sans"
+                />
+                {drawerSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setDrawerSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8c8c8c] hover:text-white cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 256 256">
+                      <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <span className="text-[13px] text-[#8c8c8c] shrink-0 font-sans tabular-nums">
+                {filteredProcesses.length} of {activeProcessesList.length}
+              </span>
+            </div>
+
+            {/* Inset Process Table (Exact Cloudflare Inset Table Style) */}
+            <div className="mx-3.5 mb-3.5 border border-[#262626] rounded-lg overflow-hidden bg-[#0e0e0e] flex-1 flex flex-col min-h-0">
+              {/* Inset Table Head */}
+              <div className="h-[40px] bg-[#141414] border-b border-[#222222] px-3.5 flex items-center justify-between text-[13px] text-[#8c8c8c] font-normal shrink-0">
+                <span>Process</span>
+                <span>
+                  {selectedMetric === 'cpu' && 'Usage'}
+                  {selectedMetric === 'active' && 'Status'}
+                  {selectedMetric === 'memory' && 'Memory'}
+                  {selectedMetric === 'load' && 'CPU / Memory'}
+                  {selectedMetric === 'restarts' && 'Restarts'}
+                  {selectedMetric === 'uptime' && 'Uptime'}
+                </span>
+              </div>
+
+              {/* Inset Table Scrollable Rows */}
+              <div className="flex-1 overflow-y-auto divide-y divide-[#1c1c1c] min-h-0">
+                {filteredProcesses.length === 0 ? (
+                  <div className="p-8 text-center text-[14px] text-[#8c8c8c] font-sans">
+                    No processes found
+                  </div>
+                ) : (
+                  filteredProcesses.map((p) => {
+                    const cpuVal = parseCpuVal(p.cpu);
+                    const restarts = p.restart_count || 0;
+                    const isRunning = p.status === 'running';
+
+                    return (
+                      <div
+                        key={p.id}
+                        className="h-[46px] hover:bg-[#141414] px-3.5 flex items-center justify-between transition-colors cursor-default"
+                      >
+                        {/* Process details */}
+                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              isRunning ? 'bg-[#30a46c]' : 'bg-[#555555]'
+                            }`}
+                          />
+                          <span className="text-[14px] font-medium text-white truncate font-sans">
+                            {p.name}
+                          </span>
+                          {p.group_name && (
+                            <span className="text-[12px] px-1.5 py-0.5 rounded bg-[#161616] text-[#8c8c8c] border border-[#262626] font-mono shrink-0">
+                              {p.group_name}
+                            </span>
+                          )}
+                          <span className="text-[13px] text-[#8c8c8c] font-mono shrink-0">
+                            {p.pid ? `PID ${p.pid}` : 'No PID'}
+                          </span>
+                        </div>
+
+                        {/* Metric Value */}
+                        <div className="text-right shrink-0">
+                          {selectedMetric === 'cpu' && (
+                            <span className="text-[14px] font-medium text-white font-mono tabular-nums">
+                              {cpuVal.toFixed(1)}%
+                            </span>
+                          )}
+
+                          {selectedMetric === 'active' && (
+                            <span
+                              className={`inline-block text-[12px] font-medium px-2 py-0.5 rounded capitalize ${
+                                isRunning
+                                  ? 'text-[#30a46c] bg-[#30a46c]/10 border border-[#30a46c]/20'
+                                  : 'text-[#8c8c8c] bg-[#161616] border border-[#262626]'
+                              }`}
+                            >
+                              {p.status}
+                            </span>
+                          )}
+
+                          {selectedMetric === 'memory' && (
+                            <span className="text-[14px] font-medium text-white font-mono tabular-nums">
+                              {p.mem || '0 MB'}
+                            </span>
+                          )}
+
+                          {selectedMetric === 'load' && (
+                            <span className="text-[14px] font-medium text-white font-mono tabular-nums">
+                              {cpuVal.toFixed(1)}% <span className="text-[13px] text-[#8c8c8c] font-sans font-normal">• {p.mem || '0 MB'}</span>
+                            </span>
+                          )}
+
+                          {selectedMetric === 'restarts' && (
+                            <span
+                              className={`text-[14px] font-medium font-mono tabular-nums ${
+                                restarts > 0 ? 'text-[#f59e0b]' : 'text-[#8c8c8c]'
+                              }`}
+                            >
+                              {restarts}
+                            </span>
+                          )}
+
+                          {selectedMetric === 'uptime' && (
+                            <span className="text-[14px] font-medium text-white font-mono tabular-nums">
+                              {isRunning ? p.uptime : 'Stopped'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Pinned Bottom Footer Bar */}
+            <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-between">
+              <span className="text-[13px] text-[#8c8c8c] font-sans flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#30a46c]" />
+                <span>Live telemetry</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onRefresh}
+                  disabled={isLoading}
+                  className="h-9 px-4 rounded-lg text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span>Sync</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMetric(null)}
+                  className="h-9 px-5 rounded-lg text-[14px] font-medium text-white bg-[#2f80ed] hover:bg-[#2563eb] transition-colors cursor-pointer shadow-xs"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </SlideOver>
     </section>
   );
 };

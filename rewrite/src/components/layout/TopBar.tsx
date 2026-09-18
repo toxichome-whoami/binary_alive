@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../api/auth';
-import { Menu, Sun, Moon, LogOut, ShieldCheck, Users, Settings as SettingsIcon } from 'lucide-react';
-import { RoleBadge } from '../shared/RoleBadge';
+import { Menu, Sun, Moon, LogOut, ShieldCheck, Users, Settings as SettingsIcon, FileText } from 'lucide-react';
 
 interface TopBarProps {
   onToggleSidebar: () => void;
@@ -11,7 +10,7 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
   const navigate = useNavigate();
-  const { user, isMasterAdmin, setUser } = useAuthStore();
+  const { user, isMasterAdmin, isAdmin, setUser } = useAuthStore();
   const [isDark, setIsDark] = useState(true);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -54,8 +53,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
     setUser(null);
     navigate('/login');
   };
-
-  const displayEmail = user?.username ? `${user.username}@gmail.com` : 'Mrtx18427@gmail.com';
 
   return (
     <header
@@ -127,11 +124,15 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
           </span>
         </a>
 
-        {/* 3. User Menu Button (Exact SVG from conter.html) */}
+        {/* 3. User Menu Button */}
         <div className="relative" ref={userMenuRef}>
           <button
             data-kumo-component="Button"
-            className="group flex shrink-0 font-medium select-none border-0 focus:outline-none cursor-pointer gap-1.5 rounded-lg text-sm items-center justify-center p-0 text-[#8c8c8c] hover:text-white hover:bg-[#161616] shadow-none bg-inherit size-8 transition-colors"
+            className={`group flex shrink-0 font-medium select-none border-0 focus:outline-none cursor-pointer gap-1.5 rounded-lg text-sm items-center justify-center p-0 shadow-none size-8 transition-colors ${
+              isUserMenuOpen
+                ? 'text-white bg-[#1a1a1a]'
+                : 'text-[#8c8c8c] hover:text-white hover:bg-[#161616]'
+            }`}
             type="button"
             aria-label="User menu"
             data-testid="kumo-user-dropdown-button"
@@ -153,82 +154,112 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
 
           {/* User Dropdown Menu Popover */}
           {isUserMenuOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-64 bg-[#121212] border border-[#262626] rounded-lg shadow-2xl p-1 z-50 animate-in fade-in zoom-in-95">
-              {/* Account header info */}
-              <div className="px-3 py-2.5 border-b border-[#222222]">
-                <div className="text-xs font-semibold text-white truncate">{displayEmail}</div>
-                <div className="mt-1 flex items-center justify-between">
-                  <RoleBadge role={user?.role || 'admin'} isMaster={isMasterAdmin()} />
-                  <span className="text-[10px] text-[#8c8c8c]">UID: #{user?.id || '1'}</span>
+            <div className="absolute right-0 top-full mt-2 w-[260px] bg-[#0e0e0e] border border-[#262626] rounded-xl shadow-2xl p-1.5 z-50 select-none animate-in fade-in zoom-in-95 font-sans">
+              {/* Account info header */}
+              <div className="p-2.5 rounded-lg bg-[#141414] border border-[#1f1f1f] mb-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[14px] font-medium text-white truncate leading-tight">
+                    {user?.username || 'admin'}
+                  </span>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium text-[#8c8c8c] bg-[#1a1a1a] border border-[#262626] capitalize shrink-0">
+                    {isMasterAdmin() ? 'Master' : user?.role || 'Admin'}
+                  </span>
                 </div>
+                <p className="text-[13px] text-[#8c8c8c] truncate leading-tight mt-1">
+                  {user?.hostname ? `${user.username}@${user.hostname}` : `${user?.username || 'admin'}@localhost`}
+                </p>
               </div>
 
-              {/* Menu items */}
-              <div className="py-1">
+              {/* Navigation Items */}
+              <div className="space-y-0.5 py-0.5">
                 <button
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    navigate('/users');
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[#d4d4d4] hover:text-white hover:bg-[#1f1f1f] rounded-md transition-colors"
-                >
-                  <Users className="w-3.5 h-3.5 text-[#8c8c8c]" />
-                  <span>Members & Roles</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    navigate('/2fa');
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[#d4d4d4] hover:text-white hover:bg-[#1f1f1f] rounded-md transition-colors"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#8c8c8c]" />
-                  <span>Two-Factor Security</span>
-                </button>
-
-                <button
+                  type="button"
                   onClick={() => {
                     setIsUserMenuOpen(false);
                     navigate('/settings');
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[#d4d4d4] hover:text-white hover:bg-[#1f1f1f] rounded-md transition-colors"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
                 >
-                  <SettingsIcon className="w-3.5 h-3.5 text-[#8c8c8c]" />
-                  <span>Configurations</span>
+                  <SettingsIcon className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                  <span>Settings</span>
                 </button>
 
-                <button
-                  onClick={toggleTheme}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-[#d4d4d4] hover:text-white hover:bg-[#1f1f1f] rounded-md transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    {isDark ? (
-                      <Sun className="w-3.5 h-3.5 text-amber-400" />
-                    ) : (
-                      <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                    )}
-                    <span>{isDark ? 'Light Theme' : 'Dark Theme'}</span>
-                  </div>
-                  <span className="text-[10px] text-[#8c8c8c] font-mono">
-                    {isDark ? 'Dark' : 'Light'}
-                  </span>
-                </button>
-              </div>
+                {isAdmin() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      navigate('/users');
+                    }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
+                  >
+                    <Users className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                    <span>Users & Access</span>
+                  </button>
+                )}
 
-              {/* Sign out footer */}
-              <div className="pt-1 border-t border-[#222222]">
                 <button
+                  type="button"
                   onClick={() => {
                     setIsUserMenuOpen(false);
-                    handleLogout();
+                    navigate('/2fa');
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-[#201214] rounded-md transition-colors"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Sign out</span>
+                  <ShieldCheck className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                  <span>Two-Factor Security</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    navigate('/logs');
+                  }}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
+                >
+                  <FileText className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                  <span>Audit Logs</span>
                 </button>
               </div>
+
+              {/* Edge-to-edge line through padding */}
+              <div className="-mx-1.5 h-px bg-[#222222] my-1.5" />
+
+              {/* Theme toggle */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="w-full flex items-center justify-between px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
+              >
+                <div className="flex items-center gap-2.5">
+                  {isDark ? (
+                    <Moon className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                  )}
+                  <span>Theme</span>
+                </div>
+                <span className="text-[13px] text-[#8c8c8c] font-normal">
+                  {isDark ? 'Dark' : 'Light'}
+                </span>
+              </button>
+
+              {/* Edge-to-edge line through padding */}
+              <div className="-mx-1.5 h-px bg-[#222222] my-1.5" />
+
+              {/* Sign out */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
+              >
+                <LogOut className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                <span>Sign out</span>
+              </button>
             </div>
           )}
         </div>
