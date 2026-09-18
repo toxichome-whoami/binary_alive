@@ -14,69 +14,11 @@ import {
 } from 'lucide-react';
 import { DateRangePicker } from '../components/shared/DateRangePicker';
 import { TelemetryCard, cubicBezierY, formatTimeFromPct } from '../components/shared/TelemetryCard';
+import { DataTable, type Column } from '../components/shared/DataTable';
 
-// ============================================================================
-// Icons
-// ============================================================================
 
-const RestartIcon: React.FC<{ className?: string }> = ({ className = 'w-[15px] h-[15px]' }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-    <path d="M21 3v5h-5" />
-  </svg>
-);
 
-const CaretUpDownIcon: React.FC<{ active: boolean; direction: 'asc' | 'desc' }> = ({
-  active,
-  direction,
-}) => {
-  if (active) {
-    return direction === 'asc' ? (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="12"
-        height="12"
-        fill="currentColor"
-        viewBox="0 0 256 256"
-        className="text-[#3E8EFF] shrink-0"
-      >
-        <path d="M216.49,168.49a12,12,0,0,1-17,0L128,97,56.49,168.49a12,12,0,0,1-17-17l80-80a12,12,0,0,1,17,0l80,80A12,12,0,0,1,216.49,168.49Z" />
-      </svg>
-    ) : (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="12"
-        height="12"
-        fill="currentColor"
-        viewBox="0 0 256 256"
-        className="text-[#3E8EFF] shrink-0"
-      >
-        <path d="M216.49,104.49l-80,80a12,12,0,0,1-17,0l-80-80a12,12,0,0,1,17-17L128,159l71.51-71.52a12,12,0,0,1,17,17Z" />
-      </svg>
-    );
-  }
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="12"
-      height="12"
-      fill="currentColor"
-      viewBox="0 0 256 256"
-      className="pointer-events-none opacity-40 shrink-0 text-[#8c8c8c]"
-    >
-      <path d="M184.49,167.51a12,12,0,0,1,0,17l-48,48a12,12,0,0,1-17,0l-48-48a12,12,0,0,1,17-17L128,207l39.51-39.52A12,12,0,0,1,184.49,167.51Zm-96-79L128,49l39.51,39.52a12,12,0,0,0,17-17l-48-48a12,12,0,0,0-17,0l-48,48a12,12,0,0,0,17,17Z" />
-    </svg>
-  );
-};
+
 
 
 
@@ -620,98 +562,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
   },
 ];
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
-interface PageSizeDropdownProps {
-  pageSize: number;
-  onChange: (size: number) => void;
-}
-
-const PageSizeDropdown: React.FC<PageSizeDropdownProps> = ({ pageSize, onChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
-
-  return (
-    <div className="relative inline-block" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
-        className={`h-7 px-2.5 rounded-md bg-[#141414] border text-[13px] font-normal text-[#cccccc] hover:text-white inline-flex items-center gap-1.5 cursor-pointer transition-colors select-none ${
-          isOpen ? 'border-[#2f80ed] text-white bg-[#1a1a1a]' : 'border-[#262626] hover:border-[#383838]'
-        }`}
-        aria-label="Rows per page"
-        aria-expanded={isOpen}
-      >
-        <span className="tabular-nums">{pageSize}</span>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="11"
-          height="11"
-          fill="currentColor"
-          viewBox="0 0 256 256"
-          className={`text-[#777777] transition-transform duration-150 shrink-0 ${isOpen ? 'rotate-180 text-white' : ''}`}
-        >
-          <path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z" />
-        </svg>
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 bottom-full mb-1.5 w-20 rounded-md bg-[#0c0c0c] border border-[#262626] shadow-2xl p-1 z-50 select-none">
-          {PAGE_SIZE_OPTIONS.map((size) => {
-            const isSelected = size === pageSize;
-            return (
-              <button
-                key={size}
-                type="button"
-                onClick={() => {
-                  onChange(size);
-                  setIsOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-2.5 py-1 rounded text-[13px] transition-colors cursor-pointer text-left ${
-                  isSelected
-                    ? 'text-white bg-[#1a1a1a] font-medium'
-                    : 'text-[#8c8c8c] hover:text-white hover:bg-[#161616]'
-                }`}
-              >
-                <span className="tabular-nums">{size}</span>
-                {isSelected && (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="10"
-                    height="10"
-                    viewBox="0 0 256 256"
-                    fill="currentColor"
-                    className="text-white shrink-0 ml-1.5"
-                  >
-                    <path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
 
 export const Logs: React.FC = () => {
   const { isAdmin } = useAuthStore();
@@ -735,64 +586,7 @@ export const Logs: React.FC = () => {
   const [sortField, setSortField] = useState<string>('timestamp');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // Adjustable column widths (Cloudflare DNS table draggable resizers)
-  const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
-    timestamp: 180,
-    user: 160,
-    action: 180,
-    ip_address: 140,
-  });
-  const [resizingCol, setResizingCol] = useState<string | null>(null);
 
-  const handleResizeStart = (col: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const startX = e.clientX;
-    const defaultW = col === 'timestamp' ? 180 : col === 'user' ? 160 : col === 'action' ? 180 : 140;
-    const startWidth = columnWidths[col] || defaultW;
-    const minWidth = col === 'timestamp' ? 140 : col === 'user' ? 120 : col === 'action' ? 140 : 110;
-    const maxWidth = col === 'timestamp' ? 320 : col === 'user' ? 280 : col === 'action' ? 320 : 250;
-
-    let hasMoved = false;
-
-    setResizingCol(col);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const delta = moveEvent.clientX - startX;
-      if (Math.abs(delta) > 2) {
-        hasMoved = true;
-      }
-      const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + delta));
-      setColumnWidths((prev) => ({ ...prev, [col]: newWidth }));
-    };
-
-    const onMouseUp = () => {
-      setResizingCol(null);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-
-      if (hasMoved) {
-        const preventClickCapture = (clickEvent: MouseEvent) => {
-          clickEvent.preventDefault();
-          clickEvent.stopPropagation();
-          clickEvent.stopImmediatePropagation();
-          window.removeEventListener('click', preventClickCapture, true);
-        };
-        window.addEventListener('click', preventClickCapture, true);
-        setTimeout(() => {
-          window.removeEventListener('click', preventClickCapture, true);
-        }, 100);
-      }
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  };
 
   // SlideOver event inspector state
   const [selectedLog, setSelectedLog] = useState<AuditLog | LoginAttemptLog | null>(null);
@@ -1227,6 +1021,222 @@ export const Logs: React.FC = () => {
     );
   };
 
+  // DataTable column definitions
+  const auditColumns: Column<AuditLog>[] = useMemo(
+    () => [
+      {
+        id: 'timestamp',
+        header: 'Timestamp',
+        isSortable: true,
+        isResizable: true,
+        width: 180,
+        className: 'pl-4 pr-3',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
+            {formatTimestamp(log.timestamp)}
+          </span>
+        ),
+      },
+      {
+        id: 'username',
+        header: 'User',
+        isSortable: true,
+        isResizable: true,
+        width: 160,
+        className: 'px-3',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-white truncate group-hover/row:text-[#2f80ed] transition-colors">
+            {log.username || 'System'}
+          </span>
+        ),
+      },
+      {
+        id: 'action',
+        header: 'Action',
+        isSortable: true,
+        isResizable: true,
+        width: 180,
+        className: 'px-3',
+        cell: (log) => renderActionBadge(log.action),
+      },
+      {
+        id: 'details',
+        header: 'Details',
+        isFlex: true,
+        className: 'px-3 min-w-[280px]',
+        cell: (log) => (
+          <span
+            className="truncate text-[14px] font-normal leading-none text-[#d4d4d4] block w-full"
+            title={log.details || undefined}
+          >
+            {log.details || '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'ip_address',
+        header: 'IP Address',
+        isSortable: true,
+        isResizable: true,
+        width: 140,
+        className: 'pl-3 pr-4',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
+            {log.ip_address}
+          </span>
+        ),
+      },
+    ],
+    []
+  );
+
+  const loginColumns: Column<LoginAttemptLog>[] = useMemo(
+    () => [
+      {
+        id: 'timestamp',
+        header: 'Timestamp',
+        isSortable: true,
+        isResizable: true,
+        width: 180,
+        className: 'pl-4 pr-3',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
+            {formatTimestamp(log.timestamp)}
+          </span>
+        ),
+      },
+      {
+        id: 'username',
+        header: 'User',
+        isSortable: true,
+        isResizable: true,
+        width: 160,
+        className: 'px-3',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-white truncate group-hover/row:text-[#2f80ed] transition-colors">
+            {log.username || 'unknown'}
+          </span>
+        ),
+      },
+      {
+        id: 'action',
+        header: 'Auth Result',
+        isSortable: true,
+        isResizable: true,
+        width: 180,
+        className: 'px-3',
+        cell: (log) => (
+          <span
+            className={`text-[14px] font-normal leading-none ${
+              log.is_successful ? 'text-white' : 'text-[#e5484d]'
+            }`}
+          >
+            {log.is_successful ? 'Success' : 'Failed'}
+          </span>
+        ),
+      },
+      {
+        id: 'details',
+        header: 'Details',
+        isFlex: true,
+        className: 'px-3 min-w-[280px]',
+        cell: (log) => (
+          <span className="truncate text-[14px] font-normal leading-none text-[#d4d4d4] block w-full">
+            {log.is_successful
+              ? 'Session token issued (MFA verified)'
+              : 'Invalid password credentials (IP challenge)'}
+          </span>
+        ),
+      },
+      {
+        id: 'ip_address',
+        header: 'IP Address',
+        isSortable: true,
+        isResizable: true,
+        width: 140,
+        className: 'pl-3 pr-4',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
+            {log.ip_address}
+          </span>
+        ),
+      },
+    ],
+    []
+  );
+
+  const terminalColumns: Column<AuditLog>[] = useMemo(
+    () => [
+      {
+        id: 'timestamp',
+        header: 'Timestamp',
+        isSortable: true,
+        isResizable: true,
+        width: 180,
+        className: 'pl-4 pr-3',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
+            {formatTimestamp(log.timestamp)}
+          </span>
+        ),
+      },
+      {
+        id: 'username',
+        header: 'User',
+        isSortable: true,
+        isResizable: true,
+        width: 160,
+        className: 'px-3',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-white truncate group-hover/row:text-[#2f80ed] transition-colors">
+            {log.username || 'System'}
+          </span>
+        ),
+      },
+      {
+        id: 'action',
+        header: 'Status',
+        isSortable: true,
+        isResizable: true,
+        width: 180,
+        className: 'px-3',
+        cell: () => (
+          <span className="text-[14px] font-normal text-white leading-none">
+            Success
+          </span>
+        ),
+      },
+      {
+        id: 'details',
+        header: 'Command',
+        isFlex: true,
+        className: 'px-3 min-w-[280px]',
+        cell: (log) => (
+          <span
+            className="truncate text-[14px] font-normal leading-none text-[#d4d4d4] block w-full"
+            title={log.details || undefined}
+          >
+            $ {log.details || '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'ip_address',
+        header: 'IP Address',
+        isSortable: true,
+        isResizable: true,
+        width: 140,
+        className: 'pl-3 pr-4',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
+            {log.ip_address}
+          </span>
+        ),
+      },
+    ],
+    []
+  );
+
   return (
     <div
       style={{
@@ -1444,437 +1454,71 @@ export const Logs: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Exact Dashboard Native Table Architecture */}
-      <div className="border border-[#262626] rounded-lg overflow-hidden bg-[#0e0e0e]">
-        <div className="overflow-x-auto overflow-y-hidden">
-          <table
-            role="table"
-            aria-label="Audit and security logs"
-            className="w-full min-w-[1000px] text-left border-collapse"
-          >
-            {/* Table Head — sticky, 40px, border-b */}
-            <thead className="sticky top-0 z-10">
-              <tr
-                role="row"
-                className="flex w-full items-center border-b border-[#222222] bg-[#141414] h-[40px] min-h-[40px] max-h-[40px]"
-              >
-                {/* Timestamp */}
-                <th
-                  role="columnheader"
-                  onClick={() => handleSort('timestamp')}
-                  style={{ width: `${columnWidths.timestamp}px` }}
-                  className="group relative flex items-center shrink-0 h-[40px] pl-4 pr-3 cursor-pointer select-none rounded-tl-lg"
-                >
-                  <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none">
-                    <span>Timestamp</span>
-                    <CaretUpDownIcon active={sortField === 'timestamp'} direction={sortDirection} />
-                  </span>
-                  {/* Draggable Column Resizer */}
-                  <div
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label="Resize Timestamp column"
-                    onMouseDown={(e) => handleResizeStart('timestamp', e)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDoubleClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setColumnWidths((prev) => ({ ...prev, timestamp: 180 }));
-                    }}
-                    className="absolute -right-1.5 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer"
-                    title="Drag to resize column (double-click to reset)"
-                  >
-                    <span
-                      className={`w-px h-4 transition-colors ${
-                        resizingCol === 'timestamp' ? 'bg-[#2f80ed] h-full' : 'bg-[#262626] group-hover/resizer:bg-[#2f80ed]'
-                      }`}
-                    />
-                  </div>
-                </th>
-
-                {/* User */}
-                <th
-                  role="columnheader"
-                  onClick={() => handleSort('username')}
-                  style={{ width: `${columnWidths.user}px` }}
-                  className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
-                >
-                  <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none">
-                    <span>User</span>
-                    <CaretUpDownIcon active={sortField === 'username'} direction={sortDirection} />
-                  </span>
-                  {/* Draggable Column Resizer */}
-                  <div
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label="Resize User column"
-                    onMouseDown={(e) => handleResizeStart('user', e)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDoubleClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setColumnWidths((prev) => ({ ...prev, user: 160 }));
-                    }}
-                    className="absolute -right-1.5 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer"
-                    title="Drag to resize column (double-click to reset)"
-                  >
-                    <span
-                      className={`w-px h-4 transition-colors ${
-                        resizingCol === 'user' ? 'bg-[#2f80ed] h-full' : 'bg-[#262626] group-hover/resizer:bg-[#2f80ed]'
-                      }`}
-                    />
-                  </div>
-                </th>
-
-                {/* Action / Status */}
-                <th
-                  role="columnheader"
-                  onClick={() => handleSort('action')}
-                  style={{ width: `${columnWidths.action}px` }}
-                  className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
-                >
-                  <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none">
-                    <span>{activeTab === 'audit' ? 'Action' : activeTab === 'login' ? 'Auth Result' : 'Status'}</span>
-                    <CaretUpDownIcon active={sortField === 'action'} direction={sortDirection} />
-                  </span>
-                  {/* Draggable Column Resizer */}
-                  <div
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label="Resize Action column"
-                    onMouseDown={(e) => handleResizeStart('action', e)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDoubleClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setColumnWidths((prev) => ({ ...prev, action: 180 }));
-                    }}
-                    className="absolute -right-1.5 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer"
-                    title="Drag to resize column (double-click to reset)"
-                  >
-                    <span
-                      className={`w-px h-4 transition-colors ${
-                        resizingCol === 'action' ? 'bg-[#2f80ed] h-full' : 'bg-[#262626] group-hover/resizer:bg-[#2f80ed]'
-                      }`}
-                    />
-                  </div>
-                </th>
-
-                {/* Details / Command */}
-                <th
-                  role="columnheader"
-                  className="relative flex items-center flex-1 min-w-[280px] h-[40px] px-3 select-none"
-                >
-                  <span className="text-[14px] font-medium text-white leading-none">
-                    {activeTab === 'terminal' ? 'Command Line' : 'Event Details'}
-                  </span>
-                </th>
-
-                {/* IP Address */}
-                <th
-                  role="columnheader"
-                  onClick={() => handleSort('ip_address')}
-                  style={{ width: `${columnWidths.ip_address}px` }}
-                  className="group relative flex items-center shrink-0 h-[40px] pl-3 pr-4 cursor-pointer select-none rounded-tr-lg"
-                >
-                  <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none">
-                    <span>Client IP</span>
-                    <CaretUpDownIcon active={sortField === 'ip_address'} direction={sortDirection} />
-                  </span>
-                </th>
-              </tr>
-            </thead>
-
-            {/* Table Body */}
-            <tbody role="rowgroup" className="divide-y divide-[#1e1e1e]">
-              {isLoading ? (
-                <tr role="row">
-                  <td role="cell" colSpan={5} className="px-4 py-12 text-center bg-[#0e0e0e]">
-                    <div className="flex items-center justify-center gap-2">
-                      <RestartIcon className="w-4 h-4 animate-spin text-[#8c8c8c]" />
-                      <span className="text-[14px] text-[#8c8c8c]">Loading event stream…</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : activeTab === 'audit' ? (
-                paginatedAuditLogs.length === 0 ? (
-                  <tr role="row">
-                    <td role="cell" colSpan={5} className="px-4 py-12 text-center bg-[#0e0e0e]">
-                      <p className="text-[14px] leading-relaxed text-[#6b6b6b] font-normal">
-                        No audit events matching current search criteria.
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedAuditLogs.map((log) => (
-                    <tr
-                      key={log.id}
-                      role="row"
-                      onClick={() => setSelectedLog(log)}
-                      className="group/row flex w-full items-center h-[40px] min-h-[40px] max-h-[40px] border-b border-[#1e1e1e] bg-[#0e0e0e] hover:bg-[#161616] transition-colors cursor-pointer"
-                    >
-                      {/* Timestamp */}
-                      <td
-                        role="cell"
-                        style={{ width: `${columnWidths.timestamp}px` }}
-                        className="flex items-center shrink-0 h-[40px] pl-4 pr-3 overflow-hidden"
-                      >
-                        <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
-                          {formatTimestamp(log.timestamp)}
-                        </span>
-                      </td>
-
-                      {/* User */}
-                      <td
-                        role="cell"
-                        style={{ width: `${columnWidths.user}px` }}
-                        className="flex items-center shrink-0 h-[40px] px-3 overflow-hidden"
-                      >
-                        <span className="text-[14px] font-normal text-white truncate group-hover/row:text-[#2f80ed] transition-colors">
-                          {log.username || 'System'}
-                        </span>
-                      </td>
-
-                      {/* Action */}
-                      <td
-                        role="cell"
-                        style={{ width: `${columnWidths.action}px` }}
-                        className="flex items-center shrink-0 h-[40px] px-3 overflow-hidden"
-                      >
-                        {renderActionBadge(log.action)}
-                      </td>
-
-                      {/* Details */}
-                      <td role="cell" className="flex items-center flex-1 min-w-[280px] h-[40px] px-3 overflow-hidden">
-                        <span className="truncate text-[14px] font-normal leading-none text-[#d4d4d4] block w-full" title={log.details || undefined}>
-                          {log.details || '—'}
-                        </span>
-                      </td>
-
-                      {/* IP Address */}
-                      <td
-                        role="cell"
-                        style={{ width: `${columnWidths.ip_address}px` }}
-                        className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
-                      >
-                        <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
-                          {log.ip_address}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )
-              ) : activeTab === 'login' ? (
-                paginatedLoginLogs.length === 0 ? (
-                  <tr role="row">
-                    <td role="cell" colSpan={5} className="px-4 py-12 text-center bg-[#0e0e0e]">
-                      <p className="text-[14px] leading-relaxed text-[#6b6b6b] font-normal">
-                        No login attempts matching current search criteria.
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedLoginLogs.map((log) => {
-                    const isSuccess = Boolean(log.is_successful);
-                    return (
-                      <tr
-                        key={log.id}
-                        role="row"
-                        onClick={() => setSelectedLog(log)}
-                        className="group/row flex w-full items-center h-[40px] min-h-[40px] max-h-[40px] border-b border-[#1e1e1e] bg-[#0e0e0e] hover:bg-[#161616] transition-colors cursor-pointer"
-                      >
-                        {/* Timestamp */}
-                        <td
-                          role="cell"
-                          style={{ width: `${columnWidths.timestamp}px` }}
-                          className="flex items-center shrink-0 h-[40px] pl-4 pr-3 overflow-hidden"
-                        >
-                          <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
-                            {formatTimestamp(log.timestamp)}
-                          </span>
-                        </td>
-
-                        {/* User */}
-                        <td
-                          role="cell"
-                          style={{ width: `${columnWidths.user}px` }}
-                          className="flex items-center shrink-0 h-[40px] px-3 overflow-hidden"
-                        >
-                          <span className="text-[14px] font-normal text-white truncate group-hover/row:text-[#2f80ed] transition-colors">
-                            {log.username || 'unknown'}
-                          </span>
-                        </td>
-
-                        {/* Status */}
-                        <td
-                          role="cell"
-                          style={{ width: `${columnWidths.action}px` }}
-                          className="flex items-center shrink-0 h-[40px] px-3 overflow-hidden"
-                        >
-                          <span
-                            className={`text-[14px] font-normal leading-none ${
-                              isSuccess ? 'text-white' : 'text-[#e5484d]'
-                            }`}
-                          >
-                            {isSuccess ? 'Success' : 'Failed'}
-                          </span>
-                        </td>
-
-                        {/* Details */}
-                        <td role="cell" className="flex items-center flex-1 min-w-[280px] h-[40px] px-3 overflow-hidden">
-                          <span className="truncate text-[14px] font-normal leading-none text-[#d4d4d4] block w-full">
-                            {isSuccess ? 'Session token issued (MFA verified)' : 'Invalid password credentials (IP challenge)'}
-                          </span>
-                        </td>
-
-                        {/* IP Address */}
-                        <td
-                          role="cell"
-                          style={{ width: `${columnWidths.ip_address}px` }}
-                          className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
-                        >
-                          <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
-                            {log.ip_address}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )
-              ) : (
-                /* Terminal Tab */
-                paginatedTermLogs.length === 0 ? (
-                  <tr role="row">
-                    <td role="cell" colSpan={5} className="px-4 py-12 text-center bg-[#0e0e0e]">
-                      <p className="text-[14px] leading-relaxed text-[#6b6b6b] font-normal">
-                        No terminal commands matching current search criteria.
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedTermLogs.map((log) => (
-                    <tr
-                      key={log.id}
-                      role="row"
-                      onClick={() => setSelectedLog(log)}
-                      className="group/row flex w-full items-center h-[40px] min-h-[40px] max-h-[40px] border-b border-[#1e1e1e] bg-[#0e0e0e] hover:bg-[#161616] transition-colors cursor-pointer"
-                    >
-                      {/* Timestamp */}
-                      <td
-                        role="cell"
-                        style={{ width: `${columnWidths.timestamp}px` }}
-                        className="flex items-center shrink-0 h-[40px] pl-4 pr-3 overflow-hidden"
-                      >
-                        <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
-                          {formatTimestamp(log.timestamp)}
-                        </span>
-                      </td>
-
-                      {/* User */}
-                      <td
-                        role="cell"
-                        style={{ width: `${columnWidths.user}px` }}
-                        className="flex items-center shrink-0 h-[40px] px-3 overflow-hidden"
-                      >
-                        <span className="text-[14px] font-normal text-white truncate group-hover/row:text-[#2f80ed] transition-colors">
-                          {log.username || 'System'}
-                        </span>
-                      </td>
-
-                      {/* Status */}
-                      <td
-                        role="cell"
-                        style={{ width: `${columnWidths.action}px` }}
-                        className="flex items-center shrink-0 h-[40px] px-3 overflow-hidden"
-                      >
-                        <span className="text-[14px] font-normal text-white leading-none">
-                          Success
-                        </span>
-                      </td>
-
-                      {/* Command */}
-                      <td role="cell" className="flex items-center flex-1 min-w-[280px] h-[40px] px-3 overflow-hidden">
-                        <span className="truncate text-[14px] font-normal leading-none text-[#d4d4d4] block w-full" title={log.details || undefined}>
-                          $ {log.details || '—'}
-                        </span>
-                      </td>
-
-                      {/* IP Address */}
-                      <td
-                        role="cell"
-                        style={{ width: `${columnWidths.ip_address}px` }}
-                        className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
-                      >
-                        <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
-                          {log.ip_address}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Cloudflare Exact Pagination Footer */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-t border-[#222222] bg-[#0e0e0e] rounded-b-lg">
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] text-[#8c8c8c] font-normal select-none">
-              Showing <span className="text-[#cccccc] font-medium tabular-nums">{activeCount > 0 ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, activeCount)}</span> of <span className="text-[#cccccc] font-medium tabular-nums">{activeCount}</span>
-            </span>
-            <div className="flex items-center gap-2 text-[13px] text-[#8c8c8c] select-none ml-2">
-              <span>Rows per page:</span>
-              <PageSizeDropdown
-                pageSize={pageSize}
-                onChange={(newSize) => {
-                  setPageSize(newSize);
-                  setPage(1);
-                }}
-              />
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2 select-none">
-            <button
-              type="button"
-              disabled={page <= 1 || isLoading}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[13px] font-normal text-[#8c8c8c] hover:text-white hover:bg-[#161616] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:hover:text-[#8c8c8c] disabled:cursor-not-allowed transition-all cursor-pointer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
-                <path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z" />
-              </svg>
-              <span>Previous</span>
-            </button>
-
-            <span className="text-[13px] text-[#8c8c8c] px-1 font-normal">
-              Page <span className="text-[#cccccc] font-medium tabular-nums">{page}</span> of <span className="text-[#cccccc] font-medium tabular-nums">{Math.max(1, Math.ceil(activeCount / pageSize))}</span>
-            </span>
-
-            <button
-              type="button"
-              disabled={page >= Math.ceil(activeCount / pageSize) || isLoading}
-              onClick={() => setPage((p) => p + 1)}
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[13px] font-normal text-[#8c8c8c] hover:text-white hover:bg-[#161616] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:hover:text-[#8c8c8c] disabled:cursor-not-allowed transition-all cursor-pointer"
-            >
-              <span>Next</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
-                <path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* 4. Telemetry Log Stream Table */}
+      {activeTab === 'audit' ? (
+        <DataTable
+          columns={auditColumns}
+          data={paginatedAuditLogs}
+          isLoading={isLoading}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          onRowClick={(log) => setSelectedLog(log)}
+          emptyMessage="No audit events matching current search criteria."
+          pagination={{
+            page,
+            pageSize,
+            totalCount: activeCount,
+            onPageChange: setPage,
+            onPageSizeChange: (newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            },
+          }}
+        />
+      ) : activeTab === 'login' ? (
+        <DataTable
+          columns={loginColumns}
+          data={paginatedLoginLogs}
+          isLoading={isLoading}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          onRowClick={(log) => setSelectedLog(log)}
+          emptyMessage="No login attempts matching current search criteria."
+          pagination={{
+            page,
+            pageSize,
+            totalCount: activeCount,
+            onPageChange: setPage,
+            onPageSizeChange: (newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            },
+          }}
+        />
+      ) : (
+        <DataTable
+          columns={terminalColumns}
+          data={paginatedTermLogs}
+          isLoading={isLoading}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          onRowClick={(log) => setSelectedLog(log)}
+          emptyMessage="No terminal commands matching current search criteria."
+          pagination={{
+            page,
+            pageSize,
+            totalCount: activeCount,
+            onPageChange: setPage,
+            onPageSizeChange: (newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            },
+          }}
+        />
+      )}
 
       {/* 5. SlideOver Event Inspector Drawer */}
       <SlideOver

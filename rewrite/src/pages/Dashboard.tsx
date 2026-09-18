@@ -1842,7 +1842,7 @@ export const Dashboard: React.FC = () => {
               {liveEditingProcess.pid && (
                 <>
                   <span className="text-[#555555]">•</span>
-                  <span className="font-mono">PID {liveEditingProcess.pid}</span>
+                  <span className="font-sans tabular-nums">PID {liveEditingProcess.pid}</span>
                 </>
               )}
               {liveEditingProcess.group_name && (
@@ -1909,30 +1909,30 @@ export const Dashboard: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* Live Process Telemetry Inset Card */}
             {liveEditingProcess && (
-              <div className="p-3.5 rounded-lg bg-[#141414] border border-[#262626]">
+              <div className="p-3.5 rounded-lg bg-[#141414] border border-[#262626] font-sans">
                 {/* 4 Telemetry Metrics */}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-2 font-sans">
                   <div className="min-w-0">
                     <div className="text-[12px] text-[#8c8c8c] font-sans">CPU</div>
-                    <div className="text-[14px] font-normal text-white font-mono mt-0.5 tabular-nums truncate" title={liveEditingProcess.cpu ? `${liveEditingProcess.cpu}` : '0.0%'}>
+                    <div className="text-[14px] font-normal text-white font-sans mt-0.5 tabular-nums truncate" title={liveEditingProcess.cpu ? `${liveEditingProcess.cpu}` : '0.0%'}>
                       {liveEditingProcess.cpu ? `${liveEditingProcess.cpu}` : '0.0%'}
                     </div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-[12px] text-[#8c8c8c] font-sans">Memory</div>
-                    <div className="text-[14px] font-normal text-white font-mono mt-0.5 tabular-nums truncate" title={liveEditingProcess.mem || '0 MB'}>
+                    <div className="text-[14px] font-normal text-white font-sans mt-0.5 tabular-nums truncate" title={liveEditingProcess.mem || '0 MB'}>
                       {liveEditingProcess.mem || '0 MB'}
                     </div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-[12px] text-[#8c8c8c] font-sans">Uptime</div>
-                    <div className="text-[14px] font-normal text-white font-mono mt-0.5 tabular-nums truncate" title={liveEditingProcess.status === 'running' ? (liveEditingProcess.uptime || '0m') : 'Stopped'}>
+                    <div className="text-[14px] font-normal text-white font-sans mt-0.5 tabular-nums truncate" title={liveEditingProcess.status === 'running' ? (liveEditingProcess.uptime || '0m') : 'Stopped'}>
                       {liveEditingProcess.status === 'running' ? (liveEditingProcess.uptime || '0m') : 'Stopped'}
                     </div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-[12px] text-[#8c8c8c] font-sans">Restarts</div>
-                    <div className={`text-[14px] font-normal font-mono mt-0.5 tabular-nums truncate ${
+                    <div className={`text-[14px] font-normal font-sans mt-0.5 tabular-nums truncate ${
                       (liveEditingProcess.restart_count || 0) > 0 ? 'text-[#f59e0b]' : 'text-white'
                     }`} title={String(liveEditingProcess.restart_count || 0)}>
                       {liveEditingProcess.restart_count || 0}
