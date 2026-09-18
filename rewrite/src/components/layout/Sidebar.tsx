@@ -416,8 +416,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       ✕
                     </button>
                   ) : (
-                    <kbd className="ml-auto font-sans text-[11px] text-[#71717a] whitespace-nowrap">
-                      <span className="opacity-60">Ctrl</span> K
+                    <kbd className="ml-auto font-sans text-xs font-semibold text-[#d4d4d4] whitespace-nowrap select-none pointer-events-none shrink-0">
+                      <span className="text-[#8c8c8c] font-medium">Ctrl</span>&nbsp;K
                     </kbd>
                   )}
                 </div>

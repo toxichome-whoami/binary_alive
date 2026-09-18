@@ -4,7 +4,6 @@ import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import { processesApi, type CreateProcessPayload } from '../api/processes';
 import type { Process } from '../types';
-import { Button } from '../components/ui/Button';
 import { SlideOver } from '../components/ui/SlideOver';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog';
 import { CloudflareAnalytics } from '../components/dashboard/CloudflareAnalytics';
@@ -845,7 +844,7 @@ export const Dashboard: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1 select-none">
         {/* Search Input Group */}
         <label
-          title={`Search processes (${isMac ? '⌘K' : 'Ctrl+K'} or /)`}
+          title={`Search processes (/ or ${isMac ? '⌘K' : 'Ctrl+K'})`}
           className="relative flex items-center h-9 rounded-lg bg-transparent border border-[#262626] focus-within:border-[#2f80ed] transition-colors px-3 gap-2 w-full sm:w-[280px] md:w-[320px]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" className="text-[#8c8c8c] shrink-0">
@@ -887,8 +886,8 @@ export const Dashboard: React.FC = () => {
               </svg>
             </button>
           ) : (
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[11px] font-mono font-medium text-[#737373] bg-[#141414] border border-[#2a2a2a] rounded select-none pointer-events-none shrink-0 tracking-tight leading-none">
-              {isMac ? '⌘K' : 'Ctrl K'}
+            <kbd className="hidden sm:inline-flex items-center ml-auto font-sans text-xs font-semibold text-[#d4d4d4] whitespace-nowrap select-none pointer-events-none shrink-0">
+              /
             </kbd>
           )}
         </label>
@@ -1365,7 +1364,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Inset Table Card with rounded corners matching media_1789681293575.png */}
-        <div className="mx-3.5 mb-3.5 border border-[#262626] rounded-lg overflow-hidden bg-[#0e0e0e]">
+        <div className="mx-[6px] mb-[6px] border border-[#262626] rounded-lg overflow-hidden bg-[#0e0e0e]">
           {/* Table surface — native table, sticky header */}
           <div className="overflow-x-auto overflow-y-hidden">
             <table

@@ -83,7 +83,7 @@ export const SlideOver: React.FC<SlideOverProps> = ({
           </div>
 
           {/* Inset Container ("container in container" like table and calendar) */}
-          <div className="mx-3 mb-3 flex-1 flex flex-col border border-[#262626] rounded-tl-xl rounded-bl-xl rounded-tr-md rounded-br-md bg-[#0e0e0e] overflow-hidden min-h-0">
+          <div className="mx-[6px] mb-[6px] flex-1 flex flex-col border border-[#262626] rounded-tl-xl rounded-bl-xl rounded-tr-md rounded-br-md bg-[#0e0e0e] overflow-hidden min-h-0">
             {children}
           </div>
         </div>

@@ -534,7 +534,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
             </button>
 
             {showDatePicker && (
-              <div className="absolute right-0 top-11 z-50 flex flex-col rounded-xl bg-[#0c0c0c] border border-[#262626] shadow-2xl p-1.5 w-[560px] max-w-[calc(100vw-32px)] select-none font-sans animate-in fade-in">
+              <div className="absolute right-0 top-11 z-50 flex flex-col rounded-xl bg-[#0c0c0c] border border-[#262626] shadow-2xl p-1.5 w-[490px] sm:w-[500px] max-w-[calc(100vw-32px)] select-none font-sans animate-in fade-in">
                 <div className="min-h-0 bg-[#0e0e0e] border border-[#222222] rounded-lg overflow-hidden">
                   {/* Top input: Custom range */}
                   <div className="border-b border-[#222222]">
@@ -559,41 +559,45 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
 
                   {/* Calendar + Presets Container */}
                   <div className="flex flex-col sm:flex-row">
-                    {/* Left: Calendar (the date pick - 13px) */}
-                    <div className="mx-auto shrink-0 px-4 py-2 sm:mx-0 select-none">
-                      {/* Nav bar */}
-                      <div className="flex items-center justify-between py-1.5 px-0.5">
-                        <button
-                          type="button"
-                          onClick={handlePrevMonth}
-                          className="w-7 h-7 flex items-center justify-center rounded text-[#8c8c8c] hover:text-white hover:bg-[#1f1f1f] transition-colors cursor-pointer"
-                          aria-label="Previous Month"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256">
-                            <path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z" />
-                          </svg>
-                        </button>
+                    {/* Left: Calendar (expanded width) */}
+                    <div className="flex-1 min-w-0 p-3 sm:p-3.5 select-none">
+                      {/* Nav bar: Month name on left, arrows on right */}
+                      <div className="flex items-center justify-between pb-2 pt-0.5 px-0.5">
                         <span className="text-[14px] font-medium text-white font-sans">
                           {currentMonthDate.toLocaleString('default', { month: 'long' })} {currentMonthDate.getFullYear()}
                         </span>
-                        <button
-                          type="button"
-                          onClick={handleNextMonth}
-                          className="w-7 h-7 flex items-center justify-center rounded text-[#8c8c8c] hover:text-white hover:bg-[#1f1f1f] transition-colors cursor-pointer"
-                          aria-label="Next Month"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256">
-                            <path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={handlePrevMonth}
+                            className="w-7 h-7 flex items-center justify-center rounded text-[#8c8c8c] hover:text-white hover:bg-[#1f1f1f] transition-colors cursor-pointer"
+                            aria-label="Previous Month"
+                            title="Previous month"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256">
+                              <path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleNextMonth}
+                            className="w-7 h-7 flex items-center justify-center rounded text-[#8c8c8c] hover:text-white hover:bg-[#1f1f1f] transition-colors cursor-pointer"
+                            aria-label="Next Month"
+                            title="Next month"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256">
+                              <path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Month Grid Table */}
-                      <table role="grid" className="w-full border-collapse">
+                      <table role="grid" className="w-full border-collapse table-fixed">
                         <thead>
                           <tr>
                             {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                              <th key={d} className="w-8 h-8 text-[13px] font-medium text-[#666666] text-center font-sans">
+                              <th key={d} className="h-8 text-[13px] font-medium text-[#666666] text-center font-sans">
                                 {d}
                               </th>
                             ))}
@@ -631,7 +635,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleDayClick(item.date)}
-                                      className={`w-8 h-8 flex items-center justify-center text-[13px] transition-colors cursor-pointer font-sans ${cellBg} ${roundedClass} ${
+                                      className={`w-full h-8 sm:h-8.5 flex items-center justify-center text-[13px] transition-colors cursor-pointer font-sans ${cellBg} ${roundedClass} ${
                                         !isStart && !isEnd && !inRange ? 'hover:bg-[#1f1f1f]' : ''
                                       } ${textClass} ${today && !isStart && !isEnd ? 'ring-1 ring-[#555555]' : ''}`}
                                     >
@@ -646,8 +650,8 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                       </table>
                     </div>
 
-                    {/* Right: Presets List (14px) */}
-                    <div className="relative w-full border-t border-[#222222] sm:w-[190px] sm:shrink-0 sm:border-t-0 sm:border-l border-[#222222] p-2 flex flex-col gap-0.5">
+                    {/* Right: Presets List */}
+                    <div className="relative w-full border-t border-[#222222] sm:w-[154px] sm:shrink-0 sm:border-t-0 sm:border-l border-[#222222] p-1.5 flex flex-col gap-0.5 justify-center">
                       {DATE_PRESETS.map((preset) => {
                         const isSelected = activePreset === preset.label;
                         return (
@@ -655,10 +659,10 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                             key={preset.label}
                             type="button"
                             onClick={() => handleSelectPreset(preset.label, preset.minutes)}
-                            className={`flex w-full px-2.5 py-1.5 text-[14px] rounded-md items-center justify-between text-left transition-colors cursor-pointer font-sans ${
+                            className={`flex w-full px-2.5 py-1.5 text-[14px] rounded-md items-center justify-between text-left transition-colors cursor-pointer font-sans whitespace-nowrap ${
                               isSelected
                                 ? 'bg-[#1f1f1f] text-white font-medium'
-                                : 'text-[#b0b0b0] hover:text-white hover:bg-[#161616]'
+                                : 'text-[#a0a0a0] hover:text-white hover:bg-[#161616]'
                             }`}
                           >
                             <span>{preset.label}</span>
