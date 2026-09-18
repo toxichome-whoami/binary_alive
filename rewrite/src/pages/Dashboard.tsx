@@ -1828,86 +1828,137 @@ export const Dashboard: React.FC = () => {
         title={editingProcess ? 'Edit process' : 'Add process'}
         subtitle={
           liveEditingProcess ? (
-            <div className="flex items-center gap-2 text-[14px] text-[#8c8c8c] mt-0.5">
+            <div className="flex items-center gap-2 text-[13px] text-[#8c8c8c] mt-0.5 font-sans">
               <span
                 className={`inline-block w-2 h-2 rounded-full shrink-0 ${
                   liveEditingProcess.status === 'running'
-                    ? 'bg-[#10b981]'
+                    ? 'bg-[#30a46c]'
                     : liveEditingProcess.status === 'crashed'
                     ? 'bg-[#f59e0b]'
-                    : 'bg-[#ef4444]'
+                    : 'bg-[#555555]'
                 }`}
               />
-              <span className="capitalize font-medium text-[#d4d4d4]">{liveEditingProcess.status}</span>
+              <span className="capitalize font-medium text-white">{liveEditingProcess.status}</span>
               {liveEditingProcess.pid && (
                 <>
                   <span className="text-[#555555]">•</span>
-                  <span>PID {liveEditingProcess.pid}</span>
+                  <span className="font-mono">PID {liveEditingProcess.pid}</span>
+                </>
+              )}
+              {liveEditingProcess.group_name && (
+                <>
+                  <span className="text-[#555555]">•</span>
+                  <span className="truncate max-w-[120px]" title={`Group: ${liveEditingProcess.group_name}`}>
+                    {liveEditingProcess.group_name}
+                  </span>
                 </>
               )}
             </div>
-          ) : undefined
+          ) : (
+            <span className="text-[13px] text-[#8c8c8c]">Register and start a new background process</span>
+          )
         }
       >
-        <form onSubmit={handleSaveProcess} className="flex flex-col h-full min-h-0">
-          {/* Scrollable Form Body */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
-            {/* Action buttons (Clean Cloudflare toolbar style) */}
-            {liveEditingProcess && canControl() && (
-              <div className="flex items-center gap-2 pb-2.5 mb-0.5">
+        <form onSubmit={handleSaveProcess} className="flex flex-col h-full min-h-0 bg-[#0e0e0e]">
+          {/* Action buttons (Clean Cloudflare toolbar style) */}
+          {liveEditingProcess && canControl() && (
+            <div className="shrink-0 px-4 py-2.5 bg-[#141414] border-b border-[#222222] flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   disabled={liveEditingProcess.status === 'running' || !!actionLoadingMap[`${liveEditingProcess.id}-start`]}
                   onClick={() => handleControl(liveEditingProcess.id, 'start')}
-                  className="h-8 px-3 rounded-lg text-[14px] font-medium text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  className="h-8 px-3 rounded-lg text-[13px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1c1c1c] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  {actionLoadingMap[`${liveEditingProcess.id}-start`] ? 'Starting...' : 'Start'}
+                  <PlayIcon className="w-3.5 h-3.5 text-[#8c8c8c]" />
+                  <span>{actionLoadingMap[`${liveEditingProcess.id}-start`] ? 'Starting...' : 'Start'}</span>
                 </button>
                 <button
                   type="button"
                   disabled={liveEditingProcess.status !== 'running' || !!actionLoadingMap[`${liveEditingProcess.id}-stop`]}
                   onClick={() => handleControl(liveEditingProcess.id, 'stop')}
-                  className="h-8 px-3 rounded-lg text-[14px] font-medium text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  className="group h-8 px-3 rounded-lg text-[13px] font-medium text-[#cccccc] hover:text-[#e5484d] bg-transparent hover:bg-[#e5484d]/10 border border-[#262626] hover:border-[#e5484d]/40 disabled:opacity-30 disabled:hover:text-[#cccccc] disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  {actionLoadingMap[`${liveEditingProcess.id}-stop`] ? 'Stopping...' : 'Stop'}
+                  <StopIcon className="w-3.5 h-3.5 text-[#8c8c8c] group-hover:text-[#e5484d] transition-colors" />
+                  <span>{actionLoadingMap[`${liveEditingProcess.id}-stop`] ? 'Stopping...' : 'Stop'}</span>
                 </button>
                 <button
                   type="button"
                   disabled={!!actionLoadingMap[`${liveEditingProcess.id}-restart`]}
                   onClick={() => handleControl(liveEditingProcess.id, 'restart')}
-                  className="h-8 px-3 rounded-lg text-[14px] font-medium text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  className="h-8 px-3 rounded-lg text-[13px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1c1c1c] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  {actionLoadingMap[`${liveEditingProcess.id}-restart`] ? 'Restarting...' : 'Restart'}
+                  <RestartIcon className={`w-3.5 h-3.5 text-[#8c8c8c] ${actionLoadingMap[`${liveEditingProcess.id}-restart`] ? 'animate-spin' : ''}`} />
+                  <span>{actionLoadingMap[`${liveEditingProcess.id}-restart`] ? 'Restarting...' : 'Restart'}</span>
                 </button>
-                {isAdmin() && (
-                  <button
-                    type="button"
-                    onClick={() => setDeletingId(liveEditingProcess.id)}
-                    className="h-8 px-3 rounded-lg text-[14px] font-medium text-[#8c8c8c] hover:text-[#ef4444] bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#ef4444]/40 transition-colors cursor-pointer ml-auto"
-                  >
-                    Delete
-                  </button>
-                )}
+              </div>
+              {isAdmin() && (
+                <button
+                  type="button"
+                  onClick={() => setDeletingId(liveEditingProcess.id)}
+                  className="h-8 px-3 rounded-lg text-[13px] font-medium text-white bg-[#e5484d] hover:bg-[#d03d42] border border-[#f87171]/40 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 ml-auto"
+                >
+                  <TrashIcon className="w-3.5 h-3.5 text-white" />
+                  <span>Delete</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Scrollable Form Body */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Live Process Telemetry Inset Card */}
+            {liveEditingProcess && (
+              <div className="p-3.5 rounded-lg bg-[#141414] border border-[#262626]">
+                {/* 4 Telemetry Metrics */}
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[12px] text-[#8c8c8c] font-sans">CPU</div>
+                    <div className="text-[14px] font-normal text-white font-mono mt-0.5 tabular-nums truncate" title={liveEditingProcess.cpu ? `${liveEditingProcess.cpu}` : '0.0%'}>
+                      {liveEditingProcess.cpu ? `${liveEditingProcess.cpu}` : '0.0%'}
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[12px] text-[#8c8c8c] font-sans">Memory</div>
+                    <div className="text-[14px] font-normal text-white font-mono mt-0.5 tabular-nums truncate" title={liveEditingProcess.mem || '0 MB'}>
+                      {liveEditingProcess.mem || '0 MB'}
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[12px] text-[#8c8c8c] font-sans">Uptime</div>
+                    <div className="text-[14px] font-normal text-white font-mono mt-0.5 tabular-nums truncate" title={liveEditingProcess.status === 'running' ? (liveEditingProcess.uptime || '0m') : 'Stopped'}>
+                      {liveEditingProcess.status === 'running' ? (liveEditingProcess.uptime || '0m') : 'Stopped'}
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[12px] text-[#8c8c8c] font-sans">Restarts</div>
+                    <div className={`text-[14px] font-normal font-mono mt-0.5 tabular-nums truncate ${
+                      (liveEditingProcess.restart_count || 0) > 0 ? 'text-[#f59e0b]' : 'text-white'
+                    }`} title={String(liveEditingProcess.restart_count || 0)}>
+                      {liveEditingProcess.restart_count || 0}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
             {/* Form fields */}
             <div>
-              <label className="block text-[14px] font-medium text-[#a1a1a1] mb-1.5">
-                Name
+              <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
+                Process Name <span className="text-[#ef4444]">*</span>
               </label>
               <input
                 type="text"
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Process name"
-                className="w-full h-9 px-3 rounded-lg bg-[#080808] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors"
+                placeholder="e.g. api-server"
+                className="w-full h-9 px-3 rounded-lg bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
               />
             </div>
 
             <div>
-              <label className="block text-[14px] font-medium text-[#a1a1a1] mb-1.5">
+              <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
                 Group
               </label>
               <input
@@ -1916,7 +1967,7 @@ export const Dashboard: React.FC = () => {
                 value={formData.group_name}
                 onChange={(e) => setFormData({ ...formData, group_name: e.target.value })}
                 placeholder="Default"
-                className="w-full h-9 px-3 rounded-lg bg-[#080808] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors"
+                className="w-full h-9 px-3 rounded-lg bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
               />
               <datalist id="drawer-available-groups">
                 {availableGroups.map((g) => (
@@ -1926,62 +1977,77 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-[14px] font-medium text-[#a1a1a1] mb-1.5">
-                Command
+              <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
+                Command <span className="text-[#ef4444]">*</span>
               </label>
-              <input
-                type="text"
-                required
-                value={formData.command}
-                onChange={(e) => setFormData({ ...formData, command: e.target.value })}
-                placeholder="./run.sh"
-                className="w-full h-9 px-3 font-mono text-[14px] rounded-lg bg-[#080808] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[#e0e0e0] placeholder-[#555555] outline-none transition-colors"
-              />
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-[#666666] font-mono text-[13px] select-none">$</span>
+                <input
+                  type="text"
+                  required
+                  value={formData.command}
+                  onChange={(e) => setFormData({ ...formData, command: e.target.value })}
+                  placeholder="./run.sh"
+                  className="w-full h-9 pl-7 pr-3 font-mono text-[14px] rounded-lg bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-white placeholder-[#555555] outline-none transition-colors"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="block text-[14px] font-medium text-[#a1a1a1] mb-1.5">
-                Working directory <span className="text-[13px] font-normal text-[#666666] ml-1">(optional)</span>
+              <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
+                Working directory <span className="text-[12px] font-normal text-[#666666] ml-1">(optional)</span>
               </label>
               <input
                 type="text"
                 value={formData.working_dir}
                 onChange={(e) => setFormData({ ...formData, working_dir: e.target.value })}
                 placeholder="/path/to/directory"
-                className="w-full h-9 px-3 font-mono text-[14px] rounded-lg bg-[#080808] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[#e0e0e0] placeholder-[#555555] outline-none transition-colors"
+                className="w-full h-9 px-3 font-mono text-[14px] rounded-lg bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-white placeholder-[#555555] outline-none transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-[14px] font-medium text-[#a1a1a1] mb-1.5">
-                Log file <span className="text-[13px] font-normal text-[#666666] ml-1">(optional)</span>
+              <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
+                Log file <span className="text-[12px] font-normal text-[#666666] ml-1">(optional)</span>
               </label>
               <input
                 type="text"
                 value={formData.log_file}
                 onChange={(e) => setFormData({ ...formData, log_file: e.target.value })}
                 placeholder="output.log"
-                className="w-full h-9 px-3 font-mono text-[14px] rounded-lg bg-[#080808] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[#e0e0e0] placeholder-[#555555] outline-none transition-colors"
+                className="w-full h-9 px-3 font-mono text-[14px] rounded-lg bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-white placeholder-[#555555] outline-none transition-colors"
               />
             </div>
           </div>
 
           {/* Pinned Bottom Footer Bar */}
-          <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setIsSlideOverOpen(false)}
-              className="h-9 px-4 rounded-lg text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={formLoading}
-              className="h-9 px-5 rounded-lg text-[14px] font-medium text-white bg-[#2f80ed] hover:bg-[#2563eb] disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
-            >
-              {formLoading ? 'Saving...' : 'Save'}
-            </button>
+          <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-between">
+            <span className="text-[13px] text-[#8c8c8c] font-sans flex items-center gap-2">
+              {liveEditingProcess ? (
+                <>
+                  <span className={`w-2 h-2 rounded-full ${liveEditingProcess.status === 'running' ? 'bg-[#30a46c]' : 'bg-[#555555]'}`} />
+                  <span>{liveEditingProcess.status === 'running' ? 'Active telemetry' : 'Process stopped'}</span>
+                </>
+              ) : (
+                <span>New background process</span>
+              )}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsSlideOverOpen(false)}
+                className="h-9 px-4 rounded-lg text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={formLoading}
+                className="h-9 px-5 rounded-lg text-[14px] font-medium text-white bg-[#2f80ed] hover:bg-[#2563eb] disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
+              >
+                {formLoading ? 'Saving...' : 'Save'}
+              </button>
+            </div>
           </div>
         </form>
       </SlideOver>

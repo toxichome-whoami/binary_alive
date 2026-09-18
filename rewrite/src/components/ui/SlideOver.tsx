@@ -61,7 +61,7 @@ export const SlideOver: React.FC<SlideOverProps> = ({
           {/* Outer Header Bar (Title & metadata on pure black frame) */}
           <div className="flex items-center justify-between px-4 py-3 bg-black shrink-0">
             <div className="min-w-0 pr-2">
-              <h2 className="text-[15px] font-semibold text-white tracking-tight truncate">{title}</h2>
+              <h2 className="text-[15px] font-semibold text-white tracking-tight truncate" title={title}>{title}</h2>
               {subtitle && <div className="mt-0.5">{subtitle}</div>}
             </div>
             <button

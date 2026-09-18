@@ -1815,8 +1815,11 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                 </div>
               </div>
 
+              {/* Edge-to-edge line through padding */}
+              <div className="-mx-4 h-px bg-[#222222] my-3" />
+
               {/* High-density 3-stat summary row */}
-              <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-[#1c1c1c]">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <div className="text-[13px] text-[#8c8c8c]">
                     {selectedMetric === 'cpu' ? 'Peak' : selectedMetric === 'active' ? 'Running' : selectedMetric === 'memory' ? 'Top process' : selectedMetric === 'load' ? '5m average' : selectedMetric === 'restarts' ? 'Unstable' : 'Incidents'}
@@ -1935,11 +1938,17 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                               isRunning ? 'bg-[#30a46c]' : 'bg-[#555555]'
                             }`}
                           />
-                          <span className="text-[14px] font-medium text-white truncate font-sans">
+                          <span
+                            className="text-[14px] font-medium text-white truncate font-sans"
+                            title={p.name}
+                          >
                             {p.name}
                           </span>
                           {p.group_name && (
-                            <span className="text-[12px] px-1.5 py-0.5 rounded bg-[#161616] text-[#8c8c8c] border border-[#262626] font-mono shrink-0">
+                            <span
+                              className="text-[12px] px-1.5 py-0.5 rounded bg-[#161616] text-[#8c8c8c] border border-[#262626] font-mono shrink-0 max-w-[100px] truncate"
+                              title={`Group: ${p.group_name}`}
+                            >
                               {p.group_name}
                             </span>
                           )}
@@ -1951,14 +1960,14 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                         {/* Metric Value */}
                         <div className="text-right shrink-0">
                           {selectedMetric === 'cpu' && (
-                            <span className="text-[14px] font-medium text-white font-mono tabular-nums">
+                            <span className="text-[14px] font-normal text-white font-mono tabular-nums">
                               {cpuVal.toFixed(1)}%
                             </span>
                           )}
 
                           {selectedMetric === 'active' && (
                             <span
-                              className={`inline-block text-[12px] font-medium px-2 py-0.5 rounded capitalize ${
+                              className={`inline-block text-[12px] font-normal px-2 py-0.5 rounded capitalize ${
                                 isRunning
                                   ? 'text-[#30a46c] bg-[#30a46c]/10 border border-[#30a46c]/20'
                                   : 'text-[#8c8c8c] bg-[#161616] border border-[#262626]'
@@ -1969,20 +1978,20 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                           )}
 
                           {selectedMetric === 'memory' && (
-                            <span className="text-[14px] font-medium text-white font-mono tabular-nums">
+                            <span className="text-[14px] font-normal text-white font-mono tabular-nums">
                               {p.mem || '0 MB'}
                             </span>
                           )}
 
                           {selectedMetric === 'load' && (
-                            <span className="text-[14px] font-medium text-white font-mono tabular-nums">
+                            <span className="text-[14px] font-normal text-white font-mono tabular-nums">
                               {cpuVal.toFixed(1)}% <span className="text-[13px] text-[#8c8c8c] font-sans font-normal">• {p.mem || '0 MB'}</span>
                             </span>
                           )}
 
                           {selectedMetric === 'restarts' && (
                             <span
-                              className={`text-[14px] font-medium font-mono tabular-nums ${
+                              className={`text-[14px] font-normal font-mono tabular-nums ${
                                 restarts > 0 ? 'text-[#f59e0b]' : 'text-[#8c8c8c]'
                               }`}
                             >
@@ -1991,7 +2000,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                           )}
 
                           {selectedMetric === 'uptime' && (
-                            <span className="text-[14px] font-medium text-white font-mono tabular-nums">
+                            <span className="text-[14px] font-normal text-white font-mono tabular-nums">
                               {isRunning ? p.uptime : 'Stopped'}
                             </span>
                           )}
