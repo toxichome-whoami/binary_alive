@@ -30,11 +30,9 @@ export default {
       },
       fontFamily: {
         sans: [
-          'Inter',
-          '-apple-system',
-          'BlinkMacSystemFont',
-          '"Segoe UI"',
-          'Roboto',
+          '"Inter Variable"',
+          'ui-sans-serif',
+          'system-ui',
           'sans-serif',
           '"Apple Color Emoji"',
           '"Segoe UI Emoji"',

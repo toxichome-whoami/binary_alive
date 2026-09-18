@@ -3,7 +3,7 @@ import { useAuthStore, DEV_ADMIN } from '../store/authStore';
 import { authApi } from '../api/auth';
 
 export function useAuth() {
-  const { user, isLoading, setUser, setLoading } = useAuthStore();
+  const { user, setUser, setLoading } = useAuthStore();
 
   useEffect(() => {
     let isMounted = true;

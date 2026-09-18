@@ -99,9 +99,10 @@ export const Login: React.FC = () => {
             <button
               type="button"
               onClick={() => handleDevLogin()}
-              className="w-full mt-6 py-2.5 px-4 rounded-md bg-[#2f80ed] hover:bg-[#2563eb] active:bg-[#1d4ed8] text-white text-xs font-medium transition-colors flex items-center justify-center gap-2 shadow-none cursor-pointer"
+              disabled={isLoading}
+              className="w-full mt-6 py-2.5 px-4 rounded-md bg-[#2f80ed] hover:bg-[#2563eb] active:bg-[#1d4ed8] text-white text-xs font-medium transition-colors flex items-center justify-center gap-2 shadow-none cursor-pointer disabled:opacity-50"
             >
-              <span>Log in</span>
+              <span>{isLoading ? 'Logging in...' : 'Log in'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </form>

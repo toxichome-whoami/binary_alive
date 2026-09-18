@@ -1,6 +1,5 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from './Button';
 
 interface PaginationProps {
   page: number;
@@ -20,31 +19,33 @@ export const Pagination: React.FC<PaginationProps> = ({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-border dark:border-border-dark text-sm">
-      <div className="text-gray-500 dark:text-gray-400 text-xs">
-        Page <span className="font-semibold text-gray-900 dark:text-gray-100">{page}</span> of{' '}
-        <span className="font-semibold text-gray-900 dark:text-gray-100">{totalPages}</span> (
-        {total} total records)
+    <div className="flex items-center justify-between px-4 py-3 bg-[#0e0e0e] border-t border-[#222222] text-[13px] select-none">
+      <div className="text-[#8c8c8c] text-[13px]">
+        Page <span className="font-medium font-mono text-white">{page}</span> of{' '}
+        <span className="font-medium font-mono text-white">{totalPages}</span>{' '}
+        <span className="text-[#666666]">
+          ({total} total records)
+        </span>
       </div>
       <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
+        <button
+          type="button"
           disabled={page <= 1 || isLoading}
           onClick={() => onPageChange(page - 1)}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-[#262626] bg-transparent text-[13px] font-medium text-[#cccccc] hover:text-white hover:bg-[#141414] hover:border-[#383838] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" />
           Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
+        </button>
+        <button
+          type="button"
           disabled={page >= totalPages || isLoading}
           onClick={() => onPageChange(page + 1)}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-[#262626] bg-transparent text-[13px] font-medium text-[#cccccc] hover:text-white hover:bg-[#141414] hover:border-[#383838] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
         >
           Next
           <ChevronRight className="w-4 h-4" />
-        </Button>
+        </button>
       </div>
     </div>
   );
