@@ -53,7 +53,7 @@ export const Layout: React.FC = () => {
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-[#0c0c0c] text-gray-100 font-sans transition-colors relative overflow-hidden">
+    <div className="flex min-h-screen bg-[#0c0c0c] text-gray-100 font-sans transition-colors">
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}

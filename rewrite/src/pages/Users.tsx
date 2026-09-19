@@ -198,6 +198,64 @@ const CustomSelect = <T extends string>({
   );
 };
 
+const DEFAULT_USER_COLUMN_WIDTHS: Record<string, number> = {
+  status: 110,
+  username: 180,
+  email: 220,
+  permissions: 150,
+  api_keys: 130,
+  two_fa: 130,
+};
+
+const MIN_USER_COLUMN_WIDTHS: Record<string, number> = {
+  status: 85,
+  username: 130,
+  email: 140,
+  permissions: 120,
+  api_keys: 100,
+  two_fa: 100,
+};
+
+const MAX_USER_COLUMN_WIDTHS: Record<string, number> = {
+  status: 240,
+  username: 450,
+  email: 500,
+  permissions: 320,
+  api_keys: 250,
+  two_fa: 250,
+};
+
+const ColumnResizer: React.FC<{
+  col: string;
+  resizingCol: string | null;
+  onResizeStart: (col: string, e: React.MouseEvent) => void;
+  onReset: (col: string) => void;
+}> = ({ col, resizingCol, onResizeStart, onReset }) => (
+  <div
+    role="separator"
+    aria-orientation="vertical"
+    aria-label={`Resize ${col} column`}
+    onMouseDown={(e) => onResizeStart(col, e)}
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    }}
+    onDoubleClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onReset(col);
+    }}
+    className="absolute -right-1.5 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer"
+    title="Drag to resize column (double-click to reset)"
+  >
+    <span
+      className={`w-px h-4 transition-colors ${
+        resizingCol === col ? 'bg-[#2f80ed] h-full' : 'bg-[#262626] group-hover/resizer:bg-[#2f80ed]'
+      }`}
+    />
+  </div>
+);
+
 export const Users: React.FC = () => {
   const navigate = useNavigate();
   const { user: currentUser, isOwner } = useAuthStore();
@@ -380,6 +438,60 @@ export const Users: React.FC = () => {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showDisplayOptions, showFilters]);
+
+  // Adjustable column widths (Cloudflare table draggable resizers)
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(DEFAULT_USER_COLUMN_WIDTHS);
+  const [resizingCol, setResizingCol] = useState<string | null>(null);
+
+  const handleResizeStart = (col: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const defaultW = DEFAULT_USER_COLUMN_WIDTHS[col] || 150;
+    const startWidth = columnWidths[col] || defaultW;
+    const minWidth = MIN_USER_COLUMN_WIDTHS[col] || 80;
+    const maxWidth = MAX_USER_COLUMN_WIDTHS[col] || 500;
+
+    let hasMoved = false;
+
+    setResizingCol(col);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      if (Math.abs(delta) > 2) {
+        hasMoved = true;
+      }
+      const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + delta));
+      setColumnWidths((prev) => ({ ...prev, [col]: newWidth }));
+    };
+
+    const onMouseUp = () => {
+      setResizingCol(null);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+
+      if (hasMoved) {
+        const preventClickCapture = (clickEvent: MouseEvent) => {
+          clickEvent.preventDefault();
+          clickEvent.stopPropagation();
+          clickEvent.stopImmediatePropagation();
+          window.removeEventListener('click', preventClickCapture, true);
+        };
+        window.addEventListener('click', preventClickCapture, true);
+        setTimeout(() => {
+          window.removeEventListener('click', preventClickCapture, true);
+        }, 100);
+      }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
 
   // Handle keyboard shortcut for search (/ key)
   useEffect(() => {
@@ -1223,56 +1335,104 @@ export const Users: React.FC = () => {
                   {/* Status Column */}
                   <th
                     onClick={() => handleSort('status')}
-                    className="group flex items-center shrink-0 w-[110px] h-[40px] px-3 cursor-pointer select-none"
+                    style={{ width: `${columnWidths.status}px` }}
+                    className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
                   >
                     <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                       <span>Status</span>
                       <CaretUpDownIcon active={sortField === 'status'} direction={sortDirection} />
                     </span>
+                    <ColumnResizer
+                      col="status"
+                      resizingCol={resizingCol}
+                      onResizeStart={handleResizeStart}
+                      onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_USER_COLUMN_WIDTHS[c] }))}
+                    />
                   </th>
 
                   {/* Member Column */}
                   <th
                     onClick={() => handleSort('username')}
-                    className="group flex items-center shrink-0 w-[180px] h-[40px] px-3 cursor-pointer select-none"
+                    style={{ width: `${columnWidths.username}px` }}
+                    className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
                   >
                     <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                       <span>Member</span>
                       <CaretUpDownIcon active={sortField === 'username'} direction={sortDirection} />
                     </span>
+                    <ColumnResizer
+                      col="username"
+                      resizingCol={resizingCol}
+                      onResizeStart={handleResizeStart}
+                      onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_USER_COLUMN_WIDTHS[c] }))}
+                    />
                   </th>
 
                   {/* Email Column */}
                   {visibleColumns.email && (
                     <th
                       onClick={() => handleSort('email')}
-                      className="group flex items-center shrink-0 w-[220px] h-[40px] px-3 cursor-pointer select-none"
+                      style={{ width: `${columnWidths.email}px` }}
+                      className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
                     >
                       <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                         <span>Email</span>
                         <CaretUpDownIcon active={sortField === 'email'} direction={sortDirection} />
                       </span>
+                      <ColumnResizer
+                        col="email"
+                        resizingCol={resizingCol}
+                        onResizeStart={handleResizeStart}
+                        onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_USER_COLUMN_WIDTHS[c] }))}
+                      />
                     </th>
                   )}
 
                   {/* Permissions Column */}
                   {visibleColumns.permissions && (
-                    <th className="flex items-center shrink-0 w-[150px] h-[40px] px-3">
+                    <th
+                      style={{ width: `${columnWidths.permissions}px` }}
+                      className="group relative flex items-center shrink-0 h-[40px] px-3"
+                    >
                       <span className="text-[14px] font-medium text-white leading-none font-sans">Permissions</span>
+                      <ColumnResizer
+                        col="permissions"
+                        resizingCol={resizingCol}
+                        onResizeStart={handleResizeStart}
+                        onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_USER_COLUMN_WIDTHS[c] }))}
+                      />
                     </th>
                   )}
 
                   {/* API Keys Column */}
                   {visibleColumns.api_keys && (
-                    <th className="flex items-center shrink-0 w-[130px] h-[40px] px-3">
+                    <th
+                      style={{ width: `${columnWidths.api_keys}px` }}
+                      className="group relative flex items-center shrink-0 h-[40px] px-3"
+                    >
                       <span className="text-[14px] font-medium text-white leading-none font-sans">API Keys</span>
+                      <ColumnResizer
+                        col="api_keys"
+                        resizingCol={resizingCol}
+                        onResizeStart={handleResizeStart}
+                        onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_USER_COLUMN_WIDTHS[c] }))}
+                      />
                     </th>
                   )}
 
                   {/* 2FA Status Column */}
                   {visibleColumns.two_fa && (
-                    <th className="flex items-center shrink-0 w-[130px] h-[40px] px-3">
+                    <th
+                      style={{ width: `${columnWidths.two_fa}px` }}
+                      className="group relative flex items-center shrink-0 h-[40px] px-3"
+                    >
                       <span className="text-[14px] font-medium text-white leading-none font-sans">2FA Status</span>
+                      <ColumnResizer
+                        col="two_fa"
+                        resizingCol={resizingCol}
+                        onResizeStart={handleResizeStart}
+                        onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_USER_COLUMN_WIDTHS[c] }))}
+                      />
                     </th>
                   )}
 
@@ -1344,7 +1504,10 @@ export const Users: React.FC = () => {
                         </td>
 
                         {/* Status cell */}
-                        <td className="flex items-center shrink-0 w-[110px] h-[40px] px-3 font-sans">
+                        <td
+                          style={{ width: `${columnWidths.status}px` }}
+                          className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                        >
                           {isLocked ? (
                             <span className="text-[14px] font-normal text-[#ef4444] leading-none font-sans">Disabled</span>
                           ) : (
@@ -1353,7 +1516,10 @@ export const Users: React.FC = () => {
                         </td>
 
                         {/* Member cell with Owner Shield Icon */}
-                        <td className="flex items-center shrink-0 w-[180px] h-[40px] px-3 font-sans">
+                        <td
+                          style={{ width: `${columnWidths.username}px` }}
+                          className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                        >
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="truncate font-sans text-[14px] font-medium text-white">{u.username}</span>
                             {isMaster && (
@@ -1371,7 +1537,10 @@ export const Users: React.FC = () => {
 
                         {/* Email cell */}
                         {visibleColumns.email && (
-                          <td className="flex items-center shrink-0 w-[220px] h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate">
+                          <td
+                            style={{ width: `${columnWidths.email}px` }}
+                            className="flex items-center shrink-0 h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate overflow-hidden"
+                          >
                             {u.email ? (
                               <span className="truncate font-sans text-[14px] text-[#cccccc]">{u.email}</span>
                             ) : (
@@ -1382,7 +1551,10 @@ export const Users: React.FC = () => {
 
                         {/* Permissions cell */}
                         {visibleColumns.permissions && (
-                          <td className="flex items-center shrink-0 w-[150px] h-[40px] px-3 font-sans">
+                          <td
+                            style={{ width: `${columnWidths.permissions}px` }}
+                            className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                          >
                             {isMaster || grantedPerms === Object.keys(DEFAULT_PERMISSIONS).length ? (
                               <span className="text-[14px] font-normal text-white font-sans" title={`All ${Object.keys(DEFAULT_PERMISSIONS).length} permissions granted`}>
                                 Full access
@@ -1401,7 +1573,10 @@ export const Users: React.FC = () => {
 
                         {/* API Keys cell */}
                         {visibleColumns.api_keys && (
-                          <td className="flex items-center shrink-0 w-[130px] h-[40px] px-3 font-sans">
+                          <td
+                            style={{ width: `${columnWidths.api_keys}px` }}
+                            className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                          >
                             {(u.api_keys_count || 0) > 0 ? (
                               <button
                                 type="button"
@@ -1419,7 +1594,10 @@ export const Users: React.FC = () => {
 
                         {/* 2FA Status cell */}
                         {visibleColumns.two_fa && (
-                          <td className="flex items-center shrink-0 w-[130px] h-[40px] px-3 font-sans">
+                          <td
+                            style={{ width: `${columnWidths.two_fa}px` }}
+                            className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                          >
                             <span
                               className={`text-[14px] font-normal leading-none font-sans ${
                                 u.has_2fa ? 'text-white' : 'text-[#8c8c8c]'

@@ -192,6 +192,67 @@ const CustomSelect = <T extends string>({
   );
 };
 
+const DEFAULT_API_KEY_COLUMN_WIDTHS: Record<string, number> = {
+  status: 110,
+  name: 220,
+  user: 140,
+  email: 180,
+  scopes: 140,
+  last_used: 180,
+  created_at: 130,
+};
+
+const MIN_API_KEY_COLUMN_WIDTHS: Record<string, number> = {
+  status: 85,
+  name: 150,
+  user: 110,
+  email: 140,
+  scopes: 110,
+  last_used: 140,
+  created_at: 100,
+};
+
+const MAX_API_KEY_COLUMN_WIDTHS: Record<string, number> = {
+  status: 240,
+  name: 500,
+  user: 300,
+  email: 450,
+  scopes: 300,
+  last_used: 350,
+  created_at: 250,
+};
+
+const ColumnResizer: React.FC<{
+  col: string;
+  resizingCol: string | null;
+  onResizeStart: (col: string, e: React.MouseEvent) => void;
+  onReset: (col: string) => void;
+}> = ({ col, resizingCol, onResizeStart, onReset }) => (
+  <div
+    role="separator"
+    aria-orientation="vertical"
+    aria-label={`Resize ${col} column`}
+    onMouseDown={(e) => onResizeStart(col, e)}
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    }}
+    onDoubleClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onReset(col);
+    }}
+    className="absolute -right-1.5 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer"
+    title="Drag to resize column (double-click to reset)"
+  >
+    <span
+      className={`w-px h-4 transition-colors ${
+        resizingCol === col ? 'bg-[#2f80ed] h-full' : 'bg-[#262626] group-hover/resizer:bg-[#2f80ed]'
+      }`}
+    />
+  </div>
+);
+
 export const ApiKeys: React.FC = () => {
   const [searchParams] = useSearchParams();
   const userIdFilter = searchParams.get('user');
@@ -208,7 +269,7 @@ export const ApiKeys: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Sorting
-  const [sortField, setSortField] = useState<'id' | 'name' | 'status' | 'scopes' | 'last_used' | 'created_at' | 'email' | null>(null);
+  const [sortField, setSortField] = useState<'id' | 'name' | 'status' | 'scopes' | 'last_used' | 'created_at' | 'email' | 'expires_at' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Bulk selection
@@ -258,7 +319,7 @@ export const ApiKeys: React.FC = () => {
     scopes: true,
     last_used: true,
     created_at: true,
-    expires_at: false,
+    expires_at: true,
   });
 
   const COLUMN_LABELS: Record<string, string> = {
@@ -344,6 +405,60 @@ export const ApiKeys: React.FC = () => {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showDisplayOptions, showFilters]);
+
+  // Adjustable column widths (Cloudflare table draggable resizers)
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(DEFAULT_API_KEY_COLUMN_WIDTHS);
+  const [resizingCol, setResizingCol] = useState<string | null>(null);
+
+  const handleResizeStart = (col: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const defaultW = DEFAULT_API_KEY_COLUMN_WIDTHS[col] || 150;
+    const startWidth = columnWidths[col] || defaultW;
+    const minWidth = MIN_API_KEY_COLUMN_WIDTHS[col] || 80;
+    const maxWidth = MAX_API_KEY_COLUMN_WIDTHS[col] || 500;
+
+    let hasMoved = false;
+
+    setResizingCol(col);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      if (Math.abs(delta) > 2) {
+        hasMoved = true;
+      }
+      const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + delta));
+      setColumnWidths((prev) => ({ ...prev, [col]: newWidth }));
+    };
+
+    const onMouseUp = () => {
+      setResizingCol(null);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+
+      if (hasMoved) {
+        const preventClickCapture = (clickEvent: MouseEvent) => {
+          clickEvent.preventDefault();
+          clickEvent.stopPropagation();
+          clickEvent.stopImmediatePropagation();
+          window.removeEventListener('click', preventClickCapture, true);
+        };
+        window.addEventListener('click', preventClickCapture, true);
+        setTimeout(() => {
+          window.removeEventListener('click', preventClickCapture, true);
+        }, 100);
+      }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
 
   // Handle keyboard shortcut for search (/ key)
   useEffect(() => {
@@ -514,6 +629,9 @@ export const ApiKeys: React.FC = () => {
       } else if (sortField === 'email') {
         valA = (a.email || '').toLowerCase();
         valB = (b.email || '').toLowerCase();
+      } else if (sortField === 'expires_at') {
+        valA = a.expires_at ? new Date(a.expires_at).getTime() : Infinity;
+        valB = b.expires_at ? new Date(b.expires_at).getTime() : Infinity;
       }
 
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
@@ -531,7 +649,7 @@ export const ApiKeys: React.FC = () => {
   }, [filteredTokens, startIndex, pageSize]);
   const endIndex = Math.min(total, startIndex + paginatedTokens.length);
 
-  const handleSort = (field: 'id' | 'name' | 'status' | 'scopes' | 'last_used' | 'created_at' | 'email') => {
+  const handleSort = (field: 'id' | 'name' | 'status' | 'scopes' | 'last_used' | 'created_at' | 'email' | 'expires_at') => {
     if (sortField === field) {
       if (sortDirection === 'asc') {
         setSortDirection('desc');
@@ -1050,7 +1168,7 @@ export const ApiKeys: React.FC = () => {
                       scopes: true,
                       last_used: true,
                       created_at: true,
-                      expires_at: false,
+                      expires_at: true,
                     })
                   }
                   className="w-full text-left px-2.5 py-1.5 rounded text-[14px] text-[#888888] hover:text-white hover:bg-[#1a1a1a] transition-colors cursor-pointer font-sans"
@@ -1251,29 +1369,52 @@ export const ApiKeys: React.FC = () => {
                   {/* Status Column */}
                   <th
                     onClick={() => handleSort('status')}
-                    className="group flex items-center shrink-0 w-[110px] h-[40px] px-3 cursor-pointer select-none"
+                    style={{ width: `${columnWidths.status}px` }}
+                    className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
                   >
                     <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                       <span>Status</span>
                       <CaretUpDownIcon active={sortField === 'status'} direction={sortDirection} />
                     </span>
+                    <ColumnResizer
+                      col="status"
+                      resizingCol={resizingCol}
+                      onResizeStart={handleResizeStart}
+                      onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_API_KEY_COLUMN_WIDTHS[c] }))}
+                    />
                   </th>
 
                   {/* Key Identifier Column */}
                   <th
                     onClick={() => handleSort('name')}
-                    className="group flex items-center shrink-0 w-[220px] h-[40px] px-3 cursor-pointer select-none"
+                    style={{ width: `${columnWidths.name}px` }}
+                    className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
                   >
                     <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                       <span>Key Identifier</span>
                       <CaretUpDownIcon active={sortField === 'name'} direction={sortDirection} />
                     </span>
+                    <ColumnResizer
+                      col="name"
+                      resizingCol={resizingCol}
+                      onResizeStart={handleResizeStart}
+                      onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_API_KEY_COLUMN_WIDTHS[c] }))}
+                    />
                   </th>
 
                   {/* Member Column */}
                   {visibleColumns.user && (
-                    <th className="flex items-center shrink-0 w-[140px] h-[40px] px-3">
+                    <th
+                      style={{ width: `${columnWidths.user}px` }}
+                      className="group relative flex items-center shrink-0 h-[40px] px-3"
+                    >
                       <span className="text-[14px] font-medium text-white leading-none font-sans">Member</span>
+                      <ColumnResizer
+                        col="user"
+                        resizingCol={resizingCol}
+                        onResizeStart={handleResizeStart}
+                        onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_API_KEY_COLUMN_WIDTHS[c] }))}
+                      />
                     </th>
                   )}
 
@@ -1281,12 +1422,19 @@ export const ApiKeys: React.FC = () => {
                   {visibleColumns.email && (
                     <th
                       onClick={() => handleSort('email')}
-                      className="group flex items-center shrink-0 w-[180px] h-[40px] px-3 cursor-pointer select-none"
+                      style={{ width: `${columnWidths.email}px` }}
+                      className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
                     >
                       <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                         <span>Email</span>
                         <CaretUpDownIcon active={sortField === 'email'} direction={sortDirection} />
                       </span>
+                      <ColumnResizer
+                        col="email"
+                        resizingCol={resizingCol}
+                        onResizeStart={handleResizeStart}
+                        onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_API_KEY_COLUMN_WIDTHS[c] }))}
+                      />
                     </th>
                   )}
 
@@ -1294,12 +1442,19 @@ export const ApiKeys: React.FC = () => {
                   {visibleColumns.scopes && (
                     <th
                       onClick={() => handleSort('scopes')}
-                      className="group flex items-center shrink-0 w-[140px] h-[40px] px-3 cursor-pointer select-none"
+                      style={{ width: `${columnWidths.scopes}px` }}
+                      className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
                     >
                       <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                         <span>Permissions</span>
                         <CaretUpDownIcon active={sortField === 'scopes'} direction={sortDirection} />
                       </span>
+                      <ColumnResizer
+                        col="scopes"
+                        resizingCol={resizingCol}
+                        onResizeStart={handleResizeStart}
+                        onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_API_KEY_COLUMN_WIDTHS[c] }))}
+                      />
                     </th>
                   )}
 
@@ -1307,12 +1462,19 @@ export const ApiKeys: React.FC = () => {
                   {visibleColumns.last_used && (
                     <th
                       onClick={() => handleSort('last_used')}
-                      className="group flex items-center shrink-0 w-[180px] h-[40px] px-3 cursor-pointer select-none"
+                      style={{ width: `${columnWidths.last_used}px` }}
+                      className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
                     >
                       <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                         <span>Last Used</span>
                         <CaretUpDownIcon active={sortField === 'last_used'} direction={sortDirection} />
                       </span>
+                      <ColumnResizer
+                        col="last_used"
+                        resizingCol={resizingCol}
+                        onResizeStart={handleResizeStart}
+                        onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_API_KEY_COLUMN_WIDTHS[c] }))}
+                      />
                     </th>
                   )}
 
@@ -1320,19 +1482,32 @@ export const ApiKeys: React.FC = () => {
                   {visibleColumns.created_at && (
                     <th
                       onClick={() => handleSort('created_at')}
-                      className="group flex items-center shrink-0 w-[130px] h-[40px] px-3 cursor-pointer select-none"
+                      style={{ width: `${columnWidths.created_at}px` }}
+                      className="group relative flex items-center shrink-0 h-[40px] px-3 cursor-pointer select-none"
                     >
                       <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                         <span>Created</span>
                         <CaretUpDownIcon active={sortField === 'created_at'} direction={sortDirection} />
                       </span>
+                      <ColumnResizer
+                        col="created_at"
+                        resizingCol={resizingCol}
+                        onResizeStart={handleResizeStart}
+                        onReset={(c) => setColumnWidths((prev) => ({ ...prev, [c]: DEFAULT_API_KEY_COLUMN_WIDTHS[c] }))}
+                      />
                     </th>
                   )}
 
-                  {/* Expiration Column (Optional) */}
+                  {/* Expiration Column */}
                   {visibleColumns.expires_at && (
-                    <th className="flex items-center shrink-0 w-[130px] h-[40px] px-3">
-                      <span className="text-[14px] font-medium text-white leading-none font-sans">Expires</span>
+                    <th
+                      onClick={() => handleSort('expires_at')}
+                      className="group flex items-center shrink-0 w-[130px] h-[40px] px-3 cursor-pointer select-none"
+                    >
+                      <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
+                        <span>Expires</span>
+                        <CaretUpDownIcon active={sortField === 'expires_at'} direction={sortDirection} />
+                      </span>
                     </th>
                   )}
 
@@ -1395,7 +1570,10 @@ export const ApiKeys: React.FC = () => {
                         </td>
 
                         {/* Status cell (clean text matching Users.tsx) */}
-                        <td className="flex items-center shrink-0 w-[110px] h-[40px] px-3 font-sans">
+                        <td
+                          style={{ width: `${columnWidths.status}px` }}
+                          className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                        >
                           {t.is_disabled ? (
                             <span className="text-[14px] font-normal text-[#ef4444] leading-none font-sans">Disabled</span>
                           ) : isExpired ? (
@@ -1406,7 +1584,10 @@ export const ApiKeys: React.FC = () => {
                         </td>
 
                         {/* Key Identifier cell */}
-                        <td className="flex items-center shrink-0 w-[220px] h-[40px] px-3 text-[14px] font-medium text-white truncate font-sans">
+                        <td
+                          style={{ width: `${columnWidths.name}px` }}
+                          className="flex items-center shrink-0 h-[40px] px-3 text-[14px] font-medium text-white truncate font-sans overflow-hidden"
+                        >
                           <div className="flex items-center gap-2 min-w-0">
                             <Key className="w-3.5 h-3.5 text-[#8c8c8c] shrink-0" />
                             <span className="truncate font-sans">{t.name}</span>
@@ -1415,7 +1596,10 @@ export const ApiKeys: React.FC = () => {
 
                         {/* Member / User ID cell */}
                         {visibleColumns.user && (
-                          <td className="flex items-center shrink-0 w-[140px] h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate">
+                          <td
+                            style={{ width: `${columnWidths.user}px` }}
+                            className="flex items-center shrink-0 h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate overflow-hidden"
+                          >
                             {t.username ? (
                               <div className="flex items-center gap-1.5 truncate">
                                 <span>{t.username}</span>
@@ -1431,7 +1615,10 @@ export const ApiKeys: React.FC = () => {
 
                         {/* Email cell */}
                         {visibleColumns.email && (
-                          <td className="flex items-center shrink-0 w-[180px] h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate">
+                          <td
+                            style={{ width: `${columnWidths.email}px` }}
+                            className="flex items-center shrink-0 h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate overflow-hidden"
+                          >
                             {t.email ? (
                               <span className="truncate">{t.email}</span>
                             ) : (
@@ -1442,7 +1629,10 @@ export const ApiKeys: React.FC = () => {
 
                         {/* Permissions / Scopes cell */}
                         {visibleColumns.scopes && (
-                          <td className="flex items-center shrink-0 w-[140px] h-[40px] px-3 font-sans">
+                          <td
+                            style={{ width: `${columnWidths.scopes}px` }}
+                            className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                          >
                             {grantedPerms === Object.keys(DEFAULT_PERMISSIONS).length ? (
                               <span className="text-[14px] font-normal text-white font-sans" title={`All ${Object.keys(DEFAULT_PERMISSIONS).length} permissions granted`}>
                                 Full access
@@ -1461,14 +1651,20 @@ export const ApiKeys: React.FC = () => {
 
                         {/* Last Used cell */}
                         {visibleColumns.last_used && (
-                          <td className="flex items-center shrink-0 w-[180px] h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans truncate">
+                          <td
+                            style={{ width: `${columnWidths.last_used}px` }}
+                            className="flex items-center shrink-0 h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans truncate overflow-hidden"
+                          >
                             {t.last_used ? new Date(t.last_used).toLocaleString() : 'Never used'}
                           </td>
                         )}
 
                         {/* Created cell */}
                         {visibleColumns.created_at && (
-                          <td className="flex items-center shrink-0 w-[130px] h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans tabular-nums">
+                          <td
+                            style={{ width: `${columnWidths.created_at}px` }}
+                            className="flex items-center shrink-0 h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans tabular-nums overflow-hidden"
+                          >
                             {new Date(t.created_at).toLocaleDateString()}
                           </td>
                         )}

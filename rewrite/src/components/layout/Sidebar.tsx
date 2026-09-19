@@ -245,7 +245,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="flex items-center justify-center gap-2 bg-transparent border-0 p-0 text-center cursor-pointer min-w-0 group"
           >
             {isCollapsed ? (
-              <span className="font-['Poppins',sans-serif] font-bold text-[13px] text-[#F2F3F3] tracking-widest uppercase">
+              <span className="font-['Montserrat',sans-serif] font-semibold text-[13px] text-[#F2F3F3] tracking-widest uppercase">
                 BA
               </span>
             ) : (
