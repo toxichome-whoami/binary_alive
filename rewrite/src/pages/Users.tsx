@@ -28,6 +28,7 @@ const DEFAULT_PERMISSIONS: Permissions = {
   logs_view_audit: false, logs_view_login: false, logs_view_terminal: false,
   settings_view: false, settings_edit: false, settings_security: false,
   terminal_access: false, terminal_unrestricted: false,
+  ai_access: true, ai_data_read: true, ai_data_write: false,
 };
 
 const CaretUpDownIcon: React.FC<{ active: boolean; direction: 'asc' | 'desc' }> = ({ active, direction }) => {
@@ -136,7 +137,7 @@ const CustomSelect = <T extends string>({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full h-9 px-3 rounded-xl bg-[#141414] border text-[14px] text-white flex items-center justify-between cursor-pointer transition-colors ${
+        className={`w-full h-9 px-3 rounded-[8px] bg-[#141414] border text-[14px] text-white flex items-center justify-between cursor-pointer transition-colors ${
           isOpen ? 'border-[#2f80ed]' : 'border-[#262626] hover:border-[#383838]'
         }`}
       >
@@ -690,7 +691,7 @@ export const Users: React.FC = () => {
     <div className="space-y-6 w-full max-w-[1600px] mx-auto pb-12 select-none font-sans">
       {/* 4 Clean Black Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full font-sans">
-        <div className="relative rounded-xl border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
+        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[13px] font-medium text-[#8c8c8c]">Total accounts</span>
             <UsersIcon className="w-4 h-4 text-[#555555]" />
@@ -699,7 +700,7 @@ export const Users: React.FC = () => {
             <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.members}</div>
           </div>
         </div>
-        <div className="relative rounded-xl border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
+        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[13px] font-medium text-[#8c8c8c]">Active API keys</span>
             <KeyRound className="w-4 h-4 text-[#555555]" />
@@ -708,7 +709,7 @@ export const Users: React.FC = () => {
             <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.tokens}</div>
           </div>
         </div>
-        <div className="relative rounded-xl border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
+        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[13px] font-medium text-[#8c8c8c]">2FA protection</span>
             <ShieldCheck className="w-4 h-4 text-[#555555]" />
@@ -718,7 +719,7 @@ export const Users: React.FC = () => {
             <span className="text-xs font-normal text-[#555555]">secured</span>
           </div>
         </div>
-        <div className="relative rounded-xl border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
+        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[13px] font-medium text-[#8c8c8c]">Disabled accounts</span>
             <Lock className="w-4 h-4 text-[#555555]" />
@@ -734,7 +735,7 @@ export const Users: React.FC = () => {
         {/* Search Input Group */}
         <label
           title="Search members (/ or Ctrl+K)"
-          className="relative flex items-center h-9 rounded-xl bg-transparent border border-[#262626] focus-within:border-[#2f80ed] transition-colors px-3 gap-2 w-full sm:w-[280px] md:w-[320px]"
+          className="relative flex items-center h-9 rounded-[8px] bg-transparent border border-[#262626] focus-within:border-[#2f80ed] transition-colors px-3 gap-2 w-full sm:w-[280px] md:w-[320px]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" className="text-[#8c8c8c] shrink-0">
             <path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z" />
@@ -801,7 +802,7 @@ export const Users: React.FC = () => {
                   return next;
                 });
               }}
-              className={`flex items-center gap-1.5 h-9 px-3 rounded-xl bg-transparent border text-[14px] font-medium transition-colors cursor-pointer shrink-0 font-sans ${
+              className={`flex items-center gap-1.5 h-9 px-3 rounded-[8px] bg-transparent border text-[14px] font-medium transition-colors cursor-pointer shrink-0 font-sans ${
                 showFilters || activeFiltersCount > 0
                   ? 'border-[#444444] text-white bg-[#141414]'
                   : 'border-[#262626] text-white hover:bg-[#141414] hover:border-[#383838]'
@@ -825,7 +826,7 @@ export const Users: React.FC = () => {
             </button>
 
             {showFilters && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 top-10 w-[560px] max-w-[calc(100vw-32px)] rounded-xl bg-[#0c0c0c] border border-[#262626] shadow-2xl p-4 z-50 select-none animate-in fade-in font-sans">
+              <div className="absolute left-0 sm:left-auto sm:right-0 top-10 w-[560px] max-w-[calc(100vw-32px)] rounded-[8px] bg-[#0c0c0c] border border-[#262626] shadow-2xl p-4 z-50 select-none animate-in fade-in font-sans">
                 {/* Header */}
                 <div className="flex items-center justify-between pb-3">
                   <div className="flex items-center gap-2">
@@ -906,7 +907,7 @@ export const Users: React.FC = () => {
                             if (e.key === 'Enter') handleApplyFilters();
                           }}
                           placeholder="e.g. alex"
-                          className="flex-1 min-w-0 h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
+                          className="flex-1 min-w-0 h-9 px-3 rounded-[8px] bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
                         />
                       )}
 
@@ -948,7 +949,7 @@ export const Users: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleApplyFilters}
-                      className="group relative flex shrink-0 items-center justify-center h-8 px-3.5 rounded-xl font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
+                      className="group relative flex shrink-0 items-center justify-center h-8 px-3.5 rounded-[8px] font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
                     >
                       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
                       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
@@ -970,7 +971,7 @@ export const Users: React.FC = () => {
                 setShowDisplayOptions((prev) => !prev);
                 setShowFilters(false);
               }}
-              className={`flex items-center gap-1.5 h-9 px-3 rounded-xl bg-transparent border text-[14px] font-medium transition-colors cursor-pointer shrink-0 font-sans ${
+              className={`flex items-center gap-1.5 h-9 px-3 rounded-[8px] bg-transparent border text-[14px] font-medium transition-colors cursor-pointer shrink-0 font-sans ${
                 showDisplayOptions
                   ? 'border-[#444444] text-white bg-[#141414]'
                   : 'border-[#262626] text-white hover:bg-[#141414] hover:border-[#383838]'
@@ -1038,7 +1039,7 @@ export const Users: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            className="group relative flex shrink-0 items-center justify-center h-9 px-3.5 rounded-xl font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
+            className="group relative flex shrink-0 items-center justify-center h-9 px-3.5 rounded-[8px] font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
           >
             <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
             <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
@@ -1051,7 +1052,7 @@ export const Users: React.FC = () => {
       </div>
 
       {/* Users Table Card — Exact Cloudflare DNS table structure */}
-      <div id="users-table-card" className="w-full flex flex-col rounded-xl border border-[#222222] bg-black shadow-sm select-none font-sans">
+      <div id="users-table-card" className="w-full flex flex-col rounded-[12px] border border-[#222222] bg-black shadow-sm select-none font-sans">
         {/* Status bar */}
         <div className="flex w-full flex-col gap-2 px-4 py-3 bg-black font-sans">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1134,14 +1135,14 @@ export const Users: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedIds([])}
-                  className="inline-flex items-center h-8 px-2.5 rounded-xl text-[14px] font-medium text-white bg-transparent hover:bg-[#1a1a1a] transition-colors cursor-pointer font-sans"
+                  className="inline-flex items-center h-8 px-2.5 rounded-[8px] text-[14px] font-medium text-white bg-transparent hover:bg-[#1a1a1a] transition-colors cursor-pointer font-sans"
                 >
                   Clear selection
                 </button>
                 <button
                   type="button"
                   onClick={handleSelectAll}
-                  className="inline-flex items-center h-8 px-2.5 rounded-xl text-[14px] font-medium text-white bg-transparent hover:bg-[#1a1a1a] transition-colors cursor-pointer font-sans"
+                  className="inline-flex items-center h-8 px-2.5 rounded-[8px] text-[14px] font-medium text-white bg-transparent hover:bg-[#1a1a1a] transition-colors cursor-pointer font-sans"
                 >
                   Select all {filteredUsers.length} eligible members
                 </button>
@@ -1152,7 +1153,7 @@ export const Users: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleBulkToggleStatus(true)}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
                     >
                       <Ban className="w-3.5 h-3.5 shrink-0" />
                       <span>Disable</span>
@@ -1160,7 +1161,7 @@ export const Users: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleBulkToggleStatus(false)}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       <span>Enable</span>
@@ -1168,7 +1169,7 @@ export const Users: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsBulkDeleting(true)}
-                      className="group relative flex shrink-0 items-center justify-center h-8 px-3 rounded-xl font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#991b1b] bg-[#dc2626] font-sans"
+                      className="group relative flex shrink-0 items-center justify-center h-8 px-3 rounded-[8px] font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#991b1b] bg-[#dc2626] font-sans"
                     >
                       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
                       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
@@ -1185,7 +1186,7 @@ export const Users: React.FC = () => {
         </div>
 
         {/* Inset Table Card with rounded corners matching Dashboard */}
-        <div className="mx-[6px] mb-[6px] border border-[#262626] rounded-xl overflow-hidden bg-[#0e0e0e]">
+        <div className="mx-[6px] mb-[6px] border border-[#262626] rounded-[8px] overflow-hidden bg-[#0e0e0e]">
           <div className="overflow-x-auto overflow-y-hidden">
             <table
               role="table"
@@ -1382,17 +1383,17 @@ export const Users: React.FC = () => {
                         {/* Permissions cell */}
                         {visibleColumns.permissions && (
                           <td className="flex items-center shrink-0 w-[150px] h-[40px] px-3 font-sans">
-                            {isMaster || grantedPerms === 21 ? (
-                              <span className="text-[14px] font-normal text-white font-sans" title="All 21 permissions granted">
+                            {isMaster || grantedPerms === Object.keys(DEFAULT_PERMISSIONS).length ? (
+                              <span className="text-[14px] font-normal text-white font-sans" title={`All ${Object.keys(DEFAULT_PERMISSIONS).length} permissions granted`}>
                                 Full access
                               </span>
                             ) : (
                               <span
                                 className="text-[14px] font-normal text-[#8c8c8c] font-sans"
-                                title={`${grantedPerms} of 21 permissions granted`}
+                                title={`${grantedPerms} of ${Object.keys(DEFAULT_PERMISSIONS).length} permissions granted`}
                               >
                                 <span className="text-white font-medium tabular-nums">{grantedPerms}</span>
-                                <span className="text-[#666666]"> / 21</span>
+                                <span className="text-[#666666]"> / {Object.keys(DEFAULT_PERMISSIONS).length}</span>
                               </span>
                             )}
                           </td>
@@ -1521,7 +1522,7 @@ export const Users: React.FC = () => {
                 placeholder="e.g. alex"
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
+                className="w-full h-9 px-3 rounded-[8px] bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
               />
             </div>
 
@@ -1534,7 +1535,7 @@ export const Users: React.FC = () => {
                 placeholder="e.g. alex@example.com"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
+                className="w-full h-9 px-3 rounded-[8px] bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
               />
             </div>
 
@@ -1548,7 +1549,7 @@ export const Users: React.FC = () => {
                 placeholder="••••••••••••"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
+                className="w-full h-9 px-3 rounded-[8px] bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
               />
             </div>
 
@@ -1570,14 +1571,14 @@ export const Users: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
-                className="inline-flex items-center justify-center h-9 px-4 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
+                className="inline-flex items-center justify-center h-9 px-4 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={createLoading}
-                className="group relative flex shrink-0 items-center justify-center h-9 px-4 rounded-xl font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
+                className="group relative flex shrink-0 items-center justify-center h-9 px-4 rounded-[8px] font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
               >
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
@@ -1635,7 +1636,7 @@ export const Users: React.FC = () => {
                 required
                 value={editUsername}
                 onChange={(e) => setEditUsername(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white outline-none transition-colors font-sans"
+                className="w-full h-9 px-3 rounded-[8px] bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white outline-none transition-colors font-sans"
               />
             </div>
 
@@ -1648,7 +1649,7 @@ export const Users: React.FC = () => {
                 placeholder="e.g. alex@example.com"
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
+                className="w-full h-9 px-3 rounded-[8px] bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
               />
             </div>
 
@@ -1661,7 +1662,7 @@ export const Users: React.FC = () => {
                 placeholder="••••••••••••"
                 value={editPassword}
                 onChange={(e) => setEditPassword(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl border border-[#262626] bg-[#141414] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
+                className="w-full h-9 px-3 rounded-[8px] border border-[#262626] bg-[#141414] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
               />
             </div>
 
@@ -1675,7 +1676,7 @@ export const Users: React.FC = () => {
                 <PermissionTable value={editPermissions} onChange={setEditPermissions} />
               </div>
             ) : (
-              <div className="p-3.5 rounded-xl bg-[#141414] border border-[#262626] font-sans">
+              <div className="p-3.5 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-amber-500 shrink-0" />
                   <span className="text-[14px] font-medium text-amber-500 font-sans">System Owner Account</span>
@@ -1693,7 +1694,7 @@ export const Users: React.FC = () => {
               {/* Account Status / Disable Account Action */}
               {editingUser && editingUser.id !== 1 && isOwner() && (
                 editingUser?.locked_until && new Date(editingUser.locked_until) > new Date() ? (
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-[#141414] border border-[#262626] font-sans">
+                  <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                     <div>
                       <span className="text-[14px] font-medium text-white block font-sans">Account Disabled</span>
                       <span className="text-[13px] text-[#8c8c8c] font-sans">User login is currently blocked</span>
@@ -1701,14 +1702,14 @@ export const Users: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleToggleUserStatus(editingUser, false)}
-                      className="group relative inline-flex items-center justify-center h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#257850] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
+                      className="group relative inline-flex items-center justify-center h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#257850] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
                     >
                       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#30a46c] to-[#247c52] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)] opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                       <span className="relative z-10">Enable</span>
                     </button>
                   </div>
                 ) : editingUser?.id !== currentUser?.id ? (
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-[#141414] border border-[#262626] font-sans">
+                  <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                     <div>
                       <span className="text-[14px] font-medium text-white block font-sans">Disable Account</span>
                       <span className="text-[13px] text-[#8c8c8c] font-sans">Temporarily suspend this member's access</span>
@@ -1719,7 +1720,7 @@ export const Users: React.FC = () => {
                         setDisableTarget({ user: editingUser!, disable: true });
                         setEditingUser(null);
                       }}
-                      className="group relative inline-flex items-center justify-center h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#b45309] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
+                      className="group relative inline-flex items-center justify-center h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#b45309] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
                     >
                       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#f59e0b] to-[#d97706] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)] opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                       <span className="relative z-10">Disable</span>
@@ -1730,7 +1731,7 @@ export const Users: React.FC = () => {
 
               {/* Force Remove 2FA Action */}
               {editingUser?.has_2fa && (
-                <div className="flex items-center justify-between p-3 rounded-xl bg-[#141414] border border-[#262626] font-sans">
+                <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                   <div>
                     <span className="text-[14px] font-medium text-white block font-sans">Two-Factor Authentication</span>
                     <span className="text-[13px] text-[#8c8c8c] font-sans">Disable if user lost their authenticator device</span>
@@ -1741,7 +1742,7 @@ export const Users: React.FC = () => {
                       setRemove2faTarget(editingUser);
                       setEditingUser(null);
                     }}
-                    className="group relative inline-flex items-center justify-center h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#b91c1c] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
+                    className="group relative inline-flex items-center justify-center h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#b91c1c] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
                   >
                     <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                     <span className="relative z-10">Reset 2FA</span>
@@ -1751,7 +1752,7 @@ export const Users: React.FC = () => {
 
               {/* Delete Member Action (Only for non-owner, non-self) */}
               {editingUser?.id !== 1 && editingUser?.id !== currentUser?.id && isOwner() && (
-                <div className="flex items-center justify-between p-3 rounded-xl bg-[#141414] border border-[#262626] font-sans">
+                <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                   <div>
                     <span className="text-[14px] font-medium text-white block font-sans">Delete Account</span>
                     <span className="text-[13px] text-[#8c8c8c] font-sans">Permanently revoke this member's access</span>
@@ -1762,7 +1763,7 @@ export const Users: React.FC = () => {
                       setDeleteTarget(editingUser);
                       setEditingUser(null);
                     }}
-                    className="group relative inline-flex items-center justify-center h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#b91c1c] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
+                    className="group relative inline-flex items-center justify-center h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#b91c1c] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
                   >
                     <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                     <span className="relative z-10">Delete</span>
@@ -1781,14 +1782,14 @@ export const Users: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setEditingUser(null)}
-                className="inline-flex items-center justify-center h-9 px-4 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
+                className="inline-flex items-center justify-center h-9 px-4 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={editLoading}
-                className="group relative flex shrink-0 items-center justify-center h-9 px-4 rounded-xl font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
+                className="group relative flex shrink-0 items-center justify-center h-9 px-4 rounded-[8px] font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
               >
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />

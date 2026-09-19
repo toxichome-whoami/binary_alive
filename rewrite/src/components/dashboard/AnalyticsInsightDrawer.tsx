@@ -142,7 +142,7 @@ export const AnalyticsInsightDrawer: React.FC<AnalyticsInsightDrawerProps> = ({ 
       <div className="relative w-full max-w-[960px] h-full flex flex-col p-1.5 sm:p-3 pointer-events-auto z-10 animate-in slide-in-from-right duration-200 ease-out">
         {/* LayerCard matching conter.html */}
         <div
-          className="rounded-lg ring-1 ring-[#262626] shadow-2xl bg-[#141414] flex w-full max-h-full flex-col overflow-hidden p-1.5 rounded-t-xl sm:rounded-xl border border-[#222222]"
+          className="rounded-lg ring-1 ring-[#262626] shadow-2xl bg-[#141414] flex w-full max-h-full flex-col overflow-hidden p-1.5 rounded-t-xl sm:rounded-[8px] border border-[#222222]"
           data-sentry-element="LayerCard"
         >
           {/* LayerDialogHeader */}

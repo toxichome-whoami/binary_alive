@@ -1,0 +1,154 @@
+import React, { useState, useEffect } from 'react';
+import { cn } from '../../utils/cn';
+import { Send, Sparkles, X, Settings as SettingsIcon, ChevronLeft } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
+import { PermissionTable } from '../shared/PermissionTable';
+import type { Permissions } from '../../types';
+
+interface AiAssistantDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, onClose }) => {
+  const [inputValue, setInputValue] = useState('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { user, hasPermission } = useAuthStore();
+  const canAccessAi = hasPermission('ai_access');
+
+  // Track the subset of permissions the user explicitly grants to the AI session
+  const [aiPermissions, setAiPermissions] = useState<Permissions | null>(null);
+
+  // Initialize the AI permissions based on what the user actually has
+  useEffect(() => {
+    if (user && !aiPermissions) {
+      if (user.role === 'owner') {
+        // Owner has everything by default
+        setAiPermissions({ ...user.permissions }); 
+      } else {
+        // Non-owner gets exactly their current permissions
+        setAiPermissions({ ...user.permissions });
+      }
+    }
+  }, [user, aiPermissions]);
+
+  if (!canAccessAi) return null;
+
+  // Calculate which permissions should be disabled (user doesn't have them)
+  const disabledPermissions = Object.keys(aiPermissions || {}).reduce((acc, key) => {
+    // If they aren't the owner and they don't have this permission, disable the toggle
+    if (user?.role !== 'owner' && !user?.permissions[key as keyof Permissions]) {
+      acc[key as keyof Permissions] = true;
+    }
+    return acc;
+  }, {} as Partial<Record<keyof Permissions, boolean>>);
+
+  return (
+    <aside 
+      className={cn(
+        "shrink-0 bg-[#0B0B0C] flex flex-col h-screen sticky top-0 transition-[width,border-color] duration-200 z-30 overflow-hidden",
+        isOpen ? "w-[320px] md:w-[360px] border-l border-[#222222]" : "w-0 border-l-transparent border-l-0"
+      )}
+    >
+      {/* Header */}
+      <div className="h-[58px] border-b border-[#222222] flex items-center justify-between px-4 shrink-0 w-[320px] md:w-[360px]">
+        {isSettingsOpen ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              className="p-1 -ml-1 text-[#8c8c8c] hover:text-white rounded-lg hover:bg-[#161616] transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <h2 className="text-[14px] font-medium text-white">AI Permissions</h2>
+          </div>
+        ) : (
+          <h2 className="text-[14px] font-medium text-white">AI Assistant</h2>
+        )}
+        <div className="flex items-center gap-1">
+          {!isSettingsOpen && (
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-1.5 text-[#8c8c8c] hover:text-white rounded-lg hover:bg-[#161616] transition-colors"
+              title="Configure AI Session Permissions"
+            >
+              <SettingsIcon className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="p-1.5 text-[#8c8c8c] hover:text-white rounded-lg hover:bg-[#161616] transition-colors"
+            title="Close AI Panel"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {isSettingsOpen ? (
+        /* Settings Area */
+        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#222222] w-[320px] md:w-[360px]">
+          <div className="mb-4">
+            <p className="text-[13px] text-[#A1A1A1] leading-relaxed">
+              Limit what this AI can access and perform on your behalf.
+            </p>
+          </div>
+          {aiPermissions && (
+            <PermissionTable
+              value={aiPermissions}
+              onChange={setAiPermissions}
+              disabled={disabledPermissions}
+            />
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Chat Area */}
+          <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-[#222222] w-[320px] md:w-[360px]">
+            <div className="flex flex-col items-center justify-center text-center mt-8 mb-6 space-y-2">
+              <div className="w-12 h-12 rounded-full bg-[#161718] border border-[#26282A] flex items-center justify-center shadow-sm mb-1">
+                <Sparkles className="w-6 h-6 text-[#A1A1A1]" />
+              </div>
+              <h3 className="text-[16px] font-medium text-white tracking-tight">
+                How can I assist you today?
+              </h3>
+              <p className="text-[13px] text-[#8c8c8c] max-w-[280px] leading-relaxed">
+                Monitor processes, inspect audit logs, run shell commands, or manage API keys.
+              </p>
+            </div>
+          </div>
+
+          {/* Input Area */}
+          <div className="p-4 bg-[#0B0B0C] border-t border-[#26282A] shrink-0 w-[320px] md:w-[360px]">
+            <div className="relative flex items-center bg-[#161718] border border-[#26282A] rounded-[8px] focus-within:border-[#383838] focus-within:ring-1 focus-within:ring-[#383838] transition-all">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Ask anything..."
+                className="w-full bg-transparent border-none text-[14px] text-white placeholder-[#A1A1A1] px-4 py-3 outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && inputValue.trim()) {
+                    // Stub out sending
+                    setInputValue('');
+                  }
+                }}
+              />
+              <button
+                disabled={!inputValue.trim()}
+                className="absolute right-2 p-1.5 text-[#A1A1A1] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-[6px] hover:bg-[#26282A] transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="text-center mt-3">
+              <p className="text-[11px] text-[#A1A1A1]">
+                AI can make mistakes. Verify important information.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+    </aside>
+  );
+};

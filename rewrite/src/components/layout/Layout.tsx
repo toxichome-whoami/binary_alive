@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { Footer } from './Footer';
 import { ToastContainer } from '../ui/Toast';
+import { AiAssistantDrawer } from '../ai/AiAssistantDrawer';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -49,9 +50,10 @@ class ErrorBoundary extends React.Component<
 export const Layout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-[#0c0c0c] text-gray-100 font-sans transition-colors">
+    <div className="flex min-h-screen bg-[#0c0c0c] text-gray-100 font-sans transition-colors relative overflow-hidden">
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -60,7 +62,11 @@ export const Layout: React.FC = () => {
       />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        <TopBar onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+        <TopBar 
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onToggleAiPanel={() => setIsAiPanelOpen(!isAiPanelOpen)}
+          isAiPanelOpen={isAiPanelOpen}
+        />
 
         <main className="flex-1 px-3 sm:px-5 py-6 w-full flex flex-col items-center">
           <ErrorBoundary>
@@ -71,6 +77,11 @@ export const Layout: React.FC = () => {
         {/* Cloudflare Production Site Footer from conter.html */}
         <Footer />
       </div>
+
+      <AiAssistantDrawer 
+        isOpen={isAiPanelOpen}
+        onClose={() => setIsAiPanelOpen(false)}
+      />
 
       <ToastContainer />
     </div>

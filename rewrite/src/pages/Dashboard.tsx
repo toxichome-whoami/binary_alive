@@ -936,7 +936,7 @@ export const Dashboard: React.FC = () => {
             </button>
 
             {showFilters && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 top-10 w-[560px] max-w-[calc(100vw-32px)] rounded-xl bg-[#0c0c0c] border border-[#262626] shadow-2xl p-4 z-50 select-none animate-in fade-in">
+              <div className="absolute left-0 sm:left-auto sm:right-0 top-10 w-[560px] max-w-[calc(100vw-32px)] rounded-[8px] bg-[#0c0c0c] border border-[#262626] shadow-2xl p-4 z-50 select-none animate-in fade-in">
                 {/* Header */}
                 <div className="flex items-center justify-between pb-3">
                   <div className="flex items-center gap-2">
@@ -1204,7 +1204,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Processes Table — Cloudflare DNS table (native table + ARIA) */}
-      <div id="processes-table-card" className="w-full flex flex-col rounded-xl border border-[#222222] bg-black shadow-sm select-none">
+      <div id="processes-table-card" className="w-full flex flex-col rounded-[8px] border border-[#222222] bg-black shadow-sm select-none">
         {/* Status bar */}
         <div className="flex w-full flex-col gap-2 px-4 py-3 bg-black">
           <div className="flex flex-wrap items-center justify-between gap-2">

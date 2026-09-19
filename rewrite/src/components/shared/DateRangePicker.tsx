@@ -177,7 +177,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
       </button>
 
       {showDatePicker && (
-        <div className="absolute right-0 top-11 z-50 flex flex-col rounded-xl bg-[#0c0c0c] border border-[#262626] shadow-2xl p-1.5 w-[490px] sm:w-[500px] max-w-[calc(100vw-32px)] select-none font-sans animate-in fade-in">
+        <div className="absolute right-0 top-11 z-50 flex flex-col rounded-[8px] bg-[#0c0c0c] border border-[#262626] shadow-2xl p-1.5 w-[490px] sm:w-[500px] max-w-[calc(100vw-32px)] select-none font-sans animate-in fade-in">
           <div className="min-h-0 bg-[#0e0e0e] border border-[#222222] rounded-lg overflow-hidden">
             {/* Top input: Custom range */}
             <div className="border-b border-[#222222]">

@@ -28,7 +28,8 @@ export const Login: React.FC = () => {
         processes_view: true, processes_start: true, processes_stop: true, processes_restart: true, processes_create: true, processes_edit: true, processes_delete: true,
         logs_view_audit: true, logs_view_login: true, logs_view_terminal: true,
         settings_view: true, settings_edit: true, settings_security: true,
-        terminal_access: true, terminal_unrestricted: true
+        terminal_access: true, terminal_unrestricted: true,
+        ai_access: true, ai_data_read: true, ai_data_write: true,
       },
       hostname: 'localhost',
     };
@@ -45,7 +46,7 @@ export const Login: React.FC = () => {
       <div className="w-full max-w-sm">
         {/* Brand header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-[#141414] border border-[#262626] text-[#2f80ed] mb-3.5 shadow-sm">
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-[8px] bg-[#141414] border border-[#262626] text-[#2f80ed] mb-3.5 shadow-sm">
             <Shield className="w-5 h-5 text-[#2f80ed]" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-white">
@@ -57,7 +58,7 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Card */}
-        <div className="bg-[#0c0c0c] border border-[#222222] rounded-xl p-7 shadow-xl">
+        <div className="bg-[#0c0c0c] border border-[#222222] rounded-[8px] p-7 shadow-xl">
           {/* Dev Mode Banner */}
           <div className="mb-5 p-3 rounded-lg bg-[#141414] border border-[#2f80ed]/40 flex items-center justify-between text-xs text-[#d4d4d8]">
             <div className="flex items-center gap-2">

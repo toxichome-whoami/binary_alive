@@ -62,13 +62,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, hasPermission } = useAuthStore();
+  const { hasPermission } = useAuthStore();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
@@ -88,17 +85,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [searchQuery]);
 
-  // Click outside to close account menu
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
-        setIsAccountMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => ({
       ...prev,
@@ -108,11 +94,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const sections: NavSectionData[] = [
     {
-      title: 'Observe',
+      title: 'Analytics & Logs',
       items: [
         {
           id: 'auditLogs',
-          label: 'Audit logs',
+          label: 'Audit Logs',
           icon: Search,
           to: '/logs',
           permission: 'logs_view_audit',
@@ -120,26 +106,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
-      title: 'Build',
+      title: 'Security & Access',
       items: [
         {
-          id: 'terminal',
-          label: 'Terminal Console',
-          icon: TerminalIcon,
-          to: '/terminal',
-          permission: 'terminal_access',
-        },
-      ],
-    },
-    {
-      title: 'Protect & connect',
-      items: [
-        {
-          id: 'twoFactor',
-          label: 'Two-Factor Security',
-          icon: ShieldCheck,
-          badge: '2FA',
-          to: '/2fa',
+          id: 'accessControl',
+          label: 'Members',
+          icon: Shield,
+          to: '/users',
+          permission: 'users_view',
         },
         {
           id: 'apiKeys',
@@ -149,20 +123,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
           permission: 'api_keys_view',
         },
         {
-          id: 'accessControl',
-          label: 'Members',
-          icon: Shield,
-          to: '/users',
-          permission: 'users_view',
+          id: 'twoFactor',
+          label: 'Two-Factor Auth',
+          icon: ShieldCheck,
+          to: '/2fa',
         },
       ],
     },
     {
-      title: 'Manage account',
+      title: 'System',
       items: [
         {
+          id: 'terminal',
+          label: 'Terminal Console',
+          icon: TerminalIcon,
+          to: '/terminal',
+          permission: 'terminal_access',
+        },
+        {
           id: 'settings',
-          label: 'Settings',
+          label: 'System Settings',
           icon: SettingsIcon,
           to: '/settings',
           permission: 'settings_view',
@@ -214,10 +194,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       .filter((sec) => sec.items.length > 0);
   }, [searchQuery, sections, hasPermission]);
 
-  const displayAccountName = user?.username
-    ? `${user.username}@gmail.com's Account`
-    : "Mrtx18427@gmail.com's Account";
-
   const handleNavigate = (path?: string) => {
     if (path) {
       navigate(path);
@@ -254,120 +230,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       >
         {/* ========================================== */}
-        {/* Top Header (Height: 58px matching Cloudflare) */}
+        {/* Top Header: Name and Version               */}
         {/* ========================================== */}
         <div
           data-sidebar="header"
           className={cn(
-            'flex h-[58px] shrink-0 items-center gap-1 border-b border-[#222222] overflow-hidden transition-[padding] duration-200',
-            isCollapsed ? 'px-2 justify-center' : 'px-3'
+            'flex h-[58px] shrink-0 items-center justify-center border-b border-[#222222] transition-[padding] duration-200 select-none relative z-30',
+            isCollapsed ? 'px-2' : 'px-4'
           )}
         >
-          <div className="flex items-center gap-1 w-full min-w-0">
-            {/* Cloudflare Two-Tone Cloud Logo SVG */}
-            <button
-              onClick={() => handleNavigate('/dashboard')}
-              aria-label="Cloudflare home"
-              className={cn(
-                'translate-y-0.5 cursor-pointer origin-left shrink-0 transition-transform duration-200 bg-transparent border-0 p-0',
-                isCollapsed ? 'scale-[0.8] mx-auto' : 'scale-100'
-              )}
-            >
-              <div data-sentry-component="CloudflareLogo">
-                <svg
-                  viewBox="0 0 460 271.2"
-                  width="44"
-                  height="44"
-                  aria-hidden="true"
-                  className="shrink-0"
-                >
-                  <path
-                    fill="#FF9911"
-                    d="M328.6,125.6c-0.8,0-1.5,0.6-1.8,1.4l-4.8,16.7c-2.1,7.2-1.3,13.8,2.2,18.7 c3.2,4.5,8.6,7.1,15.1,7.4l26.2,1.6c0.8,0,1.5,0.4,1.9,1c0.4,0.6,0.5,1.5,0.3,2.2c-0.4,1.2-1.6,2.1-2.9,2.2l-27.3,1.6 c-14.8,0.7-30.7,12.6-36.3,27.2l-2,5.1c-0.4,1,0.3,2,1.4,2h93.8c1.1,0,2.1-0.7,2.4-1.8c1.6-5.8,2.5-11.9,2.5-18.2 c0-37-30.2-67.2-67.3-67.2C330.9,125.5,329.7,125.5,328.6,125.6z"
-                  />
-                  <path
-                    fill="#FF5E1F"
-                    d="M292.8,204.4c2.1-7.2,1.3-13.8-2.2-18.7c-3.2-4.5-8.6-7.1-15.1-7.4l-123.1-1.6 c-0.8,0-1.5-0.4-1.9-1s-0.5-1.4-0.3-2.2c0.4-1.2,1.6-2.1,2.9-2.2l124.2-1.6c14.7-0.7,30.7-12.6,36.3-27.2l7.1-18.5 c0.3-0.8,0.4-1.6,0.2-2.4c-8-36.2-40.3-63.2-78.9-63.2c-35.6,0-65.8,23-76.6,54.9c-7-5.2-15.9-8-25.5-7.1 c-17.1,1.7-30.8,15.4-32.5,32.5c-0.4,4.4-0.1,8.7,0.9,12.7c-27.9,0.8-50.2,23.6-50.2,51.7c0,2.5,0.2,5,0.5,7.5 c0.2,1.2,1.2,2.1,2.4,2.1h227.2c1.3,0,2.5-0.9,2.9-2.2L292.8,204.4z"
-                  />
-                </svg>
-              </div>
-            </button>
-
-            {/* Account Switcher Trigger (Only in expanded mode) */}
-            {!isCollapsed && (
-              <div className="min-w-0 grow relative" ref={accountMenuRef}>
-                <div className="flex items-center pr-0.5 min-w-0">
-                  <button
-                    onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-                    className="flex items-center justify-between gap-2 w-full min-w-0 px-2.5 py-1.5 rounded-lg text-left bg-transparent border-0 font-sans hover:bg-[#161616] cursor-pointer transition-colors"
-                    aria-label="Switch Account"
-                    type="button"
-                  >
-                    <span className="flex flex-col min-w-0 overflow-hidden">
-                      <span
-                        className="block text-sm font-medium text-[#f3f4f6] truncate leading-snug"
-                        title={displayAccountName}
-                      >
-                        {displayAccountName}
-                      </span>
-                    </span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      fill="currentColor"
-                      viewBox="0 0 256 256"
-                      className="shrink-0 text-[#8c8c8c]"
-                    >
-                      <path d="M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Account Popover Menu */}
-                {isAccountMenuOpen && (
-                  <div className="absolute left-0 top-full mt-1.5 w-60 bg-[#121212] border border-[#262626] rounded-lg shadow-2xl p-1 z-50 animate-in fade-in zoom-in-95">
-                    <div className="px-2.5 py-2 border-b border-[#222222]">
-                      <div className="text-xs font-medium text-white truncate">
-                        {displayAccountName}
-                      </div>
-                      <div className="text-[11px] text-[#8c8c8c] capitalize">
-                        Role: {user?.role || 'admin'}
-                      </div>
-                    </div>
-                    <div className="py-1">
-                      <button
-                        onClick={() => {
-                          setIsAccountMenuOpen(false);
-                          handleNavigate('/users');
-                        }}
-                        className="w-full text-left px-2.5 py-1.5 text-xs text-[#d4d4d4] hover:text-white hover:bg-[#1f1f1f] rounded-md transition-colors"
-                      >
-                        Manage Members
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsAccountMenuOpen(false);
-                          handleNavigate('/settings');
-                        }}
-                        className="w-full text-left px-2.5 py-1.5 text-xs text-[#d4d4d4] hover:text-white hover:bg-[#1f1f1f] rounded-md transition-colors"
-                      >
-                        Configurations
-                      </button>
-                    </div>
-                  </div>
-                )}
+          <button
+            onClick={() => handleNavigate('/dashboard')}
+            aria-label="Binary Alive Dashboard"
+            className="flex items-center justify-center gap-2 bg-transparent border-0 p-0 text-center cursor-pointer min-w-0 group"
+          >
+            {isCollapsed ? (
+              <span className="font-['Poppins',sans-serif] font-bold text-[13px] text-[#F2F3F3] tracking-widest uppercase">
+                BA
+              </span>
+            ) : (
+              <div className="flex items-center justify-center gap-2 min-w-0">
+                <span className="font-['Montserrat',sans-serif] text-[17px] text-[#F2F3F3] font-semibold tracking-[0.1em] truncate">
+                  Binary Alive
+                </span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] bg-[#161718] border border-[#26282A] text-[12px] text-[#A1A1A1] tracking-normal">
+                  v2.4.1
+                </span>
               </div>
             )}
+          </button>
 
-            {/* Mobile close button */}
-            <button
-              onClick={onClose}
-              className="p-1 text-[#8c8c8c] hover:text-white md:hidden ml-auto"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          {/* Mobile close button positioned absolute right to maintain centering */}
+          <button
+            onClick={onClose}
+            className="p-1 text-[#8c8c8c] hover:text-white md:hidden absolute right-3 shrink-0"
+            aria-label="Close sidebar"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* ========================================== */}

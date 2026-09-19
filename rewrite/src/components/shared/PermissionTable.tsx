@@ -59,9 +59,9 @@ const GROUPS = [
     id: 'settings',
     label: 'System Settings',
     items: [
-      { key: 'settings_view', label: 'View configuration', desc: 'Can inspect server parameters and security' },
-      { key: 'settings_edit', label: 'Edit configuration', desc: 'Can modify server host and listening rules' },
-      { key: 'settings_security', label: 'Security rules', desc: 'Can adjust rate limiting, captcha, and lockout' },
+      { key: 'settings_view', label: 'View settings', desc: 'Can access and view system configuration' },
+      { key: 'settings_edit', label: 'Modify settings', desc: 'Can adjust maintenance mode and AI model settings' },
+      { key: 'settings_security', label: 'Captcha protection', desc: 'Can toggle login CAPTCHA verification' },
     ],
   },
   {
@@ -70,6 +70,15 @@ const GROUPS = [
     items: [
       { key: 'terminal_access', label: 'Access terminal', desc: 'Can open interactive shell sessions' },
       { key: 'terminal_unrestricted', label: 'Unrestricted execution', desc: 'Can bypass command blocklists (root-like)' },
+    ],
+  },
+  {
+    id: 'ai',
+    label: 'AI Assistant',
+    items: [
+      { key: 'ai_access', label: 'Use AI Assistant', desc: 'Can access and chat with the AI assistant' },
+      { key: 'ai_data_read', label: 'AI Data Access (Read)', desc: 'AI can read workspace and system data on behalf of user' },
+      { key: 'ai_data_write', label: 'AI Data Access (Write)', desc: 'AI can modify workspace data and perform actions' },
     ],
   },
 ];
@@ -112,7 +121,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
   };
 
   return (
-    <div className="w-full border border-[#222222] rounded-xl overflow-hidden bg-[#0c0c0c] divide-y divide-[#222222] font-sans select-none">
+    <div className="w-full border border-[#222222] rounded-[8px] overflow-hidden bg-[#0c0c0c] divide-y divide-[#222222] font-sans select-none">
       {GROUPS.map((group) => {
         const isExpanded = !!expandedGroups[group.id];
         const enableableItems = group.items.filter((item) => !disabled[item.key as keyof Permissions]);

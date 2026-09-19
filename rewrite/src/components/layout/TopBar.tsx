@@ -6,9 +6,11 @@ import { Menu, Sun, Moon, LogOut, ShieldCheck, Users, Settings as SettingsIcon, 
 
 interface TopBarProps {
   onToggleSidebar: () => void;
+  onToggleAiPanel: () => void;
+  isAiPanelOpen: boolean;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
+export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar, onToggleAiPanel, isAiPanelOpen }) => {
   const navigate = useNavigate();
   const { user, isOwner, hasPermission, setUser } = useAuthStore();
   const [isDark, setIsDark] = useState(true);
@@ -76,43 +78,12 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
       {/* Right controls matching Cloudflare CollapsedHeader */}
       <div className="ml-auto flex items-center gap-1">
         {/* 1. Ask AI Button (Exact SVG from conter.html) */}
-        <button
-          data-kumo-component="Button"
-          className="group flex w-max shrink-0 items-center font-medium select-none border-0 focus:outline-none cursor-pointer gap-1.5 rounded-lg px-3 text-sm text-[#d4d4d4] hover:text-white hover:bg-[#161616] shadow-none bg-inherit h-8 transition-colors"
-          type="button"
-          onClick={() => navigate('/terminal')}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            fill="currentColor"
-            viewBox="0 0 256 256"
-            className="w-4 h-4 -translate-y-px text-neutral-500 group-hover:text-white transition-colors"
-          >
-            <path d="M208,144a15.78,15.78,0,0,1-10.42,14.94L146,178l-19,51.62a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88L78,110l19-51.62a15.92,15.92,0,0,1,29.88,0L146,110l51.62,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z" />
-          </svg>
-          <span className="contents">
-            <span className="hidden md:inline-flex items-center gap-2">
-              <span>Ask AI</span>
-            </span>
-          </span>
-        </button>
-        {/* 2. User Menu Button */}
-        <div className="relative" ref={userMenuRef}>
+        {hasPermission('ai_access') && (
           <button
             data-kumo-component="Button"
-            className={`group flex shrink-0 font-medium select-none border-0 focus:outline-none cursor-pointer gap-1.5 rounded-lg text-sm items-center justify-center p-0 shadow-none size-8 transition-colors ${
-              isUserMenuOpen
-                ? 'text-white bg-[#1a1a1a]'
-                : 'text-[#8c8c8c] hover:text-white hover:bg-[#161616]'
-            }`}
+            className={`group flex w-max shrink-0 items-center font-medium select-none border-0 focus:outline-none cursor-pointer gap-1.5 rounded-lg px-3 text-sm shadow-none bg-inherit h-8 transition-colors ${isAiPanelOpen ? 'text-white bg-[#161616]' : 'text-[#d4d4d4] hover:text-white hover:bg-[#161616]'}`}
             type="button"
-            aria-label="User menu"
-            data-testid="kumo-user-dropdown-button"
-            aria-haspopup="menu"
-            aria-expanded={isUserMenuOpen}
-            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            onClick={onToggleAiPanel}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -120,124 +91,157 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
               height="16"
               fill="currentColor"
               viewBox="0 0 256 256"
-              className="w-4 h-4 text-[#8c8c8c] group-hover:text-white transition-colors"
+              className={`w-4 h-4 -translate-y-px transition-colors ${isAiPanelOpen ? 'text-white' : 'text-neutral-500 group-hover:text-white'}`}
             >
-              <path d="M230.93,220a8,8,0,0,1-6.93,4H32a8,8,0,0,1-6.92-12c15.23-26.33,38.7-45.21,66.09-54.16a72,72,0,1,1,73.66,0c27.39,8.95,50.86,27.83,66.09,54.16A8,8,0,0,1,230.93,220Z" />
+              <path d="M208,144a15.78,15.78,0,0,1-10.42,14.94L146,178l-19,51.62a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88L78,110l19-51.62a15.92,15.92,0,0,1,29.88,0L146,110l51.62,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z" />
             </svg>
+            <span className="contents">
+              <span className="hidden md:inline-flex items-center gap-2">
+                <span>Ask AI</span>
+              </span>
+            </span>
           </button>
+        )}
+          {/* 2. User Menu Button */}
+          <div className="relative" ref={userMenuRef}>
+            <button
+              data-kumo-component="Button"
+              className={`group flex shrink-0 font-medium select-none border-0 focus:outline-none cursor-pointer gap-1.5 rounded-lg text-sm items-center justify-center p-0 shadow-none size-8 transition-colors ${
+                isUserMenuOpen
+                  ? 'text-white bg-[#1a1a1a]'
+                  : 'text-[#8c8c8c] hover:text-white hover:bg-[#161616]'
+              }`}
+              type="button"
+              aria-label="User menu"
+              data-testid="kumo-user-dropdown-button"
+              aria-haspopup="menu"
+              aria-expanded={isUserMenuOpen}
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                fill="currentColor"
+                viewBox="0 0 256 256"
+                className="w-4 h-4 text-[#8c8c8c] group-hover:text-white transition-colors"
+              >
+                <path d="M230.93,220a8,8,0,0,1-6.93,4H32a8,8,0,0,1-6.92-12c15.23-26.33,38.7-45.21,66.09-54.16a72,72,0,1,1,73.66,0c27.39,8.95,50.86,27.83,66.09,54.16A8,8,0,0,1,230.93,220Z" />
+              </svg>
+            </button>
 
-          {/* User Dropdown Menu Popover */}
-          {isUserMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-[260px] bg-[#0e0e0e] border border-[#262626] rounded-xl shadow-2xl p-1.5 z-50 select-none animate-in fade-in zoom-in-95 font-sans">
-              {/* Account info header */}
-              <div className="p-2.5 rounded-lg bg-[#141414] border border-[#1f1f1f] mb-1">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[14px] font-medium text-white truncate leading-tight">
-                    {user?.username || 'admin'}
-                  </span>
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium text-[#8c8c8c] bg-[#1a1a1a] border border-[#262626] capitalize shrink-0">
-                    {isOwner() ? 'Owner' : user?.role || 'Member'}
-                  </span>
+            {/* User Dropdown Menu Popover */}
+            {isUserMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-[260px] bg-[#0e0e0e] border border-[#262626] rounded-[8px] shadow-2xl p-1.5 z-50 select-none animate-in fade-in zoom-in-95 font-sans">
+                {/* Account info header */}
+                <div className="p-2.5 rounded-lg bg-[#141414] border border-[#1f1f1f] mb-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[14px] font-medium text-white truncate leading-tight">
+                      {user?.username || 'admin'}
+                    </span>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium text-[#8c8c8c] bg-[#1a1a1a] border border-[#262626] capitalize shrink-0">
+                      {isOwner() ? 'Owner' : user?.role || 'Member'}
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-[#8c8c8c] truncate leading-tight mt-1">
+                    {user?.hostname ? `${user.username}@${user.hostname}` : `${user?.username || 'admin'}@localhost`}
+                  </p>
                 </div>
-                <p className="text-[13px] text-[#8c8c8c] truncate leading-tight mt-1">
-                  {user?.hostname ? `${user.username}@${user.hostname}` : `${user?.username || 'admin'}@localhost`}
-                </p>
-              </div>
 
-              {/* Navigation Items */}
-              <div className="space-y-0.5 py-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    navigate('/settings');
-                  }}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
-                >
-                  <SettingsIcon className="w-4 h-4 text-[#8c8c8c] shrink-0" />
-                  <span>Settings</span>
-                </button>
-
-                {hasPermission('users_create') && (
+                {/* Navigation Items */}
+                <div className="space-y-0.5 py-0.5">
                   <button
                     type="button"
                     onClick={() => {
                       setIsUserMenuOpen(false);
-                      navigate('/users');
+                      navigate('/settings');
                     }}
                     className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
                   >
-                    <Users className="w-4 h-4 text-[#8c8c8c] shrink-0" />
-                    <span>Users & Access</span>
+                    <SettingsIcon className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                    <span>Settings</span>
                   </button>
-                )}
 
+                  {hasPermission('users_create') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        navigate('/users');
+                      }}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
+                    >
+                      <Users className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                      <span>Users & Access</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      navigate('/2fa');
+                    }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                    <span>Two-Factor Security</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      navigate('/logs');
+                    }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
+                  >
+                    <FileText className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                    <span>Audit Logs</span>
+                  </button>
+                </div>
+
+                {/* Edge-to-edge line through padding */}
+                <div className="-mx-1.5 h-px bg-[#222222] my-1.5" />
+
+                {/* Theme toggle */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    navigate('/2fa');
-                  }}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
                 >
-                  <ShieldCheck className="w-4 h-4 text-[#8c8c8c] shrink-0" />
-                  <span>Two-Factor Security</span>
+                  <div className="flex items-center gap-2.5">
+                    {isDark ? (
+                      <Moon className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                    ) : (
+                      <Sun className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                    )}
+                    <span>Theme</span>
+                  </div>
+                  <span className="text-[13px] text-[#8c8c8c] font-normal">
+                    {isDark ? 'Dark' : 'Light'}
+                  </span>
                 </button>
 
+                {/* Edge-to-edge line through padding */}
+                <div className="-mx-1.5 h-px bg-[#222222] my-1.5" />
+
+                {/* Sign out */}
                 <button
                   type="button"
                   onClick={() => {
                     setIsUserMenuOpen(false);
-                    navigate('/logs');
+                    handleLogout();
                   }}
                   className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
                 >
-                  <FileText className="w-4 h-4 text-[#8c8c8c] shrink-0" />
-                  <span>Audit Logs</span>
+                  <LogOut className="w-4 h-4 text-[#8c8c8c] shrink-0" />
+                  <span>Sign out</span>
                 </button>
               </div>
-
-              {/* Edge-to-edge line through padding */}
-              <div className="-mx-1.5 h-px bg-[#222222] my-1.5" />
-
-              {/* Theme toggle */}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
-              >
-                <div className="flex items-center gap-2.5">
-                  {isDark ? (
-                    <Moon className="w-4 h-4 text-[#8c8c8c] shrink-0" />
-                  ) : (
-                    <Sun className="w-4 h-4 text-[#8c8c8c] shrink-0" />
-                  )}
-                  <span>Theme</span>
-                </div>
-                <span className="text-[13px] text-[#8c8c8c] font-normal">
-                  {isDark ? 'Dark' : 'Light'}
-                </span>
-              </button>
-
-              {/* Edge-to-edge line through padding */}
-              <div className="-mx-1.5 h-px bg-[#222222] my-1.5" />
-
-              {/* Sign out */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsUserMenuOpen(false);
-                  handleLogout();
-                }}
-                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-normal text-[#d4d4d4] hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer text-left"
-              >
-                <LogOut className="w-4 h-4 text-[#8c8c8c] shrink-0" />
-                <span>Sign out</span>
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
   );
 };

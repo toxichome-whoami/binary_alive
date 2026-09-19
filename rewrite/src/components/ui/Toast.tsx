@@ -21,7 +21,7 @@ export const ToastContainer: React.FC = () => {
         <div
           key={toast.id}
           className={cn(
-            'pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg bg-surface dark:bg-surface-dark border-border dark:border-border-dark animate-in slide-in-from-bottom-5 duration-200'
+            'pointer-events-auto flex items-start gap-3 p-4 rounded-[8px] border shadow-lg bg-surface dark:bg-surface-dark border-border dark:border-border-dark animate-in slide-in-from-bottom-5 duration-200'
           )}
         >
           {icons[toast.type]}

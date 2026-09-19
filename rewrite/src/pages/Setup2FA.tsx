@@ -101,7 +101,7 @@ export const Setup2FA: React.FC = () => {
       </div>
 
       {/* Cloudflare Signature Double-Border Container */}
-      <div className="w-full flex flex-col rounded-xl border border-[#222222] bg-black shadow-sm">
+      <div className="w-full flex flex-col rounded-[8px] border border-[#222222] bg-black shadow-sm">
         {/* Outer Frame Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-black">
           <div className="flex items-center gap-2">

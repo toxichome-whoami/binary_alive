@@ -40,7 +40,10 @@ export const DEV_ADMIN: CurrentUser = {
     settings_edit: true,
     settings_security: true,
     terminal_access: true,
-    terminal_unrestricted: true
+    terminal_unrestricted: true,
+    ai_access: true,
+    ai_data_read: true,
+    ai_data_write: true,
   },
   hostname: 'localhost',
 };
