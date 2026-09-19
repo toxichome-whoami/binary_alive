@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { processesApi } from '../../api/processes';
+
 
 export const DATE_PRESETS = [
+  { label: 'Live (60s)', minutes: 0 },
   { label: 'Last 30 minutes', minutes: 30 },
   { label: 'Last 1 hour', minutes: 60 },
   { label: 'Last 6 hours', minutes: 360 },
@@ -17,7 +20,7 @@ export interface DateRangePickerProps {
 }
 
 export const DateRangePicker: React.FC<DateRangePickerProps> = ({
-  selectedRangeLabel: initialLabel = 'Last 24 hours',
+  selectedRangeLabel: initialLabel = 'Live (60s)',
   onRangeChange,
   className = '',
 }) => {
@@ -25,15 +28,29 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedRangeLabel, setSelectedRangeLabel] = useState(initialLabel);
   const [activePreset, setActivePreset] = useState(initialLabel);
+  const [minDate, setMinDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    processesApi.getTelemetryBounds().then(res => {
+      if (res.success && res.data && res.data.min_time) {
+        setMinDate(new Date(res.data.min_time + "Z"));
+      }
+    }).catch(console.error);
+  }, []);
+
   const [customRangeQuery, setCustomRangeQuery] = useState('');
 
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
-  const [rangeStart, setRangeStart] = useState<Date>(() => {
+  const [rangeStart, setRangeStart] = useState<Date | null>(() => {
+    if (initialLabel === 'Live (60s)') return null;
     const d = new Date();
-    d.setDate(d.getDate() - 1);
+    d.setHours(d.getHours() - 24);
     return d;
   });
-  const [rangeEnd, setRangeEnd] = useState<Date>(() => new Date());
+  const [rangeEnd, setRangeEnd] = useState<Date | null>(() => {
+    if (initialLabel === 'Live (60s)') return null;
+    return new Date();
+  });
 
   // Close when clicking outside
   useEffect(() => {
@@ -55,6 +72,11 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
   const handleSelectPreset = (label: string, minutes: number) => {
     setActivePreset(label);
+    if (label === 'Live (60s)') {
+      setRangeStart(null);
+      setRangeEnd(null);
+      return;
+    }
     const end = new Date();
     const start = new Date(end.getTime() - minutes * 60 * 1000);
     setRangeStart(start);
@@ -62,7 +84,10 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     setCurrentMonthDate(end);
   };
 
+
   const handleDayClick = (dayDate: Date) => {
+    if (minDate && dayDate < new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate())) return;
+
     setActivePreset('');
     if (!rangeStart || (rangeStart && rangeEnd)) {
       setRangeStart(dayDate);
@@ -277,15 +302,41 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
                           return (
                             <td key={colIdx} className="p-0 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleDayClick(item.date)}
-                                className={`w-full h-8 sm:h-8.5 flex items-center justify-center text-[13px] transition-colors cursor-pointer font-sans ${cellBg} ${roundedClass} ${
-                                  !isStart && !isEnd && !inRange ? 'hover:bg-[#1f1f1f]' : ''
-                                } ${textClass} ${today && !isStart && !isEnd ? 'ring-1 ring-[#555555]' : ''}`}
-                              >
-                                {item.dayNum}
-                              </button>
+                              
+                              {(() => {
+                                let isDisabled = false;
+                                if (minDate) {
+                                  const dayStart = new Date(item.date.getFullYear(), item.date.getMonth(), item.date.getDate());
+                                  const minDay = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+                                  if (dayStart < minDay) isDisabled = true;
+                                }
+                                
+                                if (isDisabled) {
+                                  textClass = 'text-[#333333]';
+                                  return (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className={`w-full h-8 sm:h-8.5 flex items-center justify-center text-[13px] cursor-not-allowed font-sans ${textClass}`}
+                                    >
+                                      {item.dayNum}
+                                    </button>
+                                  );
+                                }
+
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDayClick(item.date)}
+                                    className={`w-full h-8 sm:h-8.5 flex items-center justify-center text-[13px] transition-colors cursor-pointer font-sans ${cellBg} ${roundedClass} ${
+                                      !isStart && !isEnd && !inRange ? 'hover:bg-[#1f1f1f]' : ''
+                                    } ${textClass} ${today && !isStart && !isEnd ? 'ring-1 ring-[#555555]' : ''}`}
+                                  >
+                                    {item.dayNum}
+                                  </button>
+                                );
+                              })()}
+
                             </td>
                           );
                         })}

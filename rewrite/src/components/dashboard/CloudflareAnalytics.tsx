@@ -1,9 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { processesApi } from '../../api/processes';
+import { DATE_PRESETS } from '../shared/DateRangePicker';
 import {
       RefreshCw,
 } from 'lucide-react';
 import type { Process } from '../../types';
 import { SlideOver } from '../ui/SlideOver';
+import { DateRangePicker } from '../shared/DateRangePicker';
 
 interface CloudflareAnalyticsProps {
   runningCount: number;
@@ -32,8 +35,8 @@ export const tsStore: Record<MetricKey, number[]> = {
   uptime: Array(MAX_PTS).fill(100),
 };
 
-export function generateGraphPaths(key: MetricKey, width: number, bottomY: number) {
-  const data = tsStore[key];
+export function generateGraphPaths(key: MetricKey, width: number, bottomY: number, data: number[]) {
+  
   if (data.length === 0) return { line: '', area: '' };
   
   let baseMax = 1;
@@ -45,11 +48,15 @@ export function generateGraphPaths(key: MetricKey, width: number, bottomY: numbe
   if (key === 'uptime') baseMax = 100;
 
   const maxVal = Math.max(...data, baseMax);
-  const stepX = width / (MAX_PTS - 1);
+  
   
   let line = '';
+  
+  // For historical data, we might have hundreds of points, but we just draw them across the width
+  const actualStepX = width / Math.max(data.length - 1, 1);
   data.forEach((val, i) => {
-    const x = i * stepX;
+    const x = i * actualStepX;
+    
     let rawY = bottomY - ((val / maxVal) * (bottomY - 20));
     if (val === 0) rawY = bottomY;
     
@@ -177,9 +184,34 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   }, [processes]);
 
   // Right-side SlideOver Telemetry Drawer State
-  const [selectedMetric, setSelectedMetric] = useState<
+    const [selectedMetric, setSelectedMetric] = useState<
     'cpu' | 'active' | 'memory' | 'load' | 'restarts' | 'uptime' | null
   >(null);
+  
+  const [selectedRangeLabel, setSelectedRangeLabel] = useState('Live (60s)');
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  
+  
+
+  // Use historical data if available, else live buffer
+  const getGraphData = (key: MetricKey) => {
+    if (historicalData.length > 0) {
+      // Map DB columns to metric keys
+      const dbKey = key === 'memory' ? 'memory_mb' : key === 'load' ? 'sys_load' : key === 'active' ? 'active_procs' : key;
+      return historicalData.map(row => row[dbKey] || 0);
+    }
+    return tsStore[key];
+  };
+
+  const [isCooldown, setIsCooldown] = useState(false);
+  
+  const handleRefreshWithCooldown = () => {
+    if (isCooldown) return;
+    setIsCooldown(true);
+    onRefresh();
+    setTimeout(() => setIsCooldown(false), 2000);
+  };
+
   const [drawerSearch, setDrawerSearch] = useState('');
 
   // Memory & CPU parse utilities
@@ -360,10 +392,12 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
     const rect = e.currentTarget.getBoundingClientRect();
     if (rect.width <= 0) return null;
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const timeStr = formatTimeFromPct(pct);
     
-    const idx = Math.round(pct * (MAX_PTS - 1));
-    const val = tsStore[key][idx] || 0;
+    
+    
+    const idx = Math.round(pct * Math.max(data.length - 1, 0));
+    const timeStr = formatTimeFromPct(pct, idx);
+      const val = data[idx] || 0;
 
     let baseMax = 1;
     if (key === 'cpu') baseMax = 100;
@@ -373,7 +407,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
     if (key === 'restarts') baseMax = 5;
     if (key === 'uptime') baseMax = 100;
 
-    const maxVal = Math.max(...tsStore[key], baseMax);
+    const maxVal = Math.max(...data, baseMax);
     
     let rawY = 116 - ((val / maxVal) * (116 - 20));
     if (val === 0) rawY = 116;
@@ -402,30 +436,39 @@ return (
       <div className="flex items-center justify-between gap-3 w-full">
         <h3 className="text-white text-[16px] font-semibold tracking-tight">Analytics</h3>
         <div className="flex items-center gap-2">
-          
+            <DateRangePicker
+              selectedRangeLabel={selectedRangeLabel}
+              onRangeChange={(label, start, end) => {
+                setSelectedRangeLabel(label);
+                if (label === 'Live (60s)') {
+                  setHistoricalData([]);
+                  return;
+                }
+                const preset = DATE_PRESETS.find(p => p.label === label);
+                if (start && end) {
+                  // Custom date range
+                  processesApi.getTelemetry(0, start.toISOString(), end.toISOString()).then(res => {
+                    if (res.success && res.data) setHistoricalData(res.data);
+                  }).catch(console.error);
+                } else if (preset && preset.minutes > 0) {
+                  // Preset range
+                  processesApi.getTelemetry(preset.minutes).then(res => {
+                    if (res.success && res.data) setHistoricalData(res.data);
+                  }).catch(console.error);
+                }
+              }}
+            />
 
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="flex items-center justify-center h-9 w-9 text-[#8c8c8c] hover:text-white rounded-lg bg-transparent hover:bg-[#141414] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer shrink-0 disabled:opacity-50"
-            title="Refresh metrics"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.25"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={`w-4 h-4 shrink-0 ${isLoading ? 'animate-spin' : ''}`}
+            <button
+              type="button"
+              onClick={handleRefreshWithCooldown}
+              disabled={isLoading || isCooldown}
+              className={`flex items-center justify-center h-9 w-9 text-[#8c8c8c] hover:text-white rounded-lg bg-transparent hover:bg-[#141414] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer shrink-0 disabled:opacity-50 ${isCooldown ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title="Refresh metrics"
             >
-              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-            </svg>
-          </button>
-        </div>
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin opacity-50' : ''}`} />
+            </button>
+          </div>
       </div>
 
       {/* Top Row: 2 Wide Hero Cards */}
@@ -481,12 +524,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('cpu', 1000, 116).area}
+                  d={generateGraphPaths('cpu', 1000, 116, getGraphData('cpu')).area}
                   fill="url(#cpu-gradient-area)"
                   stroke="none"
                 />
                 <path
-                  d={generateGraphPaths('cpu', 1000, 116).line}
+                  d={generateGraphPaths('cpu', 1000, 116, getGraphData('cpu')).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -594,12 +637,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('active', 1000, 116).area}
+                  d={generateGraphPaths('active', 1000, 116, getGraphData('active')).area}
                   fill="url(#active-gradient-area)"
                   stroke="none"
                 />
                 <path
-                  d={generateGraphPaths('active', 1000, 116).line}
+                  d={generateGraphPaths('active', 1000, 116, getGraphData('active')).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="2"
@@ -710,12 +753,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('memory', 1000, 116).area}
+                  d={generateGraphPaths('memory', 1000, 116, getGraphData('memory')).area}
                   fill="url(#mem-usage-grad)"
                   stroke="none"
                 />
                 <path
-                  d={generateGraphPaths('memory', 1000, 116).line}
+                  d={generateGraphPaths('memory', 1000, 116, getGraphData('memory')).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -823,12 +866,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('load', 1000, 116).area}
+                  d={generateGraphPaths('load', 1000, 116, getGraphData('load')).area}
                   fill="url(#sys-load-grad)"
                   stroke="none"
                 />
                 <path
-                  d={generateGraphPaths('load', 1000, 116).line}
+                  d={generateGraphPaths('load', 1000, 116, getGraphData('load')).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -936,12 +979,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('restarts', 1000, 116).area}
+                  d={generateGraphPaths('restarts', 1000, 116, getGraphData('restarts')).area}
                   fill="url(#restarts-grad)"
                   stroke="none"
                 />
                 <path
-                  d={generateGraphPaths('restarts', 1000, 116).line}
+                  d={generateGraphPaths('restarts', 1000, 116, getGraphData('restarts')).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -1049,12 +1092,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('uptime', 1000, 116).area}
+                  d={generateGraphPaths('uptime', 1000, 116, getGraphData('uptime')).area}
                   fill="url(#uptime-grad)"
                   stroke="none"
                 />
                 <path
-                  d={generateGraphPaths('uptime', 1000, 116).line}
+                  d={generateGraphPaths('uptime', 1000, 116, getGraphData('uptime')).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -1160,7 +1203,7 @@ return (
                   {selectedMetric === 'uptime' && 'Avg. uptime'}
                 </span>
                 <span className="text-[13px] font-normal text-[#8c8c8c]">
-                  'Live (60s)'
+                  {selectedRangeLabel}
                 </span>
               </div>
               {/* Main value + Right-side simple graph */}
@@ -1217,12 +1260,12 @@ return (
                     <line x1="0" y1="44" x2="220" y2="44" stroke="#1c1c1c" strokeWidth="1" strokeDasharray="3 3" />
                     {/* Area fill */}
                     <path
-                      d={selectedMetric ? generateGraphPaths(selectedMetric, 220, 48).area : ''}
+                      d={selectedMetric ? generateGraphPaths(selectedMetric, 220, 48, getGraphData(selectedMetric)).area : ''}
                       fill="url(#drawerSparklineGrad)"
                     />
                     {/* Stroke line */}
                     <path
-                      d={selectedMetric ? generateGraphPaths(selectedMetric, 220, 48).line : ''}
+                      d={selectedMetric ? generateGraphPaths(selectedMetric, 220, 48, getGraphData(selectedMetric)).line : ''}
                       fill="none"
                       stroke={
                         selectedMetric === 'restarts'
@@ -1237,21 +1280,27 @@ return (
                     />
                     {/* Current point indicator */}
                     <circle
-                      cx="220"
-                      cy={
-                        selectedMetric === 'cpu'
-                          ? 18
-                          : selectedMetric === 'active'
-                          ? 16
-                          : selectedMetric === 'memory'
-                          ? 36
-                          : selectedMetric === 'load'
-                          ? 20
-                          : selectedMetric === 'restarts'
-                          ? 40
-                          : 8
-                      }
-                      r="2.5"
+                        cx="220"
+                        cy={(() => {
+                          if (!selectedMetric) return 48;
+                          const data = getGraphData(selectedMetric);
+                          if (!data || data.length === 0) return 48;
+                          
+                          let baseMax = 1;
+                          if (selectedMetric === 'cpu') baseMax = 100;
+                          if (selectedMetric === 'memory') baseMax = 1024;
+                          if (selectedMetric === 'active') baseMax = 10;
+                          if (selectedMetric === 'load') baseMax = 4;
+                          if (selectedMetric === 'restarts') baseMax = 5;
+                          if (selectedMetric === 'uptime') baseMax = 100;
+                          
+                          const maxVal = Math.max(...data, baseMax);
+                          const val = data[data.length - 1] || 0;
+                          
+                          if (val === 0) return 48;
+                          return 48 - ((val / maxVal) * (48 - 20));
+                        })()}
+                        r="2.5" 
                       fill={
                         selectedMetric === 'restarts'
                           ? '#f59e0b'

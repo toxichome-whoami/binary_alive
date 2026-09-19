@@ -1,3 +1,4 @@
+import { db } from '../db/client.js';
 import { Hono } from 'hono';
 import {
   getAllProcesses,
@@ -65,6 +66,54 @@ processRouter.get('/', async (c) => {
     data: enriched,
     sys_load: sysLoad,
   });
+});
+
+
+
+// Get telemetry bounds
+processRouter.get('/telemetry/bounds', async (c) => {
+  try {
+    const result = await db.execute({
+      sql: `SELECT MIN(timestamp) as min_time FROM telemetry_logs`
+    });
+    return c.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error('[API] Telemetry bounds error:', err);
+    return c.json({ success: false, message: 'Failed to fetch bounds' }, 500);
+  }
+});
+
+// Get telemetry logs
+processRouter.get('/telemetry', async (c) => {
+  try {
+    const minutes = parseInt(c.req.query('minutes') || '0', 10);
+    const start = c.req.query('start');
+    const end = c.req.query('end');
+    
+    let result;
+    if (start && end) {
+      result = await db.execute({
+        sql: `SELECT cpu, memory_mb, sys_load, active_procs, restarts, timestamp 
+              FROM telemetry_logs 
+              WHERE timestamp >= datetime(?) AND timestamp <= datetime(?)
+              ORDER BY timestamp ASC`,
+        args: [start, end]
+      });
+    } else {
+      const min = minutes > 0 ? minutes : 1440;
+      result = await db.execute({
+        sql: `SELECT cpu, memory_mb, sys_load, active_procs, restarts, timestamp 
+              FROM telemetry_logs 
+              WHERE timestamp >= datetime('now', '-' || ? || ' minutes')
+              ORDER BY timestamp ASC`,
+        args: [min]
+      });
+    }
+    return c.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('[API] Telemetry fetch error:', err);
+    return c.json({ success: false, message: 'Failed to fetch telemetry' }, 500);
+  }
 });
 
 // Get single process
