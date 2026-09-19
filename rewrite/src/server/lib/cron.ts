@@ -1,3 +1,4 @@
+import { db } from '../db/client.js';
 import { getAllProcesses, updateProcess } from '../db/processes.js';
 import { cleanupExpiredSessions } from '../db/sessions.js';
 import { logAudit } from '../db/logs.js';
@@ -44,4 +45,43 @@ export async function runAutorestart(): Promise<{ checked: number; restarted: nu
   }
 
   return { checked: 0, restarted };
+}
+
+
+export async function logTelemetryData(): Promise<void> {
+  try {
+    const processes = await getAllProcesses();
+    let cpuSum = 0;
+    let memSum = 0;
+    let activeProcs = 0;
+    let restarts = 0;
+
+    for (const p of processes) {
+      const activePid = Monitor.isRunning(p);
+      if (activePid) {
+        activeProcs++;
+        restarts += p.restart_count || 0;
+        const metrics = Monitor.getMetrics(activePid);
+        
+        const cpuVal = typeof metrics.cpu === 'number' ? metrics.cpu : parseFloat(String(metrics.cpu).replace('%', ''));
+        if (!isNaN(cpuVal)) cpuSum += cpuVal;
+        
+        let memStr = String(metrics.mem || '0 MB');
+        let num = parseFloat(memStr);
+        if (!isNaN(num)) {
+          if (memStr.toLowerCase().includes('gb')) num *= 1024;
+          memSum += num;
+        }
+      }
+    }
+
+    const sysLoad = parseFloat(Monitor.getSysLoad()) || 0;
+
+    await db.execute({
+      sql: `INSERT INTO telemetry_logs (cpu, memory_mb, sys_load, active_procs, restarts) VALUES (?, ?, ?, ?, ?)`,
+      args: [cpuSum, memSum, sysLoad, activeProcs, restarts],
+    });
+  } catch (err) {
+    console.error('[Telemetry] Failed to log:', err);
+  }
 }

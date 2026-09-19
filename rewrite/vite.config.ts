@@ -9,6 +9,21 @@ function unifiedApiPlugin(): Plugin {
       const { app, initApp } = await import('./src/server/app.js');
       await initApp();
       const handler = getRequestListener(app.fetch);
+      
+      const { getInjectWebSocket } = await import('./src/server/websocket.js');
+      if (server.httpServer) {
+        // Create a dummy server just to extract Hono's upgrade handler safely
+        const { EventEmitter } = await import('events');
+        const dummyServer = new EventEmitter() as any;
+        getInjectWebSocket()(dummyServer);
+        
+        // Listen to the real server, only forward /api/ws to Hono's handler
+        server.httpServer.on('upgrade', (req, socket, head) => {
+          if (req.url && req.url.startsWith('/api/ws')) {
+            dummyServer.emit('upgrade', req, socket, head);
+          }
+        });
+      }
 
       server.middlewares.use((req, res, next) => {
         if (req.url && (req.url === '/api' || req.url.startsWith('/api/') || req.url.startsWith('/api?'))) {

@@ -89,9 +89,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
   disabled = {},
   readOnly = false,
 }) => {
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    users: true,
-  });
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (groupId: string) => {
     setExpandedGroups((prev) => ({

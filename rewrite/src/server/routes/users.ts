@@ -14,6 +14,7 @@ import { logAudit } from '../db/logs.js';
 import { hashPassword } from '../lib/crypto.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import type { Permissions } from '../types/index.js';
+import { notifyUserPermissionsUpdated, notifyUserDisabled } from '../websocket.js';
 
 export const userRouter = new Hono();
 
@@ -66,10 +67,10 @@ userRouter.put('/:id', requireAuth(), requirePermission('users_edit'), async (c)
     return c.json({ success: false, message: 'User not found' }, 404);
   }
 
-  const isMaster = target.id === 1;
+  const isMaster = target.role === 'owner';
 
   // Master Admin security rules
-  if (isMaster && currentUser.id !== 1) {
+  if (isMaster && currentUser.role !== 'owner') {
     return c.json({ success: false, message: 'Only the Owner can modify the owner account.' }, 403);
   }
 
@@ -111,6 +112,13 @@ userRouter.put('/:id', requireAuth(), requirePermission('users_edit'), async (c)
       ? `${body.is_disabled ? 'Disabled' : 'Enabled'} account: ${target.username}`
       : `Updated user: ${target.username}`;
     await logAudit(currentUser.id, currentUser.username, 'edit_user', actionDesc);
+
+    if (updates.permissions) {
+      notifyUserPermissionsUpdated(targetId, body.permissions);
+    }
+    if (body.is_disabled) {
+      notifyUserDisabled(targetId);
+    }
   }
 
   return c.json({ success: true, message: 'User updated successfully.' });
@@ -120,8 +128,12 @@ userRouter.put('/:id', requireAuth(), requirePermission('users_edit'), async (c)
 userRouter.post('/:id/disable', requireAuth(), requirePermission('users_disable'), async (c) => {
   const currentUser = c.get('user');
   const targetId = parseInt(c.req.param('id'), 10);
+  const target = await getUserById(targetId);
+  if (!target) {
+    return c.json({ success: false, message: 'User not found' }, 404);
+  }
 
-  if (targetId === 1) {
+  if (target.role === 'owner') {
     return c.json({ success: false, message: 'The Owner account cannot be disabled.' }, 403);
   }
 
@@ -129,14 +141,10 @@ userRouter.post('/:id/disable', requireAuth(), requirePermission('users_disable'
     return c.json({ success: false, message: 'You cannot disable your own account.' }, 403);
   }
 
-  const target = await getUserById(targetId);
-  if (!target) {
-    return c.json({ success: false, message: 'User not found' }, 404);
-  }
-
   await disableUser(targetId);
   await deleteUserSessions(targetId);
   await logAudit(currentUser.id, currentUser.username, 'disable_user', `Disabled account: ${target.username}`);
+  notifyUserDisabled(targetId);
   return c.json({ success: true, message: `Account "${target.username}" has been disabled.` });
 });
 
@@ -160,7 +168,12 @@ userRouter.delete('/:id', requireAuth(), requirePermission('users_delete'), asyn
   const currentUser = c.get('user');
   const targetId = parseInt(c.req.param('id'), 10);
 
-  if (targetId === 1) {
+  const target = await getUserById(targetId);
+  if (!target) {
+    return c.json({ success: false, message: 'User not found' }, 404);
+  }
+
+  if (target.role === 'owner') {
     return c.json({ success: false, message: 'The Owner account cannot be deleted.' }, 403);
   }
 
@@ -168,13 +181,9 @@ userRouter.delete('/:id', requireAuth(), requirePermission('users_delete'), asyn
     return c.json({ success: false, message: 'You cannot delete your own account.' }, 403);
   }
 
-  const target = await getUserById(targetId);
-  if (!target) {
-    return c.json({ success: false, message: 'User not found' }, 404);
-  }
-
   await deleteUser(targetId);
   await logAudit(currentUser.id, currentUser.username, 'delete_user', `Deleted user: ${target.username}`);
+  notifyUserDisabled(targetId);
   return c.json({ success: true, message: 'User deleted.' });
 });
 

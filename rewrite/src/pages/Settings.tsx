@@ -47,9 +47,9 @@ export const Settings: React.FC = () => {
   });
 
   const [aiConfig, setAiConfig] = useState({
-    provider: 'Needle AI',
-    model: 'needle-rag-v1',
-    base_url: 'https://api.needle-ai.com/v1',
+    provider: '',
+    model: '',
+    base_url: '',
     api_key: '',
     has_key: false,
   });
@@ -64,9 +64,9 @@ export const Settings: React.FC = () => {
             maintenance_mode: res.data.maintenance_mode,
           });
           setAiConfig({
-            provider: res.data.ai_provider || 'Needle AI',
-            model: res.data.ai_model || 'needle-rag-v1',
-            base_url: res.data.ai_base_url || 'https://api.needle-ai.com/v1',
+            provider: res.data.ai_provider || '',
+            model: res.data.ai_model || '',
+            base_url: res.data.ai_base_url || '',
             api_key: res.data.has_ai_key ? '••••••••••••••••' : '',
             has_key: !!res.data.has_ai_key,
           });
@@ -204,7 +204,7 @@ export const Settings: React.FC = () => {
                   AI Model Configuration
                 </h2>
                 <p className="text-[13px] text-[#A1A1A1] leading-relaxed max-w-[600px] mt-0.5">
-                  Configure your Needle AI or custom model endpoint, provider credentials, and model identifiers.
+                  Configure your Gemini, OpenAI, or custom model endpoint, provider credentials, and model identifiers.
                 </p>
               </div>
 
@@ -219,7 +219,7 @@ export const Settings: React.FC = () => {
                     value={aiConfig.provider}
                     onChange={(e) => setAiConfig((prev) => ({ ...prev, provider: e.target.value }))}
                     disabled={!canEditMaintenance}
-                    placeholder="e.g. Needle AI, OpenAI, Local vLLM"
+                    placeholder="e.g. Google Gemini, OpenAI, Anthropic"
                     className="h-9 px-3 rounded-[6px] bg-[#161718] border border-[#26282A] text-[13px] text-[#F2F3F3] placeholder-[#6E6E6E] outline-none focus:border-[#444] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   />
                 </div>
@@ -234,7 +234,7 @@ export const Settings: React.FC = () => {
                     value={aiConfig.model}
                     onChange={(e) => setAiConfig((prev) => ({ ...prev, model: e.target.value }))}
                     disabled={!canEditMaintenance}
-                    placeholder="e.g. needle-rag-v1 or gpt-4o-mini"
+                    placeholder="e.g. gemini-1.5-pro or gpt-4o"
                     className="h-9 px-3 rounded-[6px] bg-[#161718] border border-[#26282A] text-[13px] text-[#F2F3F3] placeholder-[#6E6E6E] outline-none focus:border-[#444] disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-mono"
                   />
                 </div>
@@ -249,7 +249,7 @@ export const Settings: React.FC = () => {
                     value={aiConfig.base_url}
                     onChange={(e) => setAiConfig((prev) => ({ ...prev, base_url: e.target.value }))}
                     disabled={!canEditMaintenance}
-                    placeholder="https://api.needle-ai.com/v1"
+                    placeholder="https://generativelanguage.googleapis.com/v1beta/openai"
                     className="h-9 px-3 rounded-[6px] bg-[#161718] border border-[#26282A] text-[13px] text-[#F2F3F3] placeholder-[#6E6E6E] outline-none focus:border-[#444] disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-mono"
                   />
                 </div>
@@ -276,14 +276,18 @@ export const Settings: React.FC = () => {
 
             <div className="px-5 py-3 border-t border-[#26282A] bg-[#161718] flex items-center justify-between rounded-b-[8px]">
               <span className="text-[13px] text-[#A1A1A1]">
-                Active provider: <strong className="text-[#F2F3F3] font-medium">{aiConfig.provider}</strong>
+                Active provider: <strong className="text-[#F2F3F3] font-medium">{aiConfig.provider || 'None configured'}</strong>
               </span>
               <button
                 type="submit"
                 disabled={!canEditMaintenance || isSavingAi}
-                className="px-3.5 py-1.5 rounded-[6px] bg-[#F2F3F3] text-black text-[13px] font-medium hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="group relative flex shrink-0 items-center justify-center h-8 px-3.5 rounded-[6px] font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
               >
-                {isSavingAi ? 'Saving...' : 'Save AI Settings'}
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                <span className="relative flex items-center text-[13px] font-sans">
+                  {isSavingAi ? 'Saving...' : 'Save AI Settings'}
+                </span>
               </button>
             </div>
           </form>

@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { Footer } from './Footer';
-import { ToastContainer } from '../ui/Toast';
 import { AiAssistantDrawer } from '../ai/AiAssistantDrawer';
 
 class ErrorBoundary extends React.Component<
@@ -82,8 +81,6 @@ export const Layout: React.FC = () => {
         isOpen={isAiPanelOpen}
         onClose={() => setIsAiPanelOpen(false)}
       />
-
-      <ToastContainer />
     </div>
   );
 };

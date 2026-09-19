@@ -28,7 +28,11 @@ export const authRouter = new Hono();
 // Setup status: checks if DB is empty
 authRouter.get('/setup', async (c) => {
   const count = await countUsers();
-  return c.json({ setup_mode: count === 0 });
+  const captchaSetting = await getSetting('enable_captcha', '0');
+  return c.json({ 
+    setup_mode: count === 0,
+    captcha_enabled: captchaSetting === '1'
+  });
 });
 
 // Setup master admin (only when users table is empty)
@@ -96,7 +100,7 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
   const captchaAnswer = (body.captcha || '').trim();
 
   // Check CAPTCHA if enabled
-  const captchaSetting = await getSetting('enable_captcha', '1');
+  const captchaSetting = await getSetting('enable_captcha', '0');
   if (captchaSetting === '1') {
     const sid = getCookie(c, 'captcha_sid');
     if (!sid || !CaptchaService.verify(sid, captchaAnswer)) {

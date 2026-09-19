@@ -221,7 +221,7 @@ const CustomSelect = <T extends string>({
 };
 
 export const Dashboard: React.FC = () => {
-  const { processes, sysLoad, isLoading, refresh } = useProcesses();
+  const { processes, sysLoad, isLoading, refresh } = useProcesses({ intervalMs: 1000 });
   const { hasPermission } = useAuthStore();
   const { push: pushToast } = useToastStore();
 

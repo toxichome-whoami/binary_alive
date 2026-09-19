@@ -20,25 +20,25 @@ export async function getApiTokenByHash(hash: string): Promise<ApiTokenRecord | 
 
 export async function listApiTokensForUser(userId: number): Promise<ApiTokenRecord[]> {
   const result = await db.execute({
-    sql: `SELECT t.*, u.username, u.email 
+    sql: `SELECT t.*, u.username, u.email, u.role
           FROM api_tokens t 
           LEFT JOIN users u ON t.user_id = u.id 
           WHERE t.user_id = ? 
           ORDER BY t.created_at DESC`,
     args: [userId],
   });
-  return result.rows.map(parseApiTokenRow) as ApiTokenRecord[];
+  return result.rows.map((r: any) => parseApiTokenRow(r)).filter(Boolean) as ApiTokenRecord[];
 }
 
 export async function listAllApiTokens(): Promise<ApiTokenRecord[]> {
   const result = await db.execute({
-    sql: `SELECT t.*, u.username, u.email 
+    sql: `SELECT t.*, u.username, u.email, u.role
           FROM api_tokens t 
           LEFT JOIN users u ON t.user_id = u.id 
           ORDER BY t.created_at DESC`,
     args: [],
   });
-  return result.rows.map(parseApiTokenRow) as ApiTokenRecord[];
+  return result.rows.map((r: any) => parseApiTokenRow(r)).filter(Boolean) as ApiTokenRecord[];
 }
 
 export async function createApiToken(

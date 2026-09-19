@@ -30,6 +30,16 @@ export async function initDatabase(): Promise<void> {
       restart_count INTEGER DEFAULT 0
     );`,
 
+
+    `CREATE TABLE IF NOT EXISTS telemetry_logs (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      cpu           REAL,
+      memory_mb     REAL,
+      sys_load      REAL,
+      active_procs  INTEGER,
+      restarts      INTEGER,
+      timestamp     DATETIME DEFAULT CURRENT_TIMESTAMP
+    );`,
     `CREATE TABLE IF NOT EXISTS sessions (
       id         TEXT PRIMARY KEY,
       user_id    INTEGER NOT NULL,
@@ -81,7 +91,7 @@ export async function initDatabase(): Promise<void> {
 
   // Ensure default settings exist
   await db.execute({
-    sql: `INSERT OR IGNORE INTO settings (key, value) VALUES ('enable_captcha', '1');`,
+    sql: `INSERT OR IGNORE INTO settings (key, value) VALUES ('enable_captcha', '0');`,
     args: [],
   });
 
@@ -253,33 +263,5 @@ export async function initDatabase(): Promise<void> {
     }
   }
 
-  // Seed demo processes if processes table is empty
-  const procCountRes = await db.execute('SELECT COUNT(*) as cnt FROM processes');
-  const count = Number((procCountRes.rows[0] as any)?.cnt || 0);
-  if (count === 0) {
-    const DEMO_PROCESSES = [
-      { name: 'api_gateway', group_name: 'Services', command: './bin/api_gateway --port=8080 --workers=4', working_dir: '/var/www/api', log_file: '/var/log/api_gateway.log', auto_restart: 1, status: 'running', pid: 4102, restart_count: 1 },
-      { name: 'mrtx_bot', group_name: 'Bots', command: 'python3 -m bot.main --config=production.env', working_dir: '/home/toxichome/mrtx_bot', log_file: '/var/log/mrtx_bot.log', auto_restart: 1, status: 'running', pid: 4108, restart_count: 0 },
-      { name: 'auth_service', group_name: 'Services', command: 'node dist/server.js --env=prod', working_dir: '/var/www/auth', log_file: '/var/log/auth_service.log', auto_restart: 1, status: 'running', pid: 4115, restart_count: 0 },
-      { name: 'redis_worker', group_name: 'Workers', command: 'php worker.php --queue=default,high --concurrency=2', working_dir: '/var/www/worker', log_file: '/var/log/redis_worker.log', auto_restart: 1, status: 'running', pid: 4122, restart_count: 0 },
-      { name: 'metric_daemon', group_name: 'System', command: './metric_daemon -c /etc/binary_alive/metric.conf', working_dir: '/opt/collector', log_file: '/var/log/metric_daemon.log', auto_restart: 1, status: 'running', pid: 4130, restart_count: 0 },
-      { name: 'dns_proxy', group_name: 'Network', command: 'go-dns-proxy -port 5353 -upstream 1.1.1.1', working_dir: '/etc/dns', log_file: '/var/log/dns_proxy.log', auto_restart: 1, status: 'running', pid: 4142, restart_count: 0 },
-      { name: 'mail_relay', group_name: 'Network', command: '/usr/sbin/postfix-relay -d', working_dir: '/etc/postfix', log_file: '/var/log/mail_relay.log', auto_restart: 1, status: 'running', pid: 4155, restart_count: 1 },
-      { name: 'backup_sync', group_name: 'System', command: './scripts/backup_sync.sh --target=s3://backups/daily', working_dir: '/opt/backup', log_file: '/var/log/backup_sync.log', auto_restart: 0, status: 'stopped', pid: null, restart_count: 0 },
-      { name: 'webhook_listener', group_name: 'Services', command: 'python3 webhook_srv.py --port=9000', working_dir: '/var/www/webhooks', log_file: '/var/log/webhook_listener.log', auto_restart: 0, status: 'stopped', pid: null, restart_count: 0 },
-      { name: 'cron_scheduler', group_name: 'Jobs', command: 'python3 scheduler.py --tick=60s', working_dir: '/opt/scheduler', log_file: '/var/log/cron.log', auto_restart: 1, status: 'running', pid: 4160, restart_count: 0 },
-      { name: 'image_optimizer', group_name: 'Workers', command: './bin/img_worker --threads=2', working_dir: '/var/www/media', log_file: '/var/log/img_optimizer.log', auto_restart: 1, status: 'running', pid: 4172, restart_count: 2 },
-      { name: 'log_shipper', group_name: 'System', command: 'fluent-bit -c /etc/fluent.conf', working_dir: '/etc/fluent-bit', log_file: '/var/log/fluent-bit.log', auto_restart: 0, status: 'crashed', pid: null, restart_count: 4 },
-      { name: 'websocket_hub', group_name: 'Services', command: 'node ws_gateway.js --port=8088', working_dir: '/var/www/ws', log_file: '/var/log/ws_hub.log', auto_restart: 1, status: 'running', pid: 4185, restart_count: 0 },
-      { name: 'db_replicator', group_name: 'Database', command: 'pg_replica_sync --stream', working_dir: '/var/lib/replica', log_file: '/var/log/db_replicator.log', auto_restart: 1, status: 'running', pid: 4192, restart_count: 0 },
-    ];
-
-    for (const p of DEMO_PROCESSES) {
-      await db.execute({
-        sql: `INSERT OR IGNORE INTO processes (name, group_name, command, working_dir, log_file, auto_restart, status, pid, restart_count)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [p.name, p.group_name, p.command, p.working_dir, p.log_file, p.auto_restart, p.status, p.pid, p.restart_count]
-      });
-    }
-  }
+  // Intentionally leaving processes table empty for the user to seed manually
 }

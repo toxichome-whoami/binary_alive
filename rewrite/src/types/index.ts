@@ -52,6 +52,7 @@ export interface ApiToken {
   user_id: number;
   username?: string;
   email?: string | null;
+  role?: Role;
   name: string;
   permissions: Permissions;
   is_disabled?: boolean | number;

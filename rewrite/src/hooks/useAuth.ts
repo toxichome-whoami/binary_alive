@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { useAuthStore, DEV_ADMIN } from '../store/authStore';
+import { useAuthStore } from '../store/authStore';
 import { authApi } from '../api/auth';
 
 export function useAuth() {
-  const { user, setUser, setLoading } = useAuthStore();
+  const { user, isLoading, setUser, setLoading } = useAuthStore();
 
   useEffect(() => {
     let isMounted = true;
@@ -13,9 +13,13 @@ export function useAuth() {
         const res = await authApi.me();
         if (isMounted && res.success && res.data?.user) {
           setUser(res.data.user);
+        } else if (isMounted) {
+          setUser(null);
         }
       } catch {
-        // Retain dev admin
+        if (isMounted) {
+          setUser(null);
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -23,12 +27,14 @@ export function useAuth() {
       }
     }
 
-    checkAuth();
+    if (isLoading) {
+      checkAuth();
+    }
 
     return () => {
       isMounted = false;
     };
-  }, [setUser, setLoading]);
+  }, [setUser, setLoading, isLoading]);
 
-  return { user: user || DEV_ADMIN, isLoading: false };
+  return { user, isLoading };
 }

@@ -75,51 +75,6 @@ export function authMiddleware(): MiddlewareHandler {
       }
     }
 
-    // 3. Fallback to mock dev user in development
-    if (process.env.NODE_ENV !== 'production' && !c.get('user')) {
-      const devUser: User = {
-        id: 1,
-        username: 'admin',
-        password_hash: '$2b$10$T1KqHnN0X4520qR13Qf9g.Wc3dF15f/O5Q4Y7D1B9Xb5zUqY5qEOW', // mock bcrypt hash for "admin"
-        role: 'owner',
-        permissions: {
-          users_create: true,
-          users_edit: true,
-          users_delete: true,
-          users_reset_2fa: true,
-          users_view: true,
-          users_disable: true,
-          api_keys_view: true,
-          api_keys_create: true,
-          api_keys_edit: true,
-          api_keys_disable: true,
-          api_keys_delete: true,
-          processes_view: true,
-          processes_start: true,
-          processes_stop: true,
-          processes_restart: true,
-          processes_create: true,
-          processes_edit: true,
-          processes_delete: true,
-          logs_view_audit: true,
-          logs_view_login: true,
-          logs_view_terminal: true,
-          settings_view: true,
-          settings_edit: true,
-          settings_security: true,
-          terminal_access: true,
-          terminal_unrestricted: true
-        },
-        
-        totp_secret: null,
-        created_at: new Date().toISOString(),
-        failed_attempts: 0,
-        locked_until: null
-      };
-      c.set('user', devUser);
-      c.set('isApiAuth', false);
-    }
-
     await next();
   };
 }

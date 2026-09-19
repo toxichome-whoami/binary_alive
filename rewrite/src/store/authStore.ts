@@ -10,48 +10,10 @@ interface AuthState {
   isOwner: () => boolean;
 }
 
-export const DEV_ADMIN: CurrentUser = {
-  id: 1,
-  username: 'admin',
-  role: 'owner',
-  permissions: {
-    users_create: true,
-    users_edit: true,
-    users_delete: true,
-    users_reset_2fa: true,
-    users_view: true,
-    users_disable: true,
-    api_keys_view: true,
-    api_keys_create: true,
-    api_keys_edit: true,
-    api_keys_disable: true,
-    api_keys_delete: true,
-    processes_view: true,
-    processes_start: true,
-    processes_stop: true,
-    processes_restart: true,
-    processes_create: true,
-    processes_edit: true,
-    processes_delete: true,
-    logs_view_audit: true,
-    logs_view_login: true,
-    logs_view_terminal: true,
-    settings_view: true,
-    settings_edit: true,
-    settings_security: true,
-    terminal_access: true,
-    terminal_unrestricted: true,
-    ai_access: true,
-    ai_data_read: true,
-    ai_data_write: true,
-  },
-  hostname: 'localhost',
-};
-
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: DEV_ADMIN,
-  isLoading: false,
-  setUser: (user) => set({ user: user || DEV_ADMIN, isLoading: false }),
+  user: null,
+  isLoading: true,
+  setUser: (user) => set({ user, isLoading: false }),
   setLoading: (isLoading) => set({ isLoading }),
   hasPermission: (permission) => {
     const u = get().user;
@@ -61,6 +23,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   isOwner: () => {
     const u = get().user;
-    return u?.id === 1;
+    return u?.role === 'owner';
   },
 }));

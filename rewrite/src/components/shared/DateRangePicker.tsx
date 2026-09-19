@@ -296,7 +296,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
               </div>
 
               {/* Right: Presets List */}
-              <div className="relative w-full border-t border-[#222222] sm:w-[154px] sm:shrink-0 sm:border-t-0 sm:border-l border-[#222222] p-1.5 flex flex-col gap-0.5 justify-center">
+              <div className="relative w-full border-t sm:w-[154px] sm:shrink-0 sm:border-t-0 sm:border-l border-[#222222] p-1.5 flex flex-col gap-0.5 justify-center">
                 {DATE_PRESETS.map((preset) => {
                   const isSelected = activePreset === preset.label;
                   return (

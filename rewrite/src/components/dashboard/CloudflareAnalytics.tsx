@@ -1,12 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  ArrowUpRight,
-  ArrowDownRight,
-  RefreshCw,
+      RefreshCw,
 } from 'lucide-react';
 import type { Process } from '../../types';
 import { SlideOver } from '../ui/SlideOver';
-import { DateRangePicker } from '../shared/DateRangePicker';
 
 interface CloudflareAnalyticsProps {
   runningCount: number;
@@ -22,6 +19,47 @@ interface CloudflareAnalyticsProps {
 // Exact wavy SVG path extracted from Cloudflare conter.html
 const WAVY_NO_DATA_PATH =
   'M0.00,54.82 L6.67,53.35 L13.33,55.07 L20.00,57.95 L26.67,60.06 L33.33,60.51 L40.00,59.77 L46.67,59.19 L53.33,60.07 L60.00,62.86 L66.67,66.84 L73.33,70.51 L80.00,72.48 L86.67,72.25 L93.33,70.57 L100.00,69.07 L106.67,69.27 L113.33,71.71 L120.00,75.41 L126.67,78.20 L133.33,77.76 L140.00,72.80 L146.67,63.93 L153.33,53.59 L160.00,45.16 L166.67,41.60 L173.33,44.14 L180.00,51.81 L186.67,61.85 L193.33,70.97 L200.00,76.66 L206.67,78.13 L213.33,76.41 L220.00,73.53 L226.67,71.42 L233.33,70.97 L240.00,71.71 L246.67,72.29 L253.33,71.41 L260.00,68.62 L266.67,64.64 L273.33,60.97 L280.00,59.00 L286.67,59.23 L293.33,60.91 L300.00,62.41 L306.67,62.21 L313.33,59.77 L320.00,56.07 L326.67,53.28 L333.33,53.72 L340.00,58.68 L346.67,67.55 L353.33,77.89 L360.00,86.32 L366.67,89.88 L373.33,87.34 L380.00,79.67 L386.67,69.63 L393.33,60.51 L400.00,54.82';
+
+const MAX_PTS = 60;
+type MetricKey = 'cpu' | 'active' | 'memory' | 'load' | 'restarts' | 'uptime';
+
+export const tsStore: Record<MetricKey, number[]> = {
+  cpu: Array(MAX_PTS).fill(0),
+  active: Array(MAX_PTS).fill(0),
+  memory: Array(MAX_PTS).fill(0),
+  load: Array(MAX_PTS).fill(0),
+  restarts: Array(MAX_PTS).fill(0),
+  uptime: Array(MAX_PTS).fill(100),
+};
+
+export function generateGraphPaths(key: MetricKey, width: number, bottomY: number) {
+  const data = tsStore[key];
+  if (data.length === 0) return { line: '', area: '' };
+  
+  let baseMax = 1;
+  if (key === 'cpu') baseMax = 100;
+  if (key === 'memory') baseMax = 1024;
+  if (key === 'active') baseMax = 10;
+  if (key === 'load') baseMax = 4;
+  if (key === 'restarts') baseMax = 5;
+  if (key === 'uptime') baseMax = 100;
+
+  const maxVal = Math.max(...data, baseMax);
+  const stepX = width / (MAX_PTS - 1);
+  
+  let line = '';
+  data.forEach((val, i) => {
+    const x = i * stepX;
+    let rawY = bottomY - ((val / maxVal) * (bottomY - 20));
+    if (val === 0) rawY = bottomY;
+    
+    if (i === 0) line += `M ${x.toFixed(1)},${rawY.toFixed(1)}`;
+    else line += ` L ${x.toFixed(1)},${rawY.toFixed(1)}`;
+  });
+
+  const area = `${line} L ${width},${bottomY} L 0,${bottomY} Z`;
+  return { line, area, maxVal };
+}
 
 interface NoDataWavyChartProps {
   id: string;
@@ -87,11 +125,10 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   onRefresh,
   isLoading = false,
 }) => {
-  const [selectedRangeLabel, setSelectedRangeLabel] = useState('Last 24 hours');
-
+  
   // Total memory used by running processes (in MB)
   const totalMemoryMB = useMemo(() => {
-    if (!processes || processes.length === 0) return 208;
+    if (!processes || processes.length === 0) return 0;
     return processes.reduce((acc, p) => {
       if (p.status === 'running' && p.mem) {
         const num = parseFloat(p.mem);
@@ -99,35 +136,45 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
           if (p.mem.toLowerCase().includes('gb')) return acc + num * 1024;
           return acc + num;
         }
+        return acc + parseMemMB(p.mem);
       }
       return acc;
     }, 0);
   }, [processes]);
   // Aggregate CPU utilization across all running processes
   const totalCpuPercent = useMemo(() => {
-    if (!processes || processes.length === 0) return 14.2;
+    if (!processes || processes.length === 0) return 0;
     const sum = processes.reduce((acc, p) => {
       if (p.status === 'running' && p.cpu !== undefined) {
-        const val = typeof p.cpu === 'number' ? p.cpu : parseFloat(String(p.cpu).replace('%', ''));
-        return acc + (isNaN(val) ? 0 : val);
+        return acc + parseCpuVal(p.cpu);
       }
       return acc;
     }, 0);
-    return sum > 0 ? parseFloat(sum.toFixed(1)) : 14.2;
+    return Number(sum.toFixed(1));
   }, [processes]);
 
   // Demo / Real values fallback
-  const displayRunning = runningCount > 0 ? runningCount : 7;
-  const displayStopped = stoppedCount > 0 ? stoppedCount : 2;
+  const displayRunning = runningCount;
+  const displayStopped = stoppedCount;
   const displayMemory =
-    totalMemoryMB > 0 && totalMemoryMB !== 208
-      ? totalMemoryMB >= 1024
-        ? `${(totalMemoryMB / 1024).toFixed(2)} GB`
-        : `${Math.round(totalMemoryMB)} MB`
-      : '486 MB';
-  const displaySysLoad = sysLoad !== '---' && sysLoad !== 0 ? sysLoad : '0.28';
-  const displayRestarts = restartsCount > 0 ? restartsCount : 2;
+    totalMemoryMB >= 1024
+      ? `${(totalMemoryMB / 1024).toFixed(2)} GB`
+      : `${Math.round(totalMemoryMB)} MB`;
+  const displaySysLoad = sysLoad !== '---' ? sysLoad : '0.00';
+  const displayRestarts = restartsCount;
   const displayCpu = `${totalCpuPercent}%`;
+  
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    tsStore.cpu.shift(); tsStore.cpu.push(totalCpuPercent);
+    tsStore.active.shift(); tsStore.active.push(runningCount);
+    tsStore.memory.shift(); tsStore.memory.push(totalMemoryMB);
+    tsStore.load.shift(); tsStore.load.push(parseFloat(String(displaySysLoad)) || 0);
+    tsStore.restarts.shift(); tsStore.restarts.push(restartsCount);
+    tsStore.uptime.shift(); tsStore.uptime.push(100);
+    setTick(t => t + 1);
+  }, [processes]);
 
   // Right-side SlideOver Telemetry Drawer State
   const [selectedMetric, setSelectedMetric] = useState<
@@ -150,20 +197,9 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
     return isNaN(val) ? 0 : val;
   };
 
-  // Fallback realistic process telemetry pool when processes prop is empty
+  // Active processes for telemetry display
   const activeProcessesList = useMemo(() => {
-    if (processes && processes.length > 0) return processes;
-    return [
-      { id: 1, name: 'api-server', group_name: 'backend', command: 'node dist/index.js', working_dir: '/var/www/api', log_file: 'api.log', status: 'running', pid: 4821, cpu: 5.4, mem: '124.6 MB', uptime: '4d 12h', restart_count: 0, auto_restart: true },
-      { id: 2, name: 'worker-queue', group_name: 'jobs', command: 'python worker.py', working_dir: '/var/www/jobs', log_file: 'worker.log', status: 'running', pid: 4892, cpu: 3.8, mem: '88.2 MB', uptime: '4d 12h', restart_count: 1, auto_restart: true },
-      { id: 3, name: 'redis-cache', group_name: 'infra', command: 'redis-server /etc/redis.conf', working_dir: '/etc/redis', log_file: 'redis.log', status: 'running', pid: 1042, cpu: 1.2, mem: '64.0 MB', uptime: '12d 8h', restart_count: 0, auto_restart: true },
-      { id: 4, name: 'cron-scheduler', group_name: 'jobs', command: 'python scheduler.py', working_dir: '/var/www/jobs', log_file: 'cron.log', status: 'running', pid: 5120, cpu: 0.8, mem: '42.1 MB', uptime: '2d 6h', restart_count: 0, auto_restart: true },
-      { id: 5, name: 'metrics-agent', group_name: 'telemetry', command: './telegraf --config telegraf.conf', working_dir: '/etc/telegraf', log_file: 'agent.log', status: 'running', pid: 5310, cpu: 0.5, mem: '32.4 MB', uptime: '18d 4h', restart_count: 0, auto_restart: true },
-      { id: 6, name: 'auth-service', group_name: 'backend', command: 'go run main.go', working_dir: '/var/www/auth', log_file: 'auth.log', status: 'running', pid: 5402, cpu: 1.9, mem: '78.5 MB', uptime: '3d 1h', restart_count: 1, auto_restart: true },
-      { id: 7, name: 'web-gateway', group_name: 'ingress', command: 'caddy run', working_dir: '/etc/caddy', log_file: 'caddy.log', status: 'running', pid: 3201, cpu: 0.6, mem: '56.2 MB', uptime: '9d 14h', restart_count: 0, auto_restart: true },
-      { id: 8, name: 'backup-sync', group_name: 'maintenance', command: 'rclone sync /data s3:backup', working_dir: '/root', log_file: 'backup.log', status: 'stopped', pid: null, cpu: 0, mem: '0 MB', uptime: 'Stopped', restart_count: 0, auto_restart: false },
-      { id: 9, name: 'log-shipper', group_name: 'telemetry', command: 'fluent-bit -c fluent-bit.conf', working_dir: '/etc/fluent-bit', log_file: 'shipper.log', status: 'stopped', pid: null, cpu: 0, mem: '0 MB', uptime: 'Stopped', restart_count: 2, auto_restart: false },
-    ] as Process[];
+    return processes || [];
   }, [processes]);
 
   // Filtered & sorted process list based on active metric & search query
@@ -312,208 +348,61 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
 
   // 1. CPU Hover State - Precisely tracks SVG line
   // Path: M 0,116 L 555,116 L 580,24 L 605,116 L 700,116 L 720,68 L 740,116 L 1000,116
+  
   const [cpuHover, setCpuHover] = useState<CardHoverData | null>(null);
-  const handleCpuMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const svgX = pct * 1000;
-    const timeStr = formatTimeFromPct(pct);
-
-    let y = 116;
-    let val = 0.0;
-    if (svgX >= 555 && svgX <= 580) {
-      const t = (svgX - 555) / (580 - 555);
-      y = 116 + t * (24 - 116);
-      val = t * 24.2;
-    } else if (svgX > 580 && svgX <= 605) {
-      const t = (svgX - 580) / (605 - 580);
-      y = 24 + t * (116 - 24);
-      val = (1 - t) * 24.2;
-    } else if (svgX >= 700 && svgX <= 720) {
-      const t = (svgX - 700) / (720 - 700);
-      y = 116 + t * (68 - 116);
-      val = t * 11.5;
-    } else if (svgX > 720 && svgX <= 740) {
-      const t = (svgX - 720) / (740 - 720);
-      y = 68 + t * (116 - 68);
-      val = (1 - t) * 11.5;
-    }
-
-    setCpuHover({ pct, yPct: y / 130, time: timeStr, value: `${val.toFixed(1)}%` });
-  };
-
-  // 2. Active Processes Hover State
-  // Path: M 0,31 L 380,31 L 400,48 L 480,48 L 500,31 L 1000,31
   const [activeHover, setActiveHover] = useState<CardHoverData | null>(null);
-  const handleActiveMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const svgX = pct * 1000;
-    const timeStr = formatTimeFromPct(pct);
-
-    let y = 31;
-    let count = displayRunning;
-    if (svgX >= 380 && svgX <= 400) {
-      const t = (svgX - 380) / (400 - 380);
-      y = 31 + t * (48 - 31);
-      count = t > 0.5 ? Math.max(1, displayRunning - 1) : displayRunning;
-    } else if (svgX > 400 && svgX <= 480) {
-      y = 48;
-      count = Math.max(1, displayRunning - 1);
-    } else if (svgX > 480 && svgX <= 500) {
-      const t = (svgX - 480) / (500 - 480);
-      y = 48 + t * (31 - 48);
-      count = t > 0.5 ? displayRunning : Math.max(1, displayRunning - 1);
-    }
-
-    setActiveHover({ pct, yPct: y / 130, time: timeStr, value: `${count} active` });
-  };
-
-  // 3. Memory Usage Hover State
-  // Path: M 0,116 L 110,116 L 120,85 L 130,116 L 270,116 L 280,65 L 290,116 L 468,116 L 480,16 L 492,116 L 610,116 L 620,45 L 630,116 L 770,116 L 780,75 L 790,116 L 890,116 L 900,55 L 910,116 L 1000,116
   const [memoryHover, setMemoryHover] = useState<CardHoverData | null>(null);
-  const handleMemoryMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const svgX = pct * 1000;
-    const timeStr = formatTimeFromPct(pct);
-
-    let y = 116;
-    let val = '0 MB';
-    const spikes = [
-      { start: 110, mid: 120, end: 130, topY: 85, val: 86 },
-      { start: 270, mid: 280, end: 290, topY: 65, val: 124 },
-      { start: 468, mid: 480, end: 492, topY: 16, val: 486 },
-      { start: 610, mid: 620, end: 630, topY: 45, val: 312 },
-      { start: 770, mid: 780, end: 790, topY: 75, val: 98 },
-      { start: 890, mid: 900, end: 910, topY: 55, val: 245 },
-    ];
-    for (const s of spikes) {
-      if (svgX >= s.start && svgX <= s.mid) {
-        const t = (svgX - s.start) / (s.mid - s.start);
-        y = 116 + t * (s.topY - 116);
-        val = `${Math.round(t * s.val)} MB`;
-        break;
-      } else if (svgX > s.mid && svgX <= s.end) {
-        const t = (svgX - s.mid) / (s.end - s.mid);
-        y = s.topY + t * (116 - s.topY);
-        val = `${Math.round((1 - t) * s.val)} MB`;
-        break;
-      }
-    }
-
-    setMemoryHover({ pct, yPct: y / 130, time: timeStr, value: val });
-  };
-
-  // 4. System Load Hover State
-  // Path: M 0,82 C 120,82 180,65 280,65 C 380,65 440,100 540,100 C 660,100 740,60 840,60 C 910,60 960,80 1000,80
   const [sysLoadHover, setSysLoadHover] = useState<CardHoverData | null>(null);
-  const handleSysLoadMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const svgX = pct * 1000;
-    const timeStr = formatTimeFromPct(pct);
-
-    let y = 82;
-    if (svgX <= 280) {
-      y = cubicBezierY(svgX, [0, 82], [120, 82], [180, 65], [280, 65]);
-    } else if (svgX <= 540) {
-      y = cubicBezierY(svgX, [280, 65], [380, 65], [440, 100], [540, 100]);
-    } else if (svgX <= 840) {
-      y = cubicBezierY(svgX, [540, 100], [660, 100], [740, 60], [840, 60]);
-    } else {
-      y = cubicBezierY(svgX, [840, 60], [910, 60], [960, 80], [1000, 80]);
-    }
-    const loadVal = Math.max(0.12, ((116 - y) / (116 - 14)) * 0.95 + 0.05).toFixed(2);
-
-    setSysLoadHover({ pct, yPct: y / 130, time: timeStr, value: loadVal });
-  };
-
-  // 5. Process Restarts Hover State
-  // Path: M 0,116 L 335,116 L 350,56 L 365,116 L 665,116 L 680,56 L 695,116 L 1000,116
   const [restartsHover, setRestartsHover] = useState<CardHoverData | null>(null);
-  const handleRestartsMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const svgX = pct * 1000;
-    const timeStr = formatTimeFromPct(pct);
-
-    let y = 116;
-    let val = '0 restarts';
-    if (svgX >= 335 && svgX <= 350) {
-      const t = (svgX - 335) / (350 - 335);
-      y = 116 + t * (56 - 116);
-      val = '1 (axiom reload)';
-    } else if (svgX > 350 && svgX <= 365) {
-      const t = (svgX - 350) / (365 - 350);
-      y = 56 + t * (116 - 56);
-      val = '1 (axiom reload)';
-    } else if (svgX >= 665 && svgX <= 680) {
-      const t = (svgX - 665) / (680 - 665);
-      y = 116 + t * (56 - 116);
-      val = '1 (mail worker reload)';
-    } else if (svgX > 680 && svgX <= 695) {
-      const t = (svgX - 680) / (695 - 680);
-      y = 56 + t * (116 - 56);
-      val = '1 (mail worker reload)';
-    }
-
-    setRestartsHover({ pct, yPct: y / 130, time: timeStr, value: val });
-  };
-
-  // 6. Avg. Uptime Hover State
-  // Path: M 0,20 L 380,20 C 400,20 415,65 430,65 C 445,65 460,20 480,20 L 880,20 L 900,14 L 1000,14
   const [uptimeHover, setUptimeHover] = useState<CardHoverData | null>(null);
-  const handleUptimeMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+
+  const getHoverData = (e: React.MouseEvent<HTMLDivElement>, key: MetricKey): CardHoverData | null => {
     const rect = e.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0) return;
+    if (rect.width <= 0) return null;
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const svgX = pct * 1000;
     const timeStr = formatTimeFromPct(pct);
+    
+    const idx = Math.round(pct * (MAX_PTS - 1));
+    const val = tsStore[key][idx] || 0;
 
-    let y = 20;
-    let val = '99.98%';
-    if (svgX < 380) {
-      y = 20;
-      val = '99.98%';
-    } else if (svgX <= 430) {
-      y = cubicBezierY(svgX, [380, 20], [400, 20], [415, 65], [430, 65]);
-      const dip = (y - 20) / (65 - 20);
-      val = `${(99.98 - dip * 0.48).toFixed(2)}%`;
-    } else if (svgX <= 480) {
-      y = cubicBezierY(svgX, [430, 65], [445, 65], [460, 20], [480, 20]);
-      const dip = (y - 20) / (65 - 20);
-      val = `${(99.98 - dip * 0.48).toFixed(2)}%`;
-    } else if (svgX < 880) {
-      y = 20;
-      val = '99.98%';
-    } else if (svgX <= 900) {
-      const t = (svgX - 880) / (900 - 880);
-      y = 20 + t * (14 - 20);
-      val = `${(99.98 + t * 0.02).toFixed(2)}%`;
-    } else {
-      y = 14;
-      val = '100.0%';
-    }
+    let baseMax = 1;
+    if (key === 'cpu') baseMax = 100;
+    if (key === 'memory') baseMax = 1024;
+    if (key === 'active') baseMax = 10;
+    if (key === 'load') baseMax = 4;
+    if (key === 'restarts') baseMax = 5;
+    if (key === 'uptime') baseMax = 100;
 
-    setUptimeHover({ pct, yPct: y / 130, time: timeStr, value: val });
+    const maxVal = Math.max(...tsStore[key], baseMax);
+    
+    let rawY = 116 - ((val / maxVal) * (116 - 20));
+    if (val === 0) rawY = 116;
+    
+    let displayValue = '';
+    if (key === 'cpu') displayValue = `${val.toFixed(1)}%`;
+    else if (key === 'active') displayValue = `${val} active`;
+    else if (key === 'memory') displayValue = val >= 1024 ? `${(val / 1024).toFixed(2)} GB` : `${Math.round(val)} MB`;
+    else if (key === 'load') displayValue = val.toFixed(2);
+    else if (key === 'restarts') displayValue = `${val}`;
+    else displayValue = `${val.toFixed(2)}%`;
+
+    return { pct, yPct: rawY / 130, time: timeStr, value: displayValue };
   };
 
-  return (
+  const handleCpuMouseMove = (e: React.MouseEvent<HTMLDivElement>) => setCpuHover(getHoverData(e, 'cpu'));
+  const handleActiveMouseMove = (e: React.MouseEvent<HTMLDivElement>) => setActiveHover(getHoverData(e, 'active'));
+  const handleMemoryMouseMove = (e: React.MouseEvent<HTMLDivElement>) => setMemoryHover(getHoverData(e, 'memory'));
+  const handleSysLoadMouseMove = (e: React.MouseEvent<HTMLDivElement>) => setSysLoadHover(getHoverData(e, 'load'));
+  const handleRestartsMouseMove = (e: React.MouseEvent<HTMLDivElement>) => setRestartsHover(getHoverData(e, 'restarts'));
+  const handleUptimeMouseMove = (e: React.MouseEvent<HTMLDivElement>) => setUptimeHover(getHoverData(e, 'uptime'));
+
+return (
     <section className="w-full flex flex-col gap-3 select-none">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 w-full">
         <h3 className="text-white text-[16px] font-semibold tracking-tight">Analytics</h3>
         <div className="flex items-center gap-2">
-          <DateRangePicker
-            selectedRangeLabel={selectedRangeLabel}
-            onRangeChange={(label) => setSelectedRangeLabel(label)}
-          />
+          
 
           <button
             type="button"
@@ -568,10 +457,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
                 {displayCpu}
               </span>
-              <span className="text-xs font-medium text-[#30a46c] flex items-center gap-0.5">
-                <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                <span>3.4%</span>
-              </span>
+              
             </div>
           </div>
 
@@ -595,12 +481,12 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d="M 0,116 L 555,116 L 580,24 L 605,116 L 700,116 L 720,68 L 740,116 L 1000,116 L 1000,126 L 0,126 Z"
+                  d={generateGraphPaths('cpu', 1000, 116).area}
                   fill="url(#cpu-gradient-area)"
                   stroke="none"
                 />
                 <path
-                  d="M 0,116 L 555,116 L 580,24 L 605,116 L 700,116 L 720,68 L 740,116 L 1000,116"
+                  d={generateGraphPaths('cpu', 1000, 116).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -685,10 +571,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
                 {displayRunning}
               </span>
-              <span className="text-xs font-medium text-[#30a46c] flex items-center gap-0.5">
-                <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                <span>100%</span>
-              </span>
+              
             </div>
           </div>
 
@@ -711,12 +594,12 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d="M 0,31 L 380,31 L 400,48 L 480,48 L 500,31 L 1000,31 L 1000,116 L 0,116 Z"
+                  d={generateGraphPaths('active', 1000, 116).area}
                   fill="url(#active-gradient-area)"
                   stroke="none"
                 />
                 <path
-                  d="M 0,31 L 380,31 L 400,48 L 480,48 L 500,31 L 1000,31"
+                  d={generateGraphPaths('active', 1000, 116).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="2"
@@ -804,10 +687,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
                 {displayMemory}
               </span>
-              <span className="text-xs font-medium text-[#2f80ed] flex items-center gap-0.5">
-                <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                <span>5.2%</span>
-              </span>
+              
             </div>
           </div>
 
@@ -830,12 +710,12 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d="M 0,116 L 110,116 L 120,85 L 130,116 L 270,116 L 280,65 L 290,116 L 468,116 L 480,16 L 492,116 L 610,116 L 620,45 L 630,116 L 770,116 L 780,75 L 790,116 L 890,116 L 900,55 L 910,116 L 1000,116 L 1000,126 L 0,126 Z"
+                  d={generateGraphPaths('memory', 1000, 116).area}
                   fill="url(#mem-usage-grad)"
                   stroke="none"
                 />
                 <path
-                  d="M 0,116 L 110,116 L 120,85 L 130,116 L 270,116 L 280,65 L 290,116 L 468,116 L 480,16 L 492,116 L 610,116 L 620,45 L 630,116 L 770,116 L 780,75 L 790,116 L 890,116 L 900,55 L 910,116 L 1000,116"
+                  d={generateGraphPaths('memory', 1000, 116).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -920,10 +800,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
                 {displaySysLoad}
               </span>
-              <span className="text-xs font-medium text-[#30a46c] flex items-center gap-0.5">
-                <ArrowDownRight className="w-3.5 h-3.5 shrink-0" />
-                <span>12.5%</span>
-              </span>
+              
             </div>
           </div>
 
@@ -946,12 +823,12 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d="M 0,82 C 120,82 180,65 280,65 C 380,65 440,100 540,100 C 660,100 740,60 840,60 C 910,60 960,80 1000,80 L 1000,116 L 0,116 Z"
+                  d={generateGraphPaths('load', 1000, 116).area}
                   fill="url(#sys-load-grad)"
                   stroke="none"
                 />
                 <path
-                  d="M 0,82 C 120,82 180,65 280,65 C 380,65 440,100 540,100 C 660,100 740,60 840,60 C 910,60 960,80 1000,80"
+                  d={generateGraphPaths('load', 1000, 116).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -1036,10 +913,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
                 {displayRestarts}
               </span>
-              <span className="text-xs font-medium text-[#30a46c] flex items-center gap-0.5">
-                <ArrowDownRight className="w-3.5 h-3.5 shrink-0" />
-                <span>50.0%</span>
-              </span>
+              
             </div>
           </div>
 
@@ -1062,12 +936,12 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d="M 0,116 L 335,116 L 350,56 L 365,116 L 665,116 L 680,56 L 695,116 L 1000,116 L 1000,126 L 0,126 Z"
+                  d={generateGraphPaths('restarts', 1000, 116).area}
                   fill="url(#restarts-grad)"
                   stroke="none"
                 />
                 <path
-                  d="M 0,116 L 335,116 L 350,56 L 365,116 L 665,116 L 680,56 L 695,116 L 1000,116"
+                  d={generateGraphPaths('restarts', 1000, 116).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -1150,12 +1024,9 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-[26px] font-semibold text-white tracking-[-0.02em] leading-tight">
-                99.98%
+                100%
               </span>
-              <span className="text-xs font-medium text-[#30a46c] flex items-center gap-0.5">
-                <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                <span>0.05%</span>
-              </span>
+              
             </div>
           </div>
 
@@ -1178,12 +1049,12 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d="M 0,20 L 380,20 C 400,20 415,65 430,65 C 445,65 460,20 480,20 L 880,20 L 900,14 L 1000,14 L 1000,116 L 0,116 Z"
+                  d={generateGraphPaths('uptime', 1000, 116).area}
                   fill="url(#uptime-grad)"
                   stroke="none"
                 />
                 <path
-                  d="M 0,20 L 380,20 C 400,20 415,65 430,65 C 445,65 460,20 480,20 L 880,20 L 900,14 L 1000,14"
+                  d={generateGraphPaths('uptime', 1000, 116).line}
                   fill="none"
                   stroke="#2f80ed"
                   strokeWidth="1.8"
@@ -1289,7 +1160,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                   {selectedMetric === 'uptime' && 'Avg. uptime'}
                 </span>
                 <span className="text-[13px] font-normal text-[#8c8c8c]">
-                  {selectedRangeLabel}
+                  'Live (60s)'
                 </span>
               </div>
               {/* Main value + Right-side simple graph */}
@@ -1301,45 +1172,15 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                     {selectedMetric === 'memory' && displayMemory}
                     {selectedMetric === 'load' && displaySysLoad}
                     {selectedMetric === 'restarts' && `${displayRestarts}`}
-                    {selectedMetric === 'uptime' && '99.98%'}
+                    {selectedMetric === 'uptime' && '100%'}
                   </div>
                   <div className="mt-0.5">
-                    {selectedMetric === 'cpu' && (
-                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
-                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                        <span>3.4%</span>
-                      </span>
-                    )}
-                    {selectedMetric === 'active' && (
-                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
-                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                        <span>100%</span>
-                      </span>
-                    )}
-                    {selectedMetric === 'memory' && (
-                      <span className="text-[13px] font-medium text-[#2f80ed] flex items-center gap-0.5">
-                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                        <span>5.2%</span>
-                      </span>
-                    )}
-                    {selectedMetric === 'load' && (
-                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
-                        <ArrowDownRight className="w-3.5 h-3.5 shrink-0" />
-                        <span>12.5%</span>
-                      </span>
-                    )}
-                    {selectedMetric === 'restarts' && (
-                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
-                        <ArrowDownRight className="w-3.5 h-3.5 shrink-0" />
-                        <span>50.0%</span>
-                      </span>
-                    )}
-                    {selectedMetric === 'uptime' && (
-                      <span className="text-[13px] font-medium text-[#30a46c] flex items-center gap-0.5">
-                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                        <span>0.05%</span>
-                      </span>
-                    )}
+                    
+                    
+                    
+                    
+                    
+                    
                   </div>
                 </div>
 
@@ -1376,36 +1217,12 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                     <line x1="0" y1="44" x2="220" y2="44" stroke="#1c1c1c" strokeWidth="1" strokeDasharray="3 3" />
                     {/* Area fill */}
                     <path
-                      d={
-                        selectedMetric === 'cpu'
-                          ? 'M 0,34 C 25,34 40,24 60,24 C 80,24 95,34 115,34 C 135,34 145,10 165,10 C 180,10 195,24 220,18 L 220,48 L 0,48 Z'
-                          : selectedMetric === 'active'
-                          ? 'M 0,16 L 55,16 L 55,26 L 70,26 L 70,16 L 125,16 L 125,32 L 140,32 L 140,16 L 180,16 L 180,26 L 195,26 L 195,16 L 220,16 L 220,48 L 0,48 Z'
-                          : selectedMetric === 'memory'
-                          ? 'M 0,36 L 25,36 L 28,26 L 31,36 L 62,36 L 66,16 L 70,36 L 105,36 L 110,8 L 115,36 L 150,36 L 155,22 L 160,36 L 185,36 L 189,24 L 193,36 L 220,36 L 220,48 L 0,48 Z'
-                          : selectedMetric === 'load'
-                          ? 'M 0,28 C 35,28 55,16 90,16 C 130,16 150,34 185,34 C 200,34 210,22 220,20 L 220,48 L 0,48 Z'
-                          : selectedMetric === 'restarts'
-                          ? 'M 0,40 L 75,40 L 80,14 L 85,40 L 150,40 L 155,18 L 160,40 L 220,40 L 220,48 L 0,48 Z'
-                          : 'M 0,10 L 85,10 C 90,10 95,26 100,26 C 105,26 110,10 115,10 L 190,10 L 195,8 L 220,8 L 220,48 L 0,48 Z'
-                      }
+                      d={selectedMetric ? generateGraphPaths(selectedMetric, 220, 48).area : ''}
                       fill="url(#drawerSparklineGrad)"
                     />
                     {/* Stroke line */}
                     <path
-                      d={
-                        selectedMetric === 'cpu'
-                          ? 'M 0,34 C 25,34 40,24 60,24 C 80,24 95,34 115,34 C 135,34 145,10 165,10 C 180,10 195,24 220,18'
-                          : selectedMetric === 'active'
-                          ? 'M 0,16 L 55,16 L 55,26 L 70,26 L 70,16 L 125,16 L 125,32 L 140,32 L 140,16 L 180,16 L 180,26 L 195,26 L 195,16 L 220,16'
-                          : selectedMetric === 'memory'
-                          ? 'M 0,36 L 25,36 L 28,26 L 31,36 L 62,36 L 66,16 L 70,36 L 105,36 L 110,8 L 115,36 L 150,36 L 155,22 L 160,36 L 185,36 L 189,24 L 193,36 L 220,36'
-                          : selectedMetric === 'load'
-                          ? 'M 0,28 C 35,28 55,16 90,16 C 130,16 150,34 185,34 C 200,34 210,22 220,20'
-                          : selectedMetric === 'restarts'
-                          ? 'M 0,40 L 75,40 L 80,14 L 85,40 L 150,40 L 155,18 L 160,40 L 220,40'
-                          : 'M 0,10 L 85,10 C 90,10 95,26 100,26 C 105,26 110,10 115,10 L 190,10 L 195,8 L 220,8'
-                      }
+                      d={selectedMetric ? generateGraphPaths(selectedMetric, 220, 48).line : ''}
                       fill="none"
                       stroke={
                         selectedMetric === 'restarts'
@@ -1475,7 +1292,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                     {selectedMetric === 'memory' && `${(totalMemoryMB / (displayRunning || 1)).toFixed(0)} MB`}
                     {selectedMetric === 'load' && (parseFloat(String(displaySysLoad)) * 0.72).toFixed(2)}
                     {selectedMetric === 'restarts' && `${activeProcessesList.filter(p => p.auto_restart).length}`}
-                    {selectedMetric === 'uptime' && (activeProcessesList.find(p => p.status === 'running')?.uptime || '18d 4h')}
+                    {selectedMetric === 'uptime' && (activeProcessesList.find(p => p.status === 'running')?.uptime || '0s')}
                   </div>
                 </div>
                 <div>

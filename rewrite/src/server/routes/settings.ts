@@ -10,9 +10,9 @@ export const settingsRouter = new Hono();
 settingsRouter.get('/', requireAuth(), requirePermission('settings_view'), async (c) => {
   const captcha = await getSetting('enable_captcha', '1');
   const maintenance = await getSetting('maintenance_mode', '0');
-  const aiProvider = await getSetting('ai_provider', 'Needle AI');
-  const aiModel = await getSetting('ai_model', 'needle-rag-v1');
-  const aiBaseUrl = await getSetting('ai_base_url', 'https://api.needle-ai.com/v1');
+  const aiProvider = await getSetting('ai_provider', '');
+  const aiModel = await getSetting('ai_model', '');
+  const aiBaseUrl = await getSetting('ai_base_url', '');
   const aiApiKey = await getSetting('ai_api_key', '');
   const cfg = ConfigService.get();
 
@@ -21,8 +21,8 @@ settingsRouter.get('/', requireAuth(), requirePermission('settings_view'), async
     data: {
       enable_captcha: captcha === '1',
       maintenance_mode: maintenance === '1',
-      ai_provider: aiProvider || 'Needle AI',
-      ai_model: aiModel || 'needle-rag-v1',
+      ai_provider: aiProvider || '',
+      ai_model: aiModel || '',
       ai_base_url: aiBaseUrl || '',
       has_ai_key: !!aiApiKey,
       version: cfg.system.version || '2.4.1',
@@ -41,11 +41,11 @@ settingsRouter.post('/toggle', requireAuth(), async (c) => {
     return c.json({ success: false, message: 'Invalid setting key' }, 400);
   }
 
-  if (key === 'maintenance_mode' && !user.permissions?.settings_edit) {
+  if (key === 'maintenance_mode' && user.role !== 'owner' && !user.permissions?.settings_edit) {
     return c.json({ success: false, message: 'Missing permission: settings_edit' }, 403);
   }
 
-  if (key === 'enable_captcha' && !user.permissions?.settings_security) {
+  if (key === 'enable_captcha' && user.role !== 'owner' && !user.permissions?.settings_security) {
     return c.json({ success: false, message: 'Missing permission: settings_security' }, 403);
   }
 
@@ -65,7 +65,7 @@ settingsRouter.post('/toggle', requireAuth(), async (c) => {
 // Update AI Model Settings
 settingsRouter.post('/ai', requireAuth(), async (c) => {
   const user = c.get('user');
-  if (!user.permissions?.settings_edit) {
+  if (user.role !== 'owner' && !user.permissions?.settings_edit) {
     return c.json({ success: false, message: 'Missing permission: settings_edit' }, 403);
   }
 
@@ -82,7 +82,7 @@ settingsRouter.post('/ai', requireAuth(), async (c) => {
     user.id,
     user.username,
     'update_ai_settings',
-    `Configured AI provider: ${provider || 'Needle AI'} (Model: ${model || 'needle-rag-v1'})`
+    `Configured AI provider: ${provider || 'None'} (Model: ${model || 'None'})`
   );
 
   return c.json({ success: true, message: 'AI model configuration saved.' });

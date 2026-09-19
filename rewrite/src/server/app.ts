@@ -20,6 +20,69 @@ dotenv.config();
 
 export const app = new Hono();
 
+import { initWebSocket, connectedUsers, broadcastUserStatusChange } from './websocket.js';
+import { getCookie } from 'hono/cookie';
+import { getUserById } from './db/users.js';
+import { getSession } from './db/sessions.js';
+
+const wsParts = initWebSocket(app);
+
+app.get(
+  '/api/ws',
+  wsParts.upgradeWebSocket((c) => {
+    return {
+      onOpen: async (_event, ws) => {
+        // We use cookie for auth
+        const sid = getCookie(c, 'session_id');
+        if (!sid) {
+          ws.close(1008, 'Unauthorized');
+          return;
+        }
+        
+        const session = await getSession(sid);
+        if (!session || new Date(session.expires_at) < new Date()) {
+          ws.close(1008, 'Unauthorized');
+          return;
+        }
+        
+        const user = await getUserById(session.user_id);
+        const isLocked = user?.locked_until ? new Date(user.locked_until) > new Date() : false;
+        if (!user || isLocked) {
+          ws.close(1008, 'Forbidden');
+          return;
+        }
+
+        const userId = user.id;
+        // @ts-ignore
+        ws.userId = userId;
+
+        let userSockets = connectedUsers.get(userId);
+        if (!userSockets) {
+          userSockets = new Set();
+          connectedUsers.set(userId, userSockets);
+          // Only broadcast if this is the first connection for this user
+          broadcastUserStatusChange(userId, true);
+        }
+        userSockets.add(ws);
+      },
+      onClose: (_event, ws) => {
+        // @ts-ignore
+        const userId = ws.userId;
+        if (userId) {
+          const userSockets = connectedUsers.get(userId);
+          if (userSockets) {
+            userSockets.delete(ws);
+            if (userSockets.size === 0) {
+              connectedUsers.delete(userId);
+              broadcastUserStatusChange(userId, false);
+            }
+          }
+        }
+      },
+    };
+  })
+);
+
 // Global Middlewares
 app.use('*', securityHeaders());
 app.use('*', ipWhitelist());

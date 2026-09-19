@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../api/users';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
+import { useWsStore } from '../store/wsStore';
 import type { User, Permissions } from '../types';
 import { SlideOver } from '../components/ui/SlideOver';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog';
@@ -24,11 +25,11 @@ import {
 const DEFAULT_PERMISSIONS: Permissions = {
   users_view: false, users_create: false, users_edit: false, users_disable: false, users_delete: false, users_reset_2fa: false,
   api_keys_view: false, api_keys_create: false, api_keys_edit: false, api_keys_disable: false, api_keys_delete: false,
-  processes_view: true, processes_start: false, processes_stop: false, processes_restart: false, processes_create: false, processes_edit: false, processes_delete: false,
+  processes_view: false, processes_start: false, processes_stop: false, processes_restart: false, processes_create: false, processes_edit: false, processes_delete: false,
   logs_view_audit: false, logs_view_login: false, logs_view_terminal: false,
   settings_view: false, settings_edit: false, settings_security: false,
   terminal_access: false, terminal_unrestricted: false,
-  ai_access: true, ai_data_read: true, ai_data_write: false,
+  ai_access: false, ai_data_read: false, ai_data_write: false,
 };
 
 const CaretUpDownIcon: React.FC<{ active: boolean; direction: 'asc' | 'desc' }> = ({ active, direction }) => {
@@ -259,6 +260,7 @@ const ColumnResizer: React.FC<{
 export const Users: React.FC = () => {
   const navigate = useNavigate();
   const { user: currentUser, isOwner } = useAuthStore();
+  const { onlineUsers } = useWsStore();
   const { push: pushToast } = useToastStore();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -531,7 +533,7 @@ export const Users: React.FC = () => {
           const isLocked = !!(u.locked_until && new Date(u.locked_until) > new Date());
           const statusStr = isLocked ? 'disabled' : 'active';
           const twoFaStr = u.has_2fa ? 'enabled' : 'disabled';
-          const roleStr = u.id === 1 ? 'owner' : 'member';
+          const roleStr = u.role === 'owner' ? 'owner' : 'member';
 
           if (rule.field === 'username') {
             const target = u.username.toLowerCase();
@@ -671,7 +673,7 @@ export const Users: React.FC = () => {
       if (editPassword) {
         updates.password = editPassword;
       }
-      if (editingUser.id !== 1) {
+      if (editingUser.role !== 'owner') {
         updates.permissions = editPermissions;
       }
 
@@ -691,7 +693,7 @@ export const Users: React.FC = () => {
 
   const confirmDeleteUser = async () => {
     if (isBulkDeleting) {
-      const deletableIds = selectedIds.filter((id) => id !== 1 && id !== currentUser?.id);
+      const deletableIds = selectedIds.filter((id) => users.find(u => u.id === id)?.role !== 'owner' && id !== currentUser?.id);
       if (deletableIds.length === 0) return;
       setDialogLoading(true);
       try {
@@ -1471,7 +1473,7 @@ export const Users: React.FC = () => {
                   </tr>
                 ) : (
                   filteredUsers.map((u) => {
-                    const isMaster = u.id === 1;
+                    const isMaster = u.role === 'owner';
                     const isSelf = u.id === currentUser?.id;
                     const isChecked = selectedIds.includes(u.id);
                     const isLocked = u.locked_until && new Date(u.locked_until) > new Date();
@@ -1509,9 +1511,20 @@ export const Users: React.FC = () => {
                           className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
                         >
                           {isLocked ? (
-                            <span className="text-[14px] font-normal text-[#ef4444] leading-none font-sans">Disabled</span>
+                            <span className="inline-flex items-center gap-1.5 text-[14px] font-normal text-[#ef4444] leading-none font-sans">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] shrink-0"></span>
+                              Disabled
+                            </span>
+                          ) : onlineUsers[u.id] ? (
+                            <span className="inline-flex items-center gap-1.5 text-[14px] font-normal text-[#30a46c] leading-none font-sans">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#30a46c] shrink-0"></span>
+                              Online
+                            </span>
                           ) : (
-                            <span className="text-[14px] font-normal text-white leading-none font-sans">Active</span>
+                            <span className="inline-flex items-center gap-1.5 text-[14px] font-normal text-[#8c8c8c] leading-none font-sans">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#555555] shrink-0"></span>
+                              Offline
+                            </span>
                           )}
                         </td>
 
@@ -1783,13 +1796,13 @@ export const Users: React.FC = () => {
         subtitle={
           editingUser && (
             <div className="flex items-center gap-2 text-[13px] text-[#8c8c8c] mt-0.5 font-sans">
-              {editingUser.id === 1 && (
+              {editingUser.role === 'owner' && (
                 <span className="inline-flex items-center text-amber-500/90 shrink-0">
                   <Shield className="w-3.5 h-3.5" />
                 </span>
               )}
-              <span className={editingUser.id === 1 ? 'text-white font-medium font-sans text-[13px]' : 'text-[#8c8c8c] font-sans text-[13px]'}>
-                {editingUser.id === 1 ? 'Owner' : 'Member'}
+              <span className={editingUser.role === 'owner' ? 'text-white font-medium font-sans text-[13px]' : 'text-[#8c8c8c] font-sans text-[13px]'}>
+                {editingUser.role === 'owner' ? 'Owner' : 'Member'}
               </span>
               <span className="text-[#555555]">•</span>
               <span className="text-[13px] text-[#8c8c8c] font-sans">#{editingUser.id}</span>
@@ -1845,7 +1858,7 @@ export const Users: React.FC = () => {
             </div>
 
             {/* Permissions */}
-            {editingUser?.id !== 1 ? (
+            {editingUser?.role !== 'owner' ? (
               <div className="pt-2 font-sans">
                 <div className="mb-2 font-sans">
                   <span className="text-[14px] font-medium text-white block font-sans">Permissions</span>
@@ -1866,11 +1879,12 @@ export const Users: React.FC = () => {
             )}
 
             {/* Account Management & Security Actions */}
-            <div className="pt-2 space-y-3 font-sans">
-              <span className="text-[14px] font-medium text-white block font-sans">Security & Account Control</span>
+            {(editingUser?.role !== 'owner' || editingUser?.has_2fa) && (
+              <div className="pt-2 space-y-3 font-sans">
+                <span className="text-[14px] font-medium text-white block font-sans">Security & Account Control</span>
 
               {/* Account Status / Disable Account Action */}
-              {editingUser && editingUser.id !== 1 && isOwner() && (
+              {editingUser && editingUser.role !== 'owner' && isOwner() && (
                 editingUser?.locked_until && new Date(editingUser.locked_until) > new Date() ? (
                   <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                     <div>
@@ -1929,7 +1943,7 @@ export const Users: React.FC = () => {
               )}
 
               {/* Delete Member Action (Only for non-owner, non-self) */}
-              {editingUser?.id !== 1 && editingUser?.id !== currentUser?.id && isOwner() && (
+              {editingUser?.role !== 'owner' && editingUser?.id !== currentUser?.id && isOwner() && (
                 <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                   <div>
                     <span className="text-[14px] font-medium text-white block font-sans">Delete Account</span>
@@ -1949,12 +1963,13 @@ export const Users: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Pinned Bottom Footer Bar */}
+        {/* Pinned Bottom Footer Bar */}
           <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-between font-sans">
             <span className="text-[13px] text-[#8c8c8c] font-sans">
-              {editingUser?.id === 1 ? 'All scopes enabled' : `${countGrantedPermissions(editPermissions)} of 21 granted`}
+              {editingUser?.role === 'owner' ? 'All scopes enabled' : `${countGrantedPermissions(editPermissions)} of 21 granted`}
             </span>
             <div className="flex items-center gap-2 font-sans">
               <button

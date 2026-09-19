@@ -63,7 +63,7 @@ processRouter.get('/', async (c) => {
   return c.json({
     success: true,
     data: enriched,
-    sys_load: sysLoad === '0.00' || sysLoad === '---' ? '0.12' : sysLoad,
+    sys_load: sysLoad,
   });
 });
 

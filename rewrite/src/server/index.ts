@@ -3,7 +3,7 @@ import { serve } from '@hono/node-server';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
 import { initDatabase } from './db/schema.js';
-import { runAutorestart } from './lib/cron.js';
+import { runAutorestart, logTelemetryData } from './lib/cron.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { ipWhitelist } from './middleware/ipWhitelist.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -68,12 +68,15 @@ async function start() {
     await initDatabase();
     console.log('[Binary Alive] Database ready.');
 
-    // Internal background cron supervisor (runs every minute)
-    cron.schedule('* * * * *', async () => {
+    // Internal background cron supervisor (runs every 30 seconds)
+    cron.schedule('*/30 * * * * *', async () => {
       await runAutorestart();
+      await logTelemetryData();
     });
 
-    serve(
+    const { getInjectWebSocket } = await import('./websocket.js');
+
+    const server = serve(
       {
         fetch: app.fetch,
         port: PORT,
@@ -82,6 +85,8 @@ async function start() {
         console.log(`[Binary Alive] Server running at http://localhost:${info.port}`);
       }
     );
+    
+    getInjectWebSocket()(server);
   } catch (err) {
     console.error('[Binary Alive] Fatal startup error:', err);
     process.exit(1);

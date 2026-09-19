@@ -17,6 +17,7 @@ export interface LoginResponse {
 
 export interface SetupStatusResponse {
   setup_mode: boolean;
+  captcha_enabled?: boolean;
 }
 
 export const authApi = {
@@ -36,7 +37,7 @@ export const authApi = {
   getSetupStatus: () =>
     apiFetch<SetupStatusResponse>('/auth/setup'),
 
-  createFirstAdmin: (payload: { username: string; password: string }) =>
+  createFirstAdmin: (payload: { username: string; password: string; email?: string }) =>
     apiFetch<ApiResponse>('/auth/setup', {
       method: 'POST',
       body: JSON.stringify(payload),

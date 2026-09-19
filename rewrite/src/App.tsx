@@ -1,5 +1,6 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useWebSocketInit } from './hooks/useWebSocket';
 import { useAuth } from './hooks/useAuth';
 import { useAuthStore } from './store/authStore';
 import type { Permissions } from './types';
@@ -13,6 +14,7 @@ import { Settings } from './pages/Settings';
 import { Setup2FA } from './pages/Setup2FA';
 import { ApiKeys } from './pages/ApiKeys';
 import { Loader2 } from 'lucide-react';
+import { ToastContainer } from './components/ui/Toast';
 
 interface PermissionGuardProps {
   permission: keyof Permissions;
@@ -29,6 +31,7 @@ const PermissionGuard: React.FC<PermissionGuardProps> = ({ permission, children 
 
 const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
+  useWebSocketInit();
 
   if (isLoading) {
     return (
@@ -50,9 +53,10 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 export const App: React.FC = () => {
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <>
+      <HashRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
         <Route
           element={
@@ -74,7 +78,7 @@ export const App: React.FC = () => {
           <Route
             path="/users"
             element={
-              <PermissionGuard permission="users_create">
+              <PermissionGuard permission="users_view">
                 <Users />
               </PermissionGuard>
             }
@@ -102,6 +106,8 @@ export const App: React.FC = () => {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </HashRouter>
+    <ToastContainer />
+    </>
   );
 };
 
