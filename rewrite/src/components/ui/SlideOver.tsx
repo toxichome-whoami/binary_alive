@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 interface SlideOverProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
   subtitle?: React.ReactNode;
   children: React.ReactNode;
   width?: string;
@@ -16,8 +16,21 @@ export const SlideOver: React.FC<SlideOverProps> = ({
   title,
   subtitle,
   children,
-  width = 'w-[460px] max-w-full',
+  width = 'w-[480px] max-w-full',
 }) => {
+  // Lock body scroll when open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  // Handle ESC key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -25,47 +38,42 @@ export const SlideOver: React.FC<SlideOverProps> = ({
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  // Lock body scroll when drawer is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
     return () => {
-      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden select-none">
+    <div className="fixed inset-0 z-50 overflow-hidden select-none font-sans">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="fixed inset-y-0 sm:inset-y-2.5 right-0 flex max-w-full pl-0 sm:pl-10 pointer-events-none">
+      <div className="fixed inset-y-0 sm:inset-y-2.5 right-0 flex max-w-full pl-0 sm:pl-10 pointer-events-none font-sans">
         {/* Outer Container (Matching Table outer black frame) */}
         <div
           className={cn(
-            'w-screen pointer-events-auto bg-black border-l border-y border-[#222222] rounded-tl-2xl rounded-bl-2xl shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 ease-out select-text overflow-hidden',
+            'w-screen pointer-events-auto bg-black border-l border-y border-[#222222] rounded-tl-2xl rounded-bl-2xl shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 ease-out select-text overflow-hidden font-sans',
             width
           )}
         >
           {/* Outer Header Bar (Title & metadata on pure black frame) */}
-          <div className="flex items-center justify-between px-4 py-3 bg-black shrink-0">
-            <div className="min-w-0 pr-2">
-              <h2 className="text-[15px] font-semibold text-white tracking-tight truncate" title={title}>{title}</h2>
-              {subtitle && <div className="mt-0.5">{subtitle}</div>}
+          <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 bg-black shrink-0 font-sans">
+            <div className="min-w-0 pr-3 flex-1">
+              <h2
+                className="text-[16px] font-semibold text-white tracking-[-0.015em] leading-snug font-sans truncate"
+                title={typeof title === 'string' ? title : undefined}
+              >
+                {title}
+              </h2>
+              {subtitle && <div className="mt-0.5 font-sans">{subtitle}</div>}
             </div>
             <button
               onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center text-[#8c8c8c] hover:text-white rounded-lg hover:bg-[#1a1a1a] transition-colors cursor-pointer shrink-0 ml-2"
+              className="w-7 h-7 flex items-center justify-center text-[#888888] hover:text-white rounded-lg hover:bg-[#1a1a1a] transition-colors cursor-pointer shrink-0 ml-2"
               title="Close (Esc)"
               aria-label="Close"
             >

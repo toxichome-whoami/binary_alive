@@ -6,22 +6,24 @@ export async function logAudit(
   username: string | null,
   action: string,
   details = '',
-  ip = '127.0.0.1'
+  ip = '127.0.0.1',
+  email: string | null = null
 ): Promise<void> {
   await db.execute({
-    sql: 'INSERT INTO audit_logs (user_id, username, action, details, ip_address) VALUES (?, ?, ?, ?, ?)',
-    args: [userId, username, action, details, ip],
+    sql: 'INSERT INTO audit_logs (user_id, username, action, details, ip_address, email) VALUES (?, ?, ?, ?, ?, ?)',
+    args: [userId, username, action, details, ip, email],
   });
 }
 
 export async function logLoginAttempt(
   username: string | null,
   isSuccess: boolean,
-  ip = '127.0.0.1'
+  ip = '127.0.0.1',
+  email: string | null = null
 ): Promise<void> {
   await db.execute({
-    sql: 'INSERT INTO login_attempts (username, is_successful, ip_address) VALUES (?, ?, ?)',
-    args: [username, isSuccess ? 1 : 0, ip],
+    sql: 'INSERT INTO login_attempts (username, is_successful, ip_address, email) VALUES (?, ?, ?, ?)',
+    args: [username, isSuccess ? 1 : 0, ip, email],
   });
 }
 
@@ -36,9 +38,12 @@ export async function getAuditLogs(
   const total = Number(countRes.rows[0]?.cnt || 0);
 
   const result = await db.execute({
-    sql: `SELECT * FROM audit_logs 
-          WHERE action NOT IN ('terminal_command', 'login_success', 'logout') 
-          ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+    sql: `SELECT a.id, a.user_id, a.username, a.action, a.details, a.ip_address, a.timestamp,
+                 COALESCE(NULLIF(a.email, ''), u.email) as email 
+          FROM audit_logs a
+          LEFT JOIN users u ON (a.user_id = u.id OR (a.user_id IS NULL AND a.username = u.username))
+          WHERE a.action NOT IN ('terminal_command', 'login_success', 'logout') 
+          ORDER BY a.timestamp DESC LIMIT ? OFFSET ?`,
     args: [limit, offset],
   });
 
@@ -58,7 +63,11 @@ export async function getLoginLogs(
   const total = Number(countRes.rows[0]?.cnt || 0);
 
   const result = await db.execute({
-    sql: 'SELECT * FROM login_attempts ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+    sql: `SELECT l.id, l.username, l.ip_address, l.is_successful, l.timestamp,
+                 COALESCE(NULLIF(l.email, ''), u.email) as email
+          FROM login_attempts l
+          LEFT JOIN users u ON (l.username = u.username)
+          ORDER BY l.timestamp DESC LIMIT ? OFFSET ?`,
     args: [limit, offset],
   });
 
@@ -78,9 +87,12 @@ export async function getTerminalLogs(
   const total = Number(countRes.rows[0]?.cnt || 0);
 
   const result = await db.execute({
-    sql: `SELECT * FROM audit_logs 
-          WHERE action = 'terminal_command' 
-          ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+    sql: `SELECT a.id, a.user_id, a.username, a.action, a.details, a.ip_address, a.timestamp,
+                 COALESCE(NULLIF(a.email, ''), u.email) as email 
+          FROM audit_logs a
+          LEFT JOIN users u ON (a.user_id = u.id OR (a.user_id IS NULL AND a.username = u.username))
+          WHERE a.action = 'terminal_command' 
+          ORDER BY a.timestamp DESC LIMIT ? OFFSET ?`,
     args: [limit, offset],
   });
 

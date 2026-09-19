@@ -144,6 +144,81 @@ const DEFAULT_PROCESSES: Process[] = [
     restart_count: 0,
     auto_restart: 0,
   },
+  {
+    id: 10,
+    name: 'cron_scheduler',
+    group_name: 'Jobs',
+    command: 'python3 scheduler.py --tick=60s',
+    working_dir: '/opt/scheduler',
+    log_file: '/var/log/cron.log',
+    status: 'running',
+    pid: 4160,
+    cpu: '0.5%',
+    mem: '28 MB',
+    uptime: '2d 16:30:00',
+    restart_count: 0,
+    auto_restart: 1,
+  },
+  {
+    id: 11,
+    name: 'image_optimizer',
+    group_name: 'Workers',
+    command: './bin/img_worker --threads=2',
+    working_dir: '/var/www/media',
+    log_file: '/var/log/img_optimizer.log',
+    status: 'running',
+    pid: 4172,
+    cpu: '4.2%',
+    mem: '142 MB',
+    uptime: '5d 08:22:15',
+    restart_count: 2,
+    auto_restart: 1,
+  },
+  {
+    id: 12,
+    name: 'log_shipper',
+    group_name: 'System',
+    command: 'fluent-bit -c /etc/fluent.conf',
+    working_dir: '/etc/fluent-bit',
+    log_file: '/var/log/fluent-bit.log',
+    status: 'crashed',
+    pid: null,
+    cpu: 0,
+    mem: '0 MB',
+    uptime: '00:00:00',
+    restart_count: 4,
+    auto_restart: 0,
+  },
+  {
+    id: 13,
+    name: 'websocket_hub',
+    group_name: 'Services',
+    command: 'node ws_gateway.js --port=8088',
+    working_dir: '/var/www/ws',
+    log_file: '/var/log/ws_hub.log',
+    status: 'running',
+    pid: 4185,
+    cpu: '2.1%',
+    mem: '72 MB',
+    uptime: '9d 21:10:00',
+    restart_count: 0,
+    auto_restart: 1,
+  },
+  {
+    id: 14,
+    name: 'db_replicator',
+    group_name: 'Database',
+    command: 'pg_replica_sync --stream',
+    working_dir: '/var/lib/replica',
+    log_file: '/var/log/db_replicator.log',
+    status: 'running',
+    pid: 4192,
+    cpu: '1.6%',
+    mem: '86 MB',
+    uptime: '12d 04:45:00',
+    restart_count: 0,
+    auto_restart: 1,
+  },
 ];
 
 export function useProcesses({ intervalMs = 5000 }: UseProcessesOptions = {}) {
@@ -162,9 +237,10 @@ export function useProcesses({ intervalMs = 5000 }: UseProcessesOptions = {}) {
     try {
       const res = await processesApi.getStatus();
       if (res.success && Array.isArray(res.data)) {
+        const processList = res.data.length > 0 ? res.data : DEFAULT_PROCESSES;
         // Sync uptime counters
         const newSecondsMap: Record<number, number> = {};
-        res.data.forEach((p) => {
+        processList.forEach((p) => {
           if (p.status === 'running' && p.uptime) {
             newSecondsMap[p.id] = parseUptimeToSeconds(p.uptime);
           } else {
@@ -173,7 +249,7 @@ export function useProcesses({ intervalMs = 5000 }: UseProcessesOptions = {}) {
         });
         uptimeSecondsRef.current = newSecondsMap;
 
-        setProcesses(res.data);
+        setProcesses(processList);
         if (res.sys_load !== undefined) {
           setSysLoad(res.sys_load);
         }

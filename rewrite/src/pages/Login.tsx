@@ -21,7 +21,15 @@ export const Login: React.FC = () => {
     const devUser: CurrentUser = {
       id: 1,
       username: username.trim() || 'admin',
-      role: 'admin',
+      role: 'owner',
+      permissions: {
+        users_view: true, users_create: true, users_edit: true, users_disable: true, users_delete: true, users_reset_2fa: true,
+        api_keys_view: true, api_keys_create: true, api_keys_edit: true, api_keys_disable: true, api_keys_delete: true,
+        processes_view: true, processes_start: true, processes_stop: true, processes_restart: true, processes_create: true, processes_edit: true, processes_delete: true,
+        logs_view_audit: true, logs_view_login: true, logs_view_terminal: true,
+        settings_view: true, settings_edit: true, settings_security: true,
+        terminal_access: true, terminal_unrestricted: true
+      },
       hostname: 'localhost',
     };
 

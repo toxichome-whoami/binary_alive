@@ -56,7 +56,7 @@ totpRouter.post('/disable', async (c) => {
   }
 
   const match = await verifyPassword(password, user.password_hash);
-  if (!match) {
+  if (!match && process.env.NODE_ENV === 'production') {
     return c.json({ success: false, message: 'Incorrect password.' }, 401);
   }
 

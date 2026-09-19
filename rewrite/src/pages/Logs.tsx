@@ -31,6 +31,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1095,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'process_restart',
     details: 'Process api_gateway (PID 4102) restarted via supervisor watchdog',
     ip_address: '192.168.1.105',
@@ -40,6 +41,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1094,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'process_start',
     details: 'Initiated background runner mrtx_bot --config=production.env (PID 4108)',
     ip_address: '192.168.1.105',
@@ -49,6 +51,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1093,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'config_update',
     details: 'Updated auto_restart=1 and max_memory=512MB on auth_service',
     ip_address: '127.0.0.1',
@@ -58,6 +61,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1092,
     user_id: null,
     username: 'System',
+    email: null,
     action: 'cron_watchdog',
     details: 'Cycle check completed: 7/9 binaries active, memory pressure normal',
     ip_address: '127.0.0.1',
@@ -67,6 +71,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1091,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'ip_whitelist',
     details: 'Whitelisted subnet 192.168.1.0/24 for dashboard control API',
     ip_address: '192.168.1.105',
@@ -76,6 +81,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1090,
     user_id: 3,
     username: 'operator',
+    email: 'operator@binary.local',
     action: 'process_stop',
     details: 'Graceful shutdown signal (SIGTERM) sent to backup_sync (PID 5124)',
     ip_address: '10.0.0.14',
@@ -85,6 +91,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1089,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'env_reload',
     details: 'Production environment variables decrypted and synced across 9 workers',
     ip_address: '192.168.1.105',
@@ -94,6 +101,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1088,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'security_audit',
     details: 'SHA256 executable integrity verified: all binary signatures valid',
     ip_address: '127.0.0.1',
@@ -103,6 +111,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1087,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'process_create',
     details: 'Registered new monitored process go_telemetry (auto_restart=true, port=9090)',
     ip_address: '192.168.1.105',
@@ -112,6 +121,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1086,
     user_id: null,
     username: 'System',
+    email: null,
     action: 'database_vacuum',
     details: 'SQLite storage optimized, WAL checkpoint committed (0 errors, 4.2MB freed)',
     ip_address: '127.0.0.1',
@@ -121,6 +131,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1085,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'auth_token_issue',
     details: 'Issued scoped bearer token for metrics-collector daemon (expires in 30d)',
     ip_address: '127.0.0.1',
@@ -130,6 +141,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1084,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'process_restart',
     details: 'Reloaded caddy_ingress proxy configuration (caddy reload --config /etc/caddy)',
     ip_address: '192.168.1.105',
@@ -139,6 +151,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1083,
     user_id: null,
     username: 'System',
+    email: null,
     action: 'tls_cert_renew',
     details: 'Automated ACME TLS certificate renewed for *.toxichome.cc (valid 90d)',
     ip_address: '127.0.0.1',
@@ -148,6 +161,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1082,
     user_id: 3,
     username: 'operator',
+    email: 'operator@binary.local',
     action: 'log_rotate',
     details: 'Archived binary_alive.log (142MB gzip compressed) to /data/logs/archive',
     ip_address: '10.0.0.14',
@@ -157,6 +171,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1081,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'config_update',
     details: 'Adjusted rate_limit=120req/min for public API ingress endpoints',
     ip_address: '192.168.1.105',
@@ -166,6 +181,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1080,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'process_start',
     details: 'Started queue_worker_2 with concurrency=4 (PID 6012)',
     ip_address: '127.0.0.1',
@@ -175,6 +191,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1079,
     user_id: null,
     username: 'System',
+    email: null,
     action: 'memory_alert',
     details: 'Memory threshold warning: node_backend utilized 448MB / 512MB limit',
     ip_address: '127.0.0.1',
@@ -184,6 +201,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1078,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'process_restart',
     details: 'Force restarted node_backend to clear memory heap cache (PID 4821 -> 6140)',
     ip_address: '192.168.1.105',
@@ -193,6 +211,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1077,
     user_id: 4,
     username: 'auditor',
+    email: 'auditor@binary.local',
     action: 'export_data',
     details: 'Exported compliance audit trail for period 2026-09-01 through 2026-09-17',
     ip_address: '192.168.1.112',
@@ -202,6 +221,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1076,
     user_id: null,
     username: 'System',
+    email: null,
     action: 'cron_watchdog',
     details: 'Supervisor health check: all heartbeats acknowledged in 4.1ms',
     ip_address: '127.0.0.1',
@@ -211,6 +231,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1075,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'user_permission',
     details: 'Updated role for user operator: granted terminal_view permissions',
     ip_address: '192.168.1.105',
@@ -220,6 +241,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1074,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'process_stop',
     details: 'Stopped dev_mock_server (PID 3302) following staging deployment',
     ip_address: '127.0.0.1',
@@ -229,6 +251,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1073,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'firewall_sync',
     details: 'Applied iptables rules: blocked port 9000 except from loopback',
     ip_address: '192.168.1.105',
@@ -238,6 +261,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1072,
     user_id: null,
     username: 'System',
+    email: null,
     action: 'backup_create',
     details: 'Automated snapshot backup created: db_snapshot_20260918.tar.zst (88MB)',
     ip_address: '127.0.0.1',
@@ -247,6 +271,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1071,
     user_id: 3,
     username: 'operator',
+    email: 'operator@binary.local',
     action: 'process_restart',
     details: 'Restarted redis_cluster worker 03 after cache evict policy update',
     ip_address: '10.0.0.14',
@@ -256,6 +281,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1070,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'config_update',
     details: 'Enabled HTTP/3 and QUIC transport protocol in web_gateway config',
     ip_address: '192.168.1.105',
@@ -265,6 +291,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1069,
     user_id: null,
     username: 'System',
+    email: null,
     action: 'cron_watchdog',
     details: 'Daemon cycle verified: 9/9 binaries running, load avg 0.28, 0.31, 0.29',
     ip_address: '127.0.0.1',
@@ -274,6 +301,7 @@ const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     id: 1068,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'system_upgrade',
     details: 'Binary Alive supervisor binary refreshed to build v2.4.1-patch8',
     ip_address: '127.0.0.1',
@@ -285,6 +313,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 428,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     is_successful: 1,
     ip_address: '192.168.1.105',
     timestamp: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
@@ -292,6 +321,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 427,
     username: 'admin',
+    email: 'admin@binary.local',
     is_successful: 1,
     ip_address: '127.0.0.1',
     timestamp: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
@@ -299,6 +329,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 426,
     username: 'root',
+    email: null,
     is_successful: 0,
     ip_address: '198.51.100.24',
     timestamp: new Date(Date.now() - 54 * 60 * 1000).toISOString(),
@@ -306,6 +337,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 425,
     username: 'operator',
+    email: 'operator@binary.local',
     is_successful: 1,
     ip_address: '10.0.0.14',
     timestamp: new Date(Date.now() - 78 * 60 * 1000).toISOString(),
@@ -313,6 +345,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 424,
     username: 'unknown_scanner',
+    email: null,
     is_successful: 0,
     ip_address: '203.0.113.88',
     timestamp: new Date(Date.now() - 110 * 60 * 1000).toISOString(),
@@ -320,6 +353,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 423,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     is_successful: 1,
     ip_address: '192.168.1.105',
     timestamp: new Date(Date.now() - 150 * 60 * 1000).toISOString(),
@@ -327,6 +361,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 422,
     username: 'auditor',
+    email: 'auditor@binary.local',
     is_successful: 1,
     ip_address: '192.168.1.112',
     timestamp: new Date(Date.now() - 195 * 60 * 1000).toISOString(),
@@ -334,6 +369,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 421,
     username: 'admin',
+    email: 'admin@binary.local',
     is_successful: 1,
     ip_address: '127.0.0.1',
     timestamp: new Date(Date.now() - 240 * 60 * 1000).toISOString(),
@@ -341,6 +377,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 420,
     username: 'guest',
+    email: null,
     is_successful: 0,
     ip_address: '185.220.101.5',
     timestamp: new Date(Date.now() - 290 * 60 * 1000).toISOString(),
@@ -348,6 +385,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 419,
     username: 'support',
+    email: 'support@binary.local',
     is_successful: 0,
     ip_address: '194.26.29.112',
     timestamp: new Date(Date.now() - 340 * 60 * 1000).toISOString(),
@@ -355,6 +393,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 418,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     is_successful: 1,
     ip_address: '192.168.1.105',
     timestamp: new Date(Date.now() - 390 * 60 * 1000).toISOString(),
@@ -362,6 +401,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 417,
     username: 'operator',
+    email: 'operator@binary.local',
     is_successful: 1,
     ip_address: '10.0.0.14',
     timestamp: new Date(Date.now() - 440 * 60 * 1000).toISOString(),
@@ -369,6 +409,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 416,
     username: 'oracle',
+    email: null,
     is_successful: 0,
     ip_address: '45.142.122.9',
     timestamp: new Date(Date.now() - 500 * 60 * 1000).toISOString(),
@@ -376,6 +417,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 415,
     username: 'admin',
+    email: 'admin@binary.local',
     is_successful: 1,
     ip_address: '127.0.0.1',
     timestamp: new Date(Date.now() - 560 * 60 * 1000).toISOString(),
@@ -383,6 +425,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 414,
     username: 'deploy_key',
+    email: 'deploy_key@binary.local',
     is_successful: 1,
     ip_address: '10.0.0.4',
     timestamp: new Date(Date.now() - 620 * 60 * 1000).toISOString(),
@@ -390,6 +433,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 413,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     is_successful: 1,
     ip_address: '192.168.1.105',
     timestamp: new Date(Date.now() - 680 * 60 * 1000).toISOString(),
@@ -397,6 +441,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 412,
     username: 'test_user',
+    email: null,
     is_successful: 0,
     ip_address: '89.248.165.74',
     timestamp: new Date(Date.now() - 750 * 60 * 1000).toISOString(),
@@ -404,6 +449,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 411,
     username: 'auditor',
+    email: 'auditor@binary.local',
     is_successful: 1,
     ip_address: '192.168.1.112',
     timestamp: new Date(Date.now() - 820 * 60 * 1000).toISOString(),
@@ -411,6 +457,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 410,
     username: 'admin',
+    email: 'admin@binary.local',
     is_successful: 1,
     ip_address: '127.0.0.1',
     timestamp: new Date(Date.now() - 900 * 60 * 1000).toISOString(),
@@ -418,6 +465,7 @@ const DEFAULT_LOGIN_LOGS: LoginAttemptLog[] = [
   {
     id: 409,
     username: 'crawler_bot',
+    email: null,
     is_successful: 0,
     ip_address: '194.38.20.14',
     timestamp: new Date(Date.now() - 980 * 60 * 1000).toISOString(),
@@ -429,6 +477,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 624,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'terminal_command',
     details: 'systemctl status binary_alive.service --no-pager',
     ip_address: '192.168.1.105',
@@ -438,6 +487,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 623,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'terminal_command',
     details: 'ps aux | grep api_gateway | awk \'{print $2, $3, $4, $11}\'',
     ip_address: '192.168.1.105',
@@ -447,6 +497,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 622,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'terminal_command',
     details: 'ss -tulpn | grep 8080',
     ip_address: '127.0.0.1',
@@ -456,6 +507,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 621,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'terminal_command',
     details: 'journalctl -u binary_alive -n 100 --no-pager | tail -n 25',
     ip_address: '192.168.1.105',
@@ -465,6 +517,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 620,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'terminal_command',
     details: 'df -h /data && free -m -h',
     ip_address: '127.0.0.1',
@@ -474,6 +527,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 619,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'terminal_command',
     details: 'uptime && cat /proc/loadavg',
     ip_address: '192.168.1.105',
@@ -483,6 +537,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 618,
     user_id: 3,
     username: 'operator',
+    email: 'operator@binary.local',
     action: 'terminal_command',
     details: 'tail -f /var/www/jobs/worker.log -n 50',
     ip_address: '10.0.0.14',
@@ -492,6 +547,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 617,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'terminal_command',
     details: 'docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"',
     ip_address: '192.168.1.105',
@@ -501,6 +557,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 616,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'terminal_command',
     details: 'sha256sum /opt/binary_alive/bin/* > /tmp/checksums.txt',
     ip_address: '127.0.0.1',
@@ -510,6 +567,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 615,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'terminal_command',
     details: 'caddy validate --config /etc/caddy/Caddyfile',
     ip_address: '192.168.1.105',
@@ -519,6 +577,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 614,
     user_id: 3,
     username: 'operator',
+    email: 'operator@binary.local',
     action: 'terminal_command',
     details: 'redis-cli -p 6379 info stats | grep -E "total_connections|instantaneous"',
     ip_address: '10.0.0.14',
@@ -528,6 +587,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 613,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'terminal_command',
     details: 'iptables -L INPUT -v -n --line-numbers | head -n 30',
     ip_address: '192.168.1.105',
@@ -537,6 +597,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 612,
     user_id: 2,
     username: 'admin',
+    email: 'admin@binary.local',
     action: 'terminal_command',
     details: 'sqlite3 /var/lib/binary_alive/local.db "PRAGMA integrity_check;"',
     ip_address: '127.0.0.1',
@@ -546,6 +607,7 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 611,
     user_id: 1,
     username: 'toxichome',
+    email: 'toxichome@binary.local',
     action: 'terminal_command',
     details: 'kill -HUP $(pgrep -f "worker-queue")',
     ip_address: '192.168.1.105',
@@ -555,17 +617,168 @@ const DEFAULT_TERMINAL_LOGS: AuditLog[] = [
     id: 610,
     user_id: 3,
     username: 'operator',
+    email: 'operator@binary.local',
     action: 'terminal_command',
     details: 'vmstat 1 5',
     ip_address: '10.0.0.14',
     timestamp: new Date(Date.now() - 740 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 609,
+    user_id: 1,
+    username: 'toxichome',
+    email: 'toxichome@binary.local',
+    action: 'terminal_command',
+    details: 'netstat -tulpen | grep -E "LISTEN|ESTABLISHED"',
+    ip_address: '192.168.1.105',
+    timestamp: new Date(Date.now() - 830 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 608,
+    user_id: 2,
+    username: 'admin',
+    email: 'admin@binary.local',
+    action: 'terminal_command',
+    details: 'git status -s && git log -n 5 --oneline',
+    ip_address: '127.0.0.1',
+    timestamp: new Date(Date.now() - 910 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 607,
+    user_id: 1,
+    username: 'toxichome',
+    email: 'toxichome@binary.local',
+    action: 'terminal_command',
+    details: 'curl -Is https://127.0.0.1:8080/health | head -n 5',
+    ip_address: '192.168.1.105',
+    timestamp: new Date(Date.now() - 990 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 606,
+    user_id: 3,
+    username: 'operator',
+    email: 'operator@binary.local',
+    action: 'terminal_command',
+    details: 'tail -n 40 /var/log/nginx/error.log | grep -v "client closed"',
+    ip_address: '10.0.0.14',
+    timestamp: new Date(Date.now() - 1080 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 605,
+    user_id: 1,
+    username: 'toxichome',
+    email: 'toxichome@binary.local',
+    action: 'terminal_command',
+    details: 'free -h --giga && swapon --show',
+    ip_address: '192.168.1.105',
+    timestamp: new Date(Date.now() - 1170 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 604,
+    user_id: 2,
+    username: 'admin',
+    email: 'admin@binary.local',
+    action: 'terminal_command',
+    details: 'openssl x509 -in /etc/ssl/certs/binary.crt -noout -dates',
+    ip_address: '127.0.0.1',
+    timestamp: new Date(Date.now() - 1260 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 603,
+    user_id: 4,
+    username: 'auditor',
+    email: 'auditor@binary.local',
+    action: 'terminal_command',
+    details: 'tar -czvf /backup/configs_20260918.tar.gz /etc/binary_alive/',
+    ip_address: '192.168.1.112',
+    timestamp: new Date(Date.now() - 1350 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 602,
+    user_id: 1,
+    username: 'toxichome',
+    email: 'toxichome@binary.local',
+    action: 'terminal_command',
+    details: 'ufw status numbered',
+    ip_address: '192.168.1.105',
+    timestamp: new Date(Date.now() - 1440 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 601,
+    user_id: 3,
+    username: 'operator',
+    email: 'operator@binary.local',
+    action: 'terminal_command',
+    details: 'lsblk -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT',
+    ip_address: '10.0.0.14',
+    timestamp: new Date(Date.now() - 1530 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 600,
+    user_id: 2,
+    username: 'admin',
+    email: 'admin@binary.local',
+    action: 'terminal_command',
+    details: 'cat /proc/cpuinfo | grep "model name" | head -n 1',
+    ip_address: '127.0.0.1',
+    timestamp: new Date(Date.now() - 1620 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 599,
+    user_id: 1,
+    username: 'toxichome',
+    email: 'toxichome@binary.local',
+    action: 'terminal_command',
+    details: 'supervisorctl status all',
+    ip_address: '192.168.1.105',
+    timestamp: new Date(Date.now() - 1710 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 598,
+    user_id: 3,
+    username: 'operator',
+    email: 'operator@binary.local',
+    action: 'terminal_command',
+    details: 'iotop -b -n 1 | head -n 15',
+    ip_address: '10.0.0.14',
+    timestamp: new Date(Date.now() - 1800 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 597,
+    user_id: 1,
+    username: 'toxichome',
+    email: 'toxichome@binary.local',
+    action: 'terminal_command',
+    details: 'ping -c 3 1.1.1.1',
+    ip_address: '192.168.1.105',
+    timestamp: new Date(Date.now() - 1890 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 596,
+    user_id: 2,
+    username: 'admin',
+    email: 'admin@binary.local',
+    action: 'terminal_command',
+    details: 'find /var/log/binary_alive -type f -mtime +7 -name "*.log.gz"',
+    ip_address: '127.0.0.1',
+    timestamp: new Date(Date.now() - 1980 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 595,
+    user_id: 1,
+    username: 'toxichome',
+    email: 'toxichome@binary.local',
+    action: 'terminal_command',
+    details: 'who -b && last -n 5',
+    ip_address: '192.168.1.105',
+    timestamp: new Date(Date.now() - 2070 * 60 * 1000).toISOString(),
   },
 ];
 
 
 
 export const Logs: React.FC = () => {
-  const { isAdmin } = useAuthStore();
+  const { user: currentUser, hasPermission } = useAuthStore();
   const { push: pushToast } = useToastStore();
 
   const [activeTab, setActiveTab] = useState<'audit' | 'login' | 'terminal'>('audit');
@@ -574,8 +787,6 @@ export const Logs: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(DEFAULT_AUDIT_LOGS);
   const [loginLogs, setLoginLogs] = useState<LoginAttemptLog[]>(DEFAULT_LOGIN_LOGS);
   const [termLogs, setTermLogs] = useState<AuditLog[]>(DEFAULT_TERMINAL_LOGS);
-
-
 
   // Table controls
   const [page, setPage] = useState(1);
@@ -592,6 +803,18 @@ export const Logs: React.FC = () => {
   const [selectedLog, setSelectedLog] = useState<AuditLog | LoginAttemptLog | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Computed email for currently selected log in SlideOver inspector
+  const selectedLogEmail = useMemo(() => {
+    if (!selectedLog) return null;
+    if ('email' in selectedLog && (selectedLog as AuditLog).email) {
+      return (selectedLog as AuditLog).email;
+    }
+    if (selectedLog.username && selectedLog.username === currentUser?.username) {
+      return currentUser?.email || null;
+    }
+    return null;
+  }, [selectedLog, currentUser]);
 
   const handleCopyField = (val: string, fieldName: string) => {
     navigator.clipboard.writeText(val);
@@ -758,6 +981,7 @@ export const Logs: React.FC = () => {
       list = list.filter(
         (l) =>
           (l.username && l.username.toLowerCase().includes(q)) ||
+          (l.email && l.email.toLowerCase().includes(q)) ||
           l.action.toLowerCase().includes(q) ||
           (l.details && l.details.toLowerCase().includes(q)) ||
           l.ip_address.includes(q)
@@ -785,6 +1009,7 @@ export const Logs: React.FC = () => {
       list = list.filter(
         (l) =>
           (l.username && l.username.toLowerCase().includes(q)) ||
+          (l.email && l.email.toLowerCase().includes(q)) ||
           l.ip_address.includes(q) ||
           (l.is_successful ? 'success' : 'failed').includes(q)
       );
@@ -811,6 +1036,7 @@ export const Logs: React.FC = () => {
       list = list.filter(
         (l) =>
           (l.username && l.username.toLowerCase().includes(q)) ||
+          (l.email && l.email.toLowerCase().includes(q)) ||
           (l.details && l.details.toLowerCase().includes(q)) ||
           l.ip_address.includes(q)
       );
@@ -972,7 +1198,11 @@ export const Logs: React.FC = () => {
 
   // Copy JSON payload
   const handleCopyJson = (log: AuditLog | LoginAttemptLog) => {
-    navigator.clipboard.writeText(JSON.stringify(log, null, 2));
+    const dataToCopy = {
+      ...log,
+      ...(selectedLogEmail ? { email: selectedLogEmail } : {}),
+    };
+    navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
     setCopiedId(log.id);
     pushToast('success', 'Event payload copied to clipboard');
     setTimeout(() => setCopiedId(null), 2000);
@@ -1051,6 +1281,19 @@ export const Logs: React.FC = () => {
         ),
       },
       {
+        id: 'email',
+        header: 'Email',
+        isSortable: true,
+        isResizable: true,
+        width: 190,
+        className: 'px-3',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-[#cccccc] truncate">
+            {log.email || '—'}
+          </span>
+        ),
+      },
+      {
         id: 'action',
         header: 'Action',
         isSortable: true,
@@ -1078,6 +1321,7 @@ export const Logs: React.FC = () => {
         header: 'IP Address',
         isSortable: true,
         isResizable: true,
+        resizerPosition: 'before',
         width: 140,
         className: 'pl-3 pr-4',
         cell: (log) => (
@@ -1119,6 +1363,19 @@ export const Logs: React.FC = () => {
         ),
       },
       {
+        id: 'email',
+        header: 'Email',
+        isSortable: true,
+        isResizable: true,
+        width: 190,
+        className: 'px-3',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-[#cccccc] truncate">
+            {log.email || '—'}
+          </span>
+        ),
+      },
+      {
         id: 'action',
         header: 'Auth Result',
         isSortable: true,
@@ -1153,6 +1410,7 @@ export const Logs: React.FC = () => {
         header: 'IP Address',
         isSortable: true,
         isResizable: true,
+        resizerPosition: 'before',
         width: 140,
         className: 'pl-3 pr-4',
         cell: (log) => (
@@ -1194,6 +1452,19 @@ export const Logs: React.FC = () => {
         ),
       },
       {
+        id: 'email',
+        header: 'Email',
+        isSortable: true,
+        isResizable: true,
+        width: 190,
+        className: 'px-3',
+        cell: (log) => (
+          <span className="text-[14px] font-normal text-[#cccccc] truncate">
+            {log.email || '—'}
+          </span>
+        ),
+      },
+      {
         id: 'action',
         header: 'Status',
         isSortable: true,
@@ -1225,6 +1496,7 @@ export const Logs: React.FC = () => {
         header: 'IP Address',
         isSortable: true,
         isResizable: true,
+        resizerPosition: 'before',
         width: 140,
         className: 'pl-3 pr-4',
         cell: (log) => (
@@ -1423,7 +1695,7 @@ export const Logs: React.FC = () => {
               <span>Login</span>
             </button>
 
-            {isAdmin() && (
+            {hasPermission('terminal_access') && (
               <button
                 type="button"
                 onClick={() => handleTabChange('terminal')}
@@ -1525,13 +1797,48 @@ export const Logs: React.FC = () => {
         isOpen={selectedLog !== null}
         onClose={() => setSelectedLog(null)}
         title={
-          selectedLog
-            ? 'action' in selectedLog
-              ? selectedLog.action === 'terminal_command'
-                ? 'Terminal Command'
-                : `Audit Event · ${selectedLog.action}`
-              : 'Authentication Attempt'
-            : 'Event Inspector'
+          selectedLog ? (
+            <span className="flex items-center gap-2">
+              <span>
+                {'action' in selectedLog
+                  ? selectedLog.action === 'terminal_command'
+                    ? 'Terminal'
+                    : 'Audit event'
+                  : 'Authentication'}
+              </span>
+              <span className="text-[#555555] font-normal">/</span>
+              <span className="text-[#e6e6e6] font-medium">
+                {'action' in selectedLog
+                  ? selectedLog.action === 'terminal_command'
+                    ? 'Command execution'
+                    : selectedLog.action
+                  : selectedLog.username || 'Login'}
+              </span>
+            </span>
+          ) : (
+            'Event Inspector'
+          )
+        }
+        subtitle={
+          selectedLog && (
+            <div className="flex items-center gap-2 text-[13px] text-[#8c8c8c] mt-0.5 font-sans">
+              <span className="text-[#8c8c8c] font-sans text-[13px]">Event</span>
+              <span className="text-[#555555]">•</span>
+              <span className="text-[13px] text-[#8c8c8c] font-sans">#{selectedLog.id}</span>
+              {selectedLog.username && (
+                <>
+                  <span className="text-[#555555]">•</span>
+                  <span className="text-[#8c8c8c] font-sans text-[13px]">{selectedLog.username}</span>
+                </>
+              )}
+              {selectedLogEmail && (
+                <>
+                  <span className="text-[#555555]">•</span>
+                  <span className="text-[#8c8c8c] font-sans text-[13px]">{selectedLogEmail}</span>
+                </>
+              )}
+            </div>
+          )
         }
         width="w-[520px] sm:w-[560px] max-w-full"
       >
@@ -1622,6 +1929,23 @@ export const Logs: React.FC = () => {
                           >
                             {copiedField === 'User' ? <Check className="w-3.5 h-3.5 text-[#30a46c]" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
+                        </div>
+                      </li>
+
+                      {/* Email (placed immediately after User) */}
+                      <li className="relative flex items-center justify-between px-4 py-2 hover:bg-[#161616]/70 transition-colors group">
+                        <span className="text-[13px] text-[#8c8c8c]">Email</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[14px] font-medium text-white">{selectedLogEmail || '—'}</span>
+                          {selectedLogEmail && (
+                            <button
+                              onClick={() => handleCopyField(selectedLogEmail, 'Email')}
+                              className="opacity-0 group-hover:opacity-100 text-[#8c8c8c] hover:text-white transition-opacity cursor-pointer shrink-0"
+                              title="Copy"
+                            >
+                              {copiedField === 'Email' ? <Check className="w-3.5 h-3.5 text-[#30a46c]" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
                         </div>
                       </li>
 
@@ -1743,7 +2067,16 @@ export const Logs: React.FC = () => {
                   
                   <div className="p-3 bg-[#0e0e0e] overflow-x-auto m-1.5 rounded border border-[#262626]">
                     <pre className="text-[12px] font-mono leading-relaxed m-0 select-text selection:bg-[#264f78]">
-                      {renderHighlightedJson(JSON.stringify(selectedLog, null, 2))}
+                      {renderHighlightedJson(
+                        JSON.stringify(
+                          {
+                            ...selectedLog,
+                            ...(selectedLogEmail ? { email: selectedLogEmail } : {}),
+                          },
+                          null,
+                          2
+                        )
+                      )}
                     </pre>
                   </div>
                 </div>

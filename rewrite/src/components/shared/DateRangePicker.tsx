@@ -367,9 +367,13 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
               <button
                 type="button"
                 onClick={handleApplyDateRange}
-                className="h-9 px-6 rounded-lg bg-[#2f80ed] hover:bg-[#2563eb] text-white text-[14px] font-medium transition-colors cursor-pointer shadow-sm ml-auto font-sans"
+                className="group relative flex shrink-0 items-center justify-center h-9 px-6 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] ml-auto font-sans"
               >
-                Apply
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                <span className="relative flex items-center gap-1.5 text-[14px]">
+                  Apply
+                </span>
               </button>
             </div>
           </div>

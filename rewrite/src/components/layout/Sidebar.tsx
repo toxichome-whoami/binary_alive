@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import type { Role } from '../../types';
+import type { Permissions } from '../../types';
 import {
   Home,
   Terminal as TerminalIcon,
@@ -10,6 +10,7 @@ import {
   Settings as SettingsIcon,
   Search,
   X,
+  Key,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -25,13 +26,14 @@ interface SubRouteLeaf {
   label: string;
   to?: string;
   badge?: 'Beta' | 'New' | '2FA';
-  roles?: Role[];
+  permission?: keyof Permissions;
 }
 
 interface SubRouteGroup {
   id: string;
   label: string;
   badge?: 'Beta' | 'New';
+  permission?: keyof Permissions;
   children: SubRouteLeaf[];
 }
 
@@ -43,7 +45,7 @@ interface NavGroupItem {
   to?: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: 'Beta' | 'New' | '2FA';
-  roles?: Role[];
+  permission?: keyof Permissions;
   subRoutes?: SubRouteItem[];
 }
 
@@ -60,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, hasRole } = useAuthStore();
+  const { user, hasPermission } = useAuthStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -113,7 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Audit logs',
           icon: Search,
           to: '/logs',
-          roles: ['admin', 'auditor', 'operator'],
+          permission: 'logs_view_audit',
         },
       ],
     },
@@ -125,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Terminal Console',
           icon: TerminalIcon,
           to: '/terminal',
-          roles: ['admin'],
+          permission: 'terminal_access',
         },
       ],
     },
@@ -140,11 +142,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           to: '/2fa',
         },
         {
+          id: 'apiKeys',
+          label: 'API Keys',
+          icon: Key,
+          to: '/api-keys',
+          permission: 'api_keys_view',
+        },
+        {
           id: 'accessControl',
-          label: 'Members & Roles',
+          label: 'Members',
           icon: Shield,
           to: '/users',
-          roles: ['admin'],
+          permission: 'users_view',
         },
       ],
     },
@@ -152,11 +161,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'Manage account',
       items: [
         {
-          id: 'configurations',
-          label: 'Configurations',
+          id: 'settings',
+          label: 'Settings',
           icon: SettingsIcon,
           to: '/settings',
-          roles: ['admin'],
+          permission: 'settings_view',
         },
       ],
     },
@@ -171,12 +180,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       .map((sec) => {
         const filteredItems = sec.items
           .map((item) => {
-            if (item.roles && !hasRole(item.roles)) return null;
+            if (item.permission && !hasPermission(item.permission)) return null;
             const matchesItem = item.label.toLowerCase().includes(q);
 
             if (item.subRoutes) {
               const matchingSubRoutes = item.subRoutes.filter((sub) => {
-                if ('roles' in sub && sub.roles && !hasRole(sub.roles)) return false;
+                if ('roles' in sub && sub.permission && !hasPermission(sub.permission)) return false;
                 if (sub.label.toLowerCase().includes(q)) return true;
                 if ('children' in sub && sub.children) {
                   return sub.children.some((c) => c.label.toLowerCase().includes(q));
@@ -203,7 +212,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         };
       })
       .filter((sec) => sec.items.length > 0);
-  }, [searchQuery, sections, hasRole]);
+  }, [searchQuery, sections, hasPermission]);
 
   const displayAccountName = user?.username
     ? `${user.username}@gmail.com's Account`
@@ -437,7 +446,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className={cn(
                     'group/menu-button relative flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-lg outline-none min-h-[34px] px-3 py-0 text-sm font-medium transition-colors duration-150',
                     isCurrentActive('/dashboard') && !searchQuery
-                      ? 'bg-[#1a1a1a] text-white'
+                      ? 'bg-[#111111] text-white'
                       : 'text-[#d4d4d4] hover:bg-[#161616] hover:text-white'
                   )}
                 >
@@ -484,7 +493,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         className={cn(
                           'group/menu-button relative flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-lg outline-none min-h-[34px] px-3 py-0 text-sm font-medium transition-colors duration-150',
                           active
-                            ? 'bg-[#1a1a1a] text-white'
+                            ? 'bg-[#111111] text-white'
                             : 'text-[#d4d4d4] hover:bg-[#161616] hover:text-white'
                         )}
                       >
@@ -541,7 +550,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       className={cn(
                                         'group/menu-button relative flex min-h-[34px] w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg px-3 py-0 text-sm font-medium outline-none transition-colors duration-150',
                                         subActive
-                                          ? 'bg-[#1a1a1a] text-white'
+                                          ? 'bg-[#111111] text-white'
                                           : 'text-[#a3a3a3] hover:text-white hover:bg-[#161616]'
                                       )}
                                     >
@@ -613,7 +622,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               className={cn(
                                                 'group/menu-button relative flex min-h-[34px] w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg px-3 py-0 text-sm font-medium outline-none transition-colors duration-150',
                                                 isCurrentActive(child.to)
-                                                  ? 'bg-[#1a1a1a] text-white'
+                                                  ? 'bg-[#111111] text-white'
                                                   : 'text-[#a3a3a3] hover:text-white hover:bg-[#161616]'
                                               )}
                                             >
@@ -651,7 +660,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div
           data-sidebar="footer"
           className={cn(
-            'flex h-12 min-h-[48px] shrink-0 items-center justify-between border-t border-[#222222] whitespace-nowrap bg-[#000000] sticky bottom-0 z-20 transition-all',
+            'flex h-12 min-h-[48px] shrink-0 items-center border-t border-[#222222] whitespace-nowrap bg-[#000000] sticky bottom-0 z-20 transition-all',
             isCollapsed ? 'px-2 justify-center' : 'px-4'
           )}
         >
@@ -684,13 +693,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
             </svg>
           </button>
-
-          {!isCollapsed && (
-            <div className="flex items-center gap-2 text-[11px] text-[#8c8c8c]">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-medium text-[#a3a3a3]">Cloudflare Edge</span>
-            </div>
-          )}
         </div>
       </aside>
     </>

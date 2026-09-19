@@ -30,7 +30,7 @@ export const Dialog: React.FC<DialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-200">
       <div
         className="fixed inset-0"
         onClick={onClose}
@@ -38,21 +38,22 @@ export const Dialog: React.FC<DialogProps> = ({
       />
       <div
         className={cn(
-          'relative w-full max-w-lg bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-150',
+          'relative w-full max-w-lg bg-[#0e0e0e] border border-[#262626] rounded-lg overflow-hidden z-10 animate-in zoom-in-95 duration-150',
           className
         )}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border dark:border-border-dark">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+        <div className="flex items-center justify-between px-5 pt-5 pb-2 bg-transparent">
+          <h3 className="text-[18px] font-medium text-white">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-elevated dark:hover:bg-elevated-dark transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-[#a1a1a1] hover:text-white hover:bg-[#161616] transition-colors cursor-pointer -mr-2"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="px-5 pb-5 pt-2 text-[14px]">{children}</div>
       </div>
     </div>
   );
 };
+

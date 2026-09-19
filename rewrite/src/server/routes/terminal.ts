@@ -4,11 +4,11 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { logAudit } from '../db/logs.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 
 export const terminalRouter = new Hono();
 
-terminalRouter.use('*', requireAuth(), requireRole(['admin']));
+terminalRouter.use('*', requireAuth(), requirePermission('terminal_access'));
 
 // In-memory working directory per user
 const userCwdMap = new Map<number, string>();
@@ -24,6 +24,15 @@ terminalRouter.post('/', async (c) => {
 
   if (trimmed.length > 2000) {
     return c.json({ success: false, message: 'Command too long (max 2000 characters)' }, 400);
+  }
+
+  // Basic blocklist
+  if (user.role !== 'owner' && !user.permissions.terminal_unrestricted) {
+    const dangerous = ['rm -rf /', 'shutdown', 'reboot', 'halt', 'mkfs'];
+    if (dangerous.some(d => trimmed.includes(d))) {
+      await logAudit(user.id, user.username, 'terminal_blocked', `Blocked command: ${trimmed}`);
+      return c.json({ success: false, message: 'Command blocked by security policy (requires unrestricted access)' }, 403);
+    }
   }
 
   await logAudit(user.id, user.username, 'terminal_command', `Command: ${trimmed}`);

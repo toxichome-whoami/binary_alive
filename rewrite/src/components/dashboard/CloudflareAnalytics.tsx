@@ -1249,8 +1249,6 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
         title={selectedMetric ? METRIC_META[selectedMetric].title : 'Telemetry'}
         subtitle={
           <div className="flex items-center gap-1.5 text-[13px] text-[#8c8c8c] font-sans">
-            <span>{selectedRangeLabel}</span>
-            <span>•</span>
             <span>localhost</span>
           </div>
         }
@@ -1536,22 +1534,22 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
             {/* Inset Process Table (Exact Cloudflare Inset Table Style) */}
             <div className="mx-3.5 mb-3.5 border border-[#262626] rounded-lg overflow-hidden bg-[#0e0e0e] flex-1 flex flex-col min-h-0">
               {/* Inset Table Head */}
-              <div className="h-[40px] bg-[#141414] border-b border-[#222222] px-3.5 flex items-center justify-between text-[13px] text-[#8c8c8c] font-normal shrink-0">
+              <div className="h-[40px] bg-[#141414] border-b border-[#222222] px-3.5 flex items-center justify-between text-[13px] text-[#8c8c8c] font-normal shrink-0 font-sans">
                 <span>Process</span>
                 <span>
                   {selectedMetric === 'cpu' && 'Usage'}
                   {selectedMetric === 'active' && 'Status'}
                   {selectedMetric === 'memory' && 'Memory'}
-                  {selectedMetric === 'load' && 'CPU / Memory'}
+                  {selectedMetric === 'load' && 'Load'}
                   {selectedMetric === 'restarts' && 'Restarts'}
                   {selectedMetric === 'uptime' && 'Uptime'}
                 </span>
               </div>
 
               {/* Inset Table Scrollable Rows */}
-              <div className="flex-1 overflow-y-auto divide-y divide-[#1c1c1c] min-h-0">
+              <div className="flex-1 overflow-y-auto divide-y divide-[#1c1c1c] min-h-0 font-sans">
                 {filteredProcesses.length === 0 ? (
-                  <div className="p-8 text-center text-[14px] text-[#8c8c8c] font-sans">
+                  <div className="p-8 text-center text-[13px] text-[#8c8c8c] font-sans">
                     No processes found
                   </div>
                 ) : (
@@ -1559,11 +1557,14 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                     const cpuVal = parseCpuVal(p.cpu);
                     const restarts = p.restart_count || 0;
                     const isRunning = p.status === 'running';
+                    const procLoad = isRunning
+                      ? Math.max(0.01, (cpuVal / 50) + (parseMemMB(p.mem) / 1500)).toFixed(2)
+                      : '0.00';
 
                     return (
                       <div
                         key={p.id}
-                        className="h-[46px] hover:bg-[#141414] px-3.5 flex items-center justify-between transition-colors cursor-default"
+                        className="h-[46px] hover:bg-[#141414] px-3.5 flex items-center justify-between transition-colors cursor-default font-sans"
                       >
                         {/* Process details */}
                         <div className="flex items-center gap-2.5 min-w-0 pr-2">
@@ -1573,35 +1574,27 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                             }`}
                           />
                           <span
-                            className="text-[14px] font-medium text-white truncate font-sans"
+                            className="text-[13px] font-medium text-white truncate font-sans"
                             title={p.name}
                           >
                             {p.name}
                           </span>
-                          {p.group_name && (
-                            <span
-                              className="text-[12px] px-1.5 py-0.5 rounded bg-[#161616] text-[#8c8c8c] border border-[#262626] font-mono shrink-0 max-w-[100px] truncate"
-                              title={`Group: ${p.group_name}`}
-                            >
-                              {p.group_name}
-                            </span>
-                          )}
-                          <span className="text-[13px] text-[#8c8c8c] font-mono shrink-0">
+                          <span className="text-[13px] text-[#8c8c8c] font-sans tabular-nums shrink-0">
                             {p.pid ? `PID ${p.pid}` : 'No PID'}
                           </span>
                         </div>
 
                         {/* Metric Value */}
-                        <div className="text-right shrink-0">
+                        <div className="text-right shrink-0 font-sans">
                           {selectedMetric === 'cpu' && (
-                            <span className="text-[14px] font-normal text-white font-mono tabular-nums">
+                            <span className="text-[13px] font-normal text-[#8c8c8c] font-sans tabular-nums">
                               {cpuVal.toFixed(1)}%
                             </span>
                           )}
 
                           {selectedMetric === 'active' && (
                             <span
-                              className={`inline-block text-[12px] font-normal px-2 py-0.5 rounded capitalize ${
+                              className={`inline-block text-[12px] font-normal px-2 py-0.5 rounded capitalize font-sans ${
                                 isRunning
                                   ? 'text-[#30a46c] bg-[#30a46c]/10 border border-[#30a46c]/20'
                                   : 'text-[#8c8c8c] bg-[#161616] border border-[#262626]'
@@ -1612,20 +1605,20 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                           )}
 
                           {selectedMetric === 'memory' && (
-                            <span className="text-[14px] font-normal text-white font-mono tabular-nums">
+                            <span className="text-[13px] font-normal text-[#8c8c8c] font-sans tabular-nums">
                               {p.mem || '0 MB'}
                             </span>
                           )}
 
                           {selectedMetric === 'load' && (
-                            <span className="text-[14px] font-normal text-white font-mono tabular-nums">
-                              {cpuVal.toFixed(1)}% <span className="text-[13px] text-[#8c8c8c] font-sans font-normal">• {p.mem || '0 MB'}</span>
+                            <span className="text-[13px] font-normal text-[#8c8c8c] font-sans tabular-nums">
+                              {procLoad}
                             </span>
                           )}
 
                           {selectedMetric === 'restarts' && (
                             <span
-                              className={`text-[14px] font-normal font-mono tabular-nums ${
+                              className={`text-[13px] font-normal font-sans tabular-nums ${
                                 restarts > 0 ? 'text-[#f59e0b]' : 'text-[#8c8c8c]'
                               }`}
                             >
@@ -1634,7 +1627,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                           )}
 
                           {selectedMetric === 'uptime' && (
-                            <span className="text-[14px] font-normal text-white font-mono tabular-nums">
+                            <span className="text-[13px] font-normal text-[#8c8c8c] font-sans tabular-nums">
                               {isRunning ? p.uptime : 'Stopped'}
                             </span>
                           )}
@@ -1657,7 +1650,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                   type="button"
                   onClick={onRefresh}
                   disabled={isLoading}
-                  className="h-9 px-4 rounded-lg text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="inline-flex items-center justify-center h-9 px-4 rounded-lg text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer gap-1.5 disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                   <span>Sync</span>
@@ -1665,9 +1658,13 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedMetric(null)}
-                  className="h-9 px-5 rounded-lg text-[14px] font-medium text-white bg-[#2f80ed] hover:bg-[#2563eb] transition-colors cursor-pointer shadow-xs"
+                  className="group relative flex shrink-0 items-center justify-center h-9 px-5 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb]"
                 >
-                  Done
+                  <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                  <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                  <span className="relative flex items-center gap-1.5 text-[14px]">
+                    Done
+                  </span>
                 </button>
               </div>
             </div>

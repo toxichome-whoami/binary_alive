@@ -2,10 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { totpApi } from '../api/totp';
 import { useToastStore } from '../store/toastStore';
 import { QRCodeSVG } from 'qrcode.react';
-import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
 import { Dialog } from '../components/ui/Dialog';
-import { ShieldCheck, Copy, Check, ShieldAlert } from 'lucide-react';
+import { Check, Copy, ShieldCheck, Smartphone } from 'lucide-react';
 
 export const Setup2FA: React.FC = () => {
   const { push: pushToast } = useToastStore();
@@ -14,6 +12,7 @@ export const Setup2FA: React.FC = () => {
   const [secret, setSecret] = useState<string>('');
   const [otpauthUrl, setOtpauthUrl] = useState<string>('');
   const [verifyCode, setVerifyCode] = useState<string>('');
+  const [isOtpFocused, setIsOtpFocused] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
@@ -23,8 +22,7 @@ export const Setup2FA: React.FC = () => {
   const [disableLoading, setDisableLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    // In our user payload, check if 2fa is active
-    setIs2faEnabled(false); // Default or check state
+    setIs2faEnabled(false);
     loadSetup();
   }, []);
 
@@ -36,7 +34,6 @@ export const Setup2FA: React.FC = () => {
         setOtpauthUrl(res.data.otpauth_url);
       }
     } catch {
-      // User might already have 2FA enabled
       setIs2faEnabled(true);
     }
   };
@@ -57,11 +54,11 @@ export const Setup2FA: React.FC = () => {
     try {
       const res = await totpApi.enable(secret, verifyCode.trim());
       if (res.success) {
-        pushToast('success', 'Two-Factor Authentication is now enabled on your account!');
+        pushToast('success', 'Two-Factor Authentication enabled');
         setIs2faEnabled(true);
         setVerifyCode('');
       } else {
-        pushToast('error', res.message || 'Invalid 2FA code. Please try again.');
+        pushToast('error', res.message || 'Invalid 2FA code');
       }
     } catch (err: any) {
       pushToast('error', err.message || 'Verification failed');
@@ -78,13 +75,13 @@ export const Setup2FA: React.FC = () => {
     try {
       const res = await totpApi.disable(passwordConfirm);
       if (res.success) {
-        pushToast('success', 'Two-Factor Authentication has been disabled.');
+        pushToast('success', 'Two-Factor Authentication disabled');
         setIs2faEnabled(false);
         setIsDisableOpen(false);
         setPasswordConfirm('');
         loadSetup();
       } else {
-        pushToast('error', res.message || 'Incorrect password.');
+        pushToast('error', res.message || 'Incorrect password');
       }
     } catch (err: any) {
       pushToast('error', err.message || 'Failed to disable 2FA');
@@ -94,130 +91,189 @@ export const Setup2FA: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-          Two-Factor Authentication (2FA)
-        </h1>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-          Enhance your account security using Google Authenticator, Authy, or 1Password
+    <div className="w-full max-w-[960px] mx-auto space-y-5 select-none">
+      {/* Page Header — Technical Minimalism */}
+      <div className="flex flex-col gap-0.5">
+        <h1 className="text-[20px] font-semibold text-white tracking-tight">Two-Factor Authentication</h1>
+        <p className="text-[14px] text-[#8c8c8c]">
+          Configure time-based one-time password (TOTP) verification for account access.
         </p>
       </div>
 
-      <div className="p-6 rounded-xl border border-border dark:border-border-dark bg-surface dark:bg-surface-dark shadow-xs space-y-6">
-        <div className="flex items-center justify-between pb-4 border-b border-border dark:border-border-dark">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-brand/10 text-brand">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 block">
-                Status
-              </span>
-              <span className="text-xs text-gray-500">
-                {is2faEnabled ? 'Your account is guarded by 2FA.' : '2FA is currently not configured.'}
-              </span>
-            </div>
+      {/* Cloudflare Signature Double-Border Container */}
+      <div className="w-full flex flex-col rounded-xl border border-[#222222] bg-black shadow-sm">
+        {/* Outer Frame Header */}
+        <div className="flex items-center justify-between px-4 py-3 bg-black">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#8c8c8c]" />
+            <span className="text-[16px] font-medium text-white">Authenticator App</span>
           </div>
-
-          <Badge variant={is2faEnabled ? 'green' : 'gray'}>
-            {is2faEnabled ? 'Active' : 'Not Configured'}
-          </Badge>
         </div>
 
-        {is2faEnabled ? (
-          <div className="space-y-4">
-            <p className="text-xs text-gray-600 dark:text-gray-300">
-              When logging in from a new browser session, you will be required to provide a 6-digit TOTP code generated by your mobile authenticator application.
-            </p>
-
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => setIsDisableOpen(true)}
-            >
-              <ShieldAlert className="w-4 h-4" />
-              Disable Two-Factor Authentication
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
-                Step 1: Scan QR Code
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Open your authenticator app (Google Authenticator, Microsoft Authenticator, Authy) and scan this barcode:
-              </p>
-
-              {otpauthUrl && (
-                <div className="p-4 bg-white rounded-xl inline-block border border-gray-200 shadow-xs my-2">
-                  <QRCodeSVG value={otpauthUrl} size={180} />
+        {/* Inset Container — Matches Dashboard Table & SlideOver Insets */}
+        <div className="mx-[6px] mb-[6px] border border-[#262626] rounded-lg overflow-hidden bg-[#0e0e0e]">
+          {is2faEnabled ? (
+            /* Compact Single Row when Enabled */
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#141414] border border-[#262626] flex items-center justify-center shrink-0 text-[#8c8c8c]">
+                  <Smartphone className="w-4 h-4 text-white" />
                 </div>
-              )}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[14px] font-medium text-white">TOTP Authenticator</span>
+                  <span className="text-[13px] text-[#8c8c8c]">
+                    6-digit verification code required on sign-in from untrusted sessions.
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsDisableOpen(true)}
+                className="group relative flex shrink-0 items-center justify-center h-9 px-3.5 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#991b1b] bg-[#dc2626]"
+              >
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                <span className="relative flex items-center gap-1.5 text-[14px]">
+                  Disable 2FA
+                </span>
+              </button>
             </div>
+          ) : (
+            /* Setup State — Partitioned Grid Layout */
+            <div className="flex flex-col md:flex-row items-stretch">
+              {/* Left Column: QR Code with vertical divider border */}
+              <div className="p-6 flex flex-col items-center justify-center gap-2.5 shrink-0 border-b md:border-b-0 md:border-r border-[#222222]">
+                <div className="p-2.5 bg-white rounded-lg shadow-sm border border-[#262626]">
+                  {otpauthUrl ? (
+                    <QRCodeSVG value={otpauthUrl} size={132} />
+                  ) : (
+                    <div className="w-[132px] h-[132px] bg-gray-100 animate-pulse rounded" />
+                  )}
+                </div>
+                <span className="text-[13px] font-sans text-[#8c8c8c]">Scan with 1Password, Google, etc.</span>
+              </div>
 
-            <div className="space-y-2">
-              <h2 className="text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
-                Manual Setup Secret
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Cannot scan the barcode? Enter this secret manually into your authenticator app:
-              </p>
+              {/* Right Column: Divided into Secret Key (top) and Verification (bottom) */}
+              <div className="flex-1 flex flex-col min-w-0">
+                {/* Upper Block: Secret Key with full-width horizontal divider */}
+                <div className="p-5 sm:p-6 border-b border-[#222222] flex flex-col gap-1">
+                  <label className="text-[14px] font-medium text-white">
+                    Secret key
+                  </label>
+                  <p className="text-[13px] text-[#8c8c8c] leading-relaxed">
+                    If you cannot scan the QR code, enter this secret into your authenticator app manually.
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={secret}
+                      className="h-9 px-3 text-[14px] font-['JetBrains_Mono',monospace] font-medium tracking-[0.06em] rounded-lg border border-[#262626] bg-[#141414] text-white outline-none select-all focus:border-[#383838] transition-colors w-full max-w-[320px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCopySecret}
+                      className="h-9 px-3 rounded-lg border border-[#262626] bg-transparent hover:bg-[#161616] hover:border-[#383838] text-[#cccccc] hover:text-white transition-colors flex items-center gap-1.5 text-[13px] font-medium cursor-pointer shrink-0"
+                      title="Copy secret key"
+                      aria-label="Copy secret key"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-[#30a46c]" /> : <Copy className="w-3.5 h-3.5 text-[#8c8c8c]" />}
+                      <span>{copied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </div>
 
-              <div className="flex items-center gap-2 max-w-sm">
-                <input
-                  type="text"
-                  readOnly
-                  value={secret}
-                  className="px-3 py-2 text-xs font-mono rounded-lg border border-border dark:border-border-dark bg-elevated dark:bg-elevated-dark text-gray-900 dark:text-gray-100 select-all flex-1"
-                />
-                <Button size="sm" variant="outline" onClick={handleCopySecret}>
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                </Button>
+                {/* Lower Block: Verification Code */}
+                <div className="p-5 sm:p-6 flex flex-col gap-1">
+                  <label className="text-[14px] font-medium text-white">
+                    Verification code
+                  </label>
+                  <p className="text-[13px] text-[#8c8c8c] leading-relaxed">
+                    Enter the 6-digit one-time code generated by your authenticator app.
+                  </p>
+                  <form onSubmit={handleEnable2FA} className="mt-2.5 flex flex-wrap items-center gap-3">
+                    {/* Segmented OTP 6-slot container */}
+                    <div className="relative inline-flex items-center gap-1.5 select-none">
+                      {/* Invisible overlaid native input handling focus, paste, typing, mobile numeric keypad */}
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={verifyCode}
+                        onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+                        onFocus={() => setIsOtpFocused(true)}
+                        onBlur={() => setIsOtpFocused(false)}
+                        className="absolute inset-0 opacity-0 cursor-text z-20 w-full h-full text-[14px]"
+                        aria-label="6-digit authentication code"
+                      />
+
+                      {/* 6 Visual segmented digit slots */}
+                      {[0, 1, 2, 3, 4, 5].map((index) => {
+                        const digit = verifyCode[index] || '';
+                        const isCurrent = isOtpFocused && (verifyCode.length === index || (index === 5 && verifyCode.length === 6));
+                        return (
+                          <React.Fragment key={index}>
+                            {index === 3 && (
+                              <span className="text-[#555555] font-mono text-[14px] select-none mx-0.5">
+                                –
+                              </span>
+                            )}
+                            <div
+                              className={`w-9 h-10 rounded-lg flex items-center justify-center font-['JetBrains_Mono',monospace] text-[14px] font-semibold transition-all duration-150 select-none ${
+                                isCurrent
+                                  ? 'border border-[#2f80ed] bg-[#141414] text-white ring-2 ring-[#2f80ed]/25'
+                                  : digit
+                                  ? 'border border-[#383838] bg-[#141414] text-white'
+                                  : 'border border-[#262626] bg-[#0c0c0c] text-[#555555]'
+                              }`}
+                            >
+                              {digit ? (
+                                digit
+                              ) : isCurrent ? (
+                                <span className="w-0.5 h-4 bg-[#2f80ed] animate-pulse" />
+                              ) : null}
+                            </div>
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+
+                    {/* Submit / Activate button */}
+                    <button
+                      type="submit"
+                      disabled={isLoading || verifyCode.length !== 6}
+                      className="group relative flex shrink-0 items-center justify-center h-10 px-4 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb]"
+                    >
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                      <span className="relative flex items-center gap-1.5 text-[14px]">
+                        {isLoading ? 'Activating...' : 'Activate 2FA'}
+                      </span>
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
-
-            <div className="space-y-3 pt-4 border-t border-border dark:border-border-dark">
-              <h2 className="text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
-                Step 2: Verify Activation Code
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Type the 6-digit confirmation code shown on your phone to activate 2FA:
-              </p>
-
-              <form onSubmit={handleEnable2FA} className="flex items-center gap-3 max-w-xs">
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  placeholder="123456"
-                  value={verifyCode}
-                  onChange={(e) => setVerifyCode(e.target.value)}
-                  className="px-3 py-2 text-sm font-mono tracking-widest rounded-lg border border-border dark:border-border-dark bg-elevated dark:bg-elevated-dark text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/40 flex-1"
-                />
-                <Button type="submit" variant="primary" size="md" isLoading={isLoading}>
-                  Activate 2FA
-                </Button>
-              </form>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Disable 2FA Password Dialog */}
+      {/* Removal Confirmation Dialog */}
       <Dialog
         isOpen={isDisableOpen}
         onClose={() => setIsDisableOpen(false)}
         title="Confirm 2FA Removal"
       >
-        <form onSubmit={handleDisable2FA} className="space-y-4">
-          <p className="text-xs text-gray-600 dark:text-gray-300">
+        <form onSubmit={handleDisable2FA} className="flex flex-col gap-4">
+          <p className="text-[14px] text-[#a1a1a1] leading-relaxed">
             To disable Two-Factor Authentication, please re-enter your current account password to verify your identity.
           </p>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[14px] font-medium text-white">
               Account Password
             </label>
             <input
@@ -226,30 +282,33 @@ export const Setup2FA: React.FC = () => {
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
               placeholder="••••••••••••"
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border dark:border-border-dark bg-elevated dark:bg-elevated-dark text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/40"
+              className="h-9 px-3 text-[14px] rounded-lg border border-[#262626] focus:border-[#2f80ed] hover:border-[#383838] bg-[#141414] text-white w-full outline-none transition-colors font-sans"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <Button
+          <div className="flex items-center justify-end gap-2 mt-2">
+            <button
               type="button"
-              variant="outline"
-              size="sm"
+              className="inline-flex items-center justify-center h-9 px-4 rounded-lg text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent border border-[#262626] hover:border-[#383838] hover:bg-[#161616] transition-colors cursor-pointer"
               onClick={() => setIsDisableOpen(false)}
             >
               Cancel
-            </Button>
-            <Button
+            </button>
+            <button
               type="submit"
-              variant="danger"
-              size="sm"
-              isLoading={disableLoading}
+              disabled={disableLoading}
+              className="group relative flex shrink-0 items-center justify-center h-9 px-4 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden ring-1 ring-[#991b1b] bg-[#dc2626]"
             >
-              Disable 2FA
-            </Button>
+              <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+              <span className="relative flex items-center gap-1.5 text-[14px]">
+                {disableLoading ? 'Disabling...' : 'Disable 2FA'}
+              </span>
+            </button>
           </div>
         </form>
       </Dialog>
     </div>
   );
 };
+

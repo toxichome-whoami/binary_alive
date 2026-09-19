@@ -1,13 +1,13 @@
 import { Hono } from 'hono';
 import { getAuditLogs, getLoginLogs, getTerminalLogs } from '../db/logs.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 
 export const logRouter = new Hono();
 
 logRouter.use('*', requireAuth());
 
 // Audit logs
-logRouter.get('/audit', requireRole(['admin', 'auditor', 'operator']), async (c) => {
+logRouter.get('/audit', requirePermission('logs_view_audit'), async (c) => {
   const page = parseInt(c.req.query('page') || '1', 10);
   const limit = parseInt(c.req.query('limit') || '20', 10);
   const result = await getAuditLogs(page, limit);
@@ -15,7 +15,7 @@ logRouter.get('/audit', requireRole(['admin', 'auditor', 'operator']), async (c)
 });
 
 // Login attempts
-logRouter.get('/login', requireRole(['admin', 'auditor', 'operator']), async (c) => {
+logRouter.get('/login', requirePermission('logs_view_login'), async (c) => {
   const page = parseInt(c.req.query('page') || '1', 10);
   const limit = parseInt(c.req.query('limit') || '20', 10);
   const result = await getLoginLogs(page, limit);
@@ -23,7 +23,7 @@ logRouter.get('/login', requireRole(['admin', 'auditor', 'operator']), async (c)
 });
 
 // Terminal execution history (admin only)
-logRouter.get('/terminal', requireRole(['admin']), async (c) => {
+logRouter.get('/terminal', requirePermission('logs_view_terminal'), async (c) => {
   const page = parseInt(c.req.query('page') || '1', 10);
   const limit = parseInt(c.req.query('limit') || '20', 10);
   const result = await getTerminalLogs(page, limit);

@@ -2,7 +2,7 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { useAuthStore } from './store/authStore';
-import type { Role } from './types';
+import type { Permissions } from './types';
 import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -11,16 +11,17 @@ import { Users } from './pages/Users';
 import { Logs } from './pages/Logs';
 import { Settings } from './pages/Settings';
 import { Setup2FA } from './pages/Setup2FA';
+import { ApiKeys } from './pages/ApiKeys';
 import { Loader2 } from 'lucide-react';
 
-interface RoleGuardProps {
-  roles: Role[];
+interface PermissionGuardProps {
+  permission: keyof Permissions;
   children: React.ReactNode;
 }
 
-const RoleGuard: React.FC<RoleGuardProps> = ({ roles, children }) => {
-  const { hasRole } = useAuthStore();
-  if (!hasRole(roles)) {
+const PermissionGuard: React.FC<PermissionGuardProps> = ({ permission, children }) => {
+  const { hasPermission } = useAuthStore();
+  if (!hasPermission(permission)) {
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
@@ -65,33 +66,34 @@ export const App: React.FC = () => {
           <Route
             path="/terminal"
             element={
-              <RoleGuard roles={['admin']}>
+              <PermissionGuard permission="terminal_access">
                 <Terminal />
-              </RoleGuard>
+              </PermissionGuard>
             }
           />
           <Route
             path="/users"
             element={
-              <RoleGuard roles={['admin']}>
+              <PermissionGuard permission="users_create">
                 <Users />
-              </RoleGuard>
+              </PermissionGuard>
             }
           />
+          <Route path="/api-keys" element={<ApiKeys />} />
           <Route
             path="/logs"
             element={
-              <RoleGuard roles={['admin', 'auditor', 'operator']}>
+              <PermissionGuard permission="logs_view_audit">
                 <Logs />
-              </RoleGuard>
+              </PermissionGuard>
             }
           />
           <Route
             path="/settings"
             element={
-              <RoleGuard roles={['admin']}>
+              <PermissionGuard permission="settings_view">
                 <Settings />
-              </RoleGuard>
+              </PermissionGuard>
             }
           />
           <Route path="/2fa" element={<Setup2FA />} />

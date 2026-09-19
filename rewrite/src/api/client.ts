@@ -22,7 +22,12 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   // Double submit CSRF protection: read csrf_token cookie and attach header
   const method = (options.method || 'GET').toUpperCase();
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-    const csrfToken = getCookie('csrf_token');
+    let csrfToken = getCookie('csrf_token');
+    if (!csrfToken) {
+      // If token is missing, fetch it from the server
+      await fetch(`${BASE}/auth/csrf`);
+      csrfToken = getCookie('csrf_token');
+    }
     if (csrfToken) {
       headers.set('X-CSRF-Token', csrfToken);
     }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 
 export interface Column<T> {
   id: string;
@@ -9,6 +10,7 @@ export interface Column<T> {
   minWidth?: number;
   maxWidth?: number;
   isResizable?: boolean;
+  resizerPosition?: 'before' | 'after' | 'left' | 'right';
   isSortable?: boolean;
   sortField?: string;
   isFlex?: boolean;
@@ -103,16 +105,9 @@ export const PageSizeDropdown: React.FC<{
         aria-expanded={isOpen}
       >
         <span className="tabular-nums">{pageSize}</span>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="11"
-          height="11"
-          fill="currentColor"
-          viewBox="0 0 256 256"
-          className={`text-[#777777] transition-transform duration-150 shrink-0 ${isOpen ? 'rotate-180 text-white' : ''}`}
-        >
-          <path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z" />
-        </svg>
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-[#777777] transition-transform duration-150 shrink-0 ${isOpen ? 'rotate-180 text-white' : ''}`}
+        />
       </button>
 
       {isOpen && (
@@ -183,7 +178,7 @@ export function DataTable<T>({
 
   const [resizingCol, setResizingCol] = useState<string | null>(null);
 
-  const handleResizeStart = (colId: string, e: React.MouseEvent) => {
+  const handleResizeStart = (colId: string, e: React.MouseEvent, isBefore = false) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -205,7 +200,8 @@ export function DataTable<T>({
       if (Math.abs(delta) > 2) {
         hasMoved = true;
       }
-      const newWidth = Math.max(minW, Math.min(maxW, startWidth + delta));
+      const effectiveDelta = isBefore ? -delta : delta;
+      const newWidth = Math.max(minW, Math.min(maxW, startWidth + effectiveDelta));
       setColumnWidths((prev) => ({ ...prev, [colId]: newWidth }));
     };
 
@@ -256,6 +252,10 @@ export function DataTable<T>({
 
                 const sortTarget = col.sortField || col.id;
                 const isSortActive = Boolean(col.isSortable && onSort && sortField === sortTarget);
+                const isBeforeResizer =
+                  col.resizerPosition === 'before' ||
+                  col.resizerPosition === 'left' ||
+                  (idx === columns.length - 1 && !col.isFlex && columns.some((c) => c.isFlex));
 
                 return (
                   <th
@@ -286,7 +286,7 @@ export function DataTable<T>({
                         role="separator"
                         aria-orientation="vertical"
                         aria-label={`Resize ${col.id} column`}
-                        onMouseDown={(e) => handleResizeStart(col.id, e)}
+                        onMouseDown={(e) => handleResizeStart(col.id, e, isBeforeResizer)}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -298,7 +298,9 @@ export function DataTable<T>({
                             setColumnWidths((prev) => ({ ...prev, [col.id]: col.width! }));
                           }
                         }}
-                        className="absolute -right-1.5 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer"
+                        className={`absolute ${
+                          isBeforeResizer ? '-left-1.5' : '-right-1.5'
+                        } top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-20 group/resizer`}
                         title="Drag to resize column (double-click to reset)"
                       >
                         <span
@@ -426,9 +428,7 @@ export function DataTable<T>({
               onClick={() => pagination.onPageChange(pagination.page - 1)}
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[13px] font-normal text-[#8c8c8c] hover:text-white hover:bg-[#161616] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:hover:text-[#8c8c8c] disabled:cursor-not-allowed transition-all cursor-pointer"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
-                <path d="M165.66,202.34a8,8,0,0,1-11.32,0l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z" />
-              </svg>
+              <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
               <span>Previous</span>
             </button>
 
@@ -439,9 +439,7 @@ export function DataTable<T>({
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[13px] font-normal text-[#8c8c8c] hover:text-white hover:bg-[#161616] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:hover:text-[#8c8c8c] disabled:cursor-not-allowed transition-all cursor-pointer"
             >
               <span>Next</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
-                <path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32,11.32l80,80A8,8,0,0,1,181.66,133.66Z" />
-              </svg>
+              <ChevronRight className="w-3.5 h-3.5 shrink-0" />
             </button>
           </div>
         </div>

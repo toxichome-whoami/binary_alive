@@ -14,13 +14,4 @@ export const settingsApi = {
       method: 'POST',
       body: JSON.stringify({ enabled }),
     }),
-
-  exportConfigUrl: () => '/api/settings/export/config',
-  exportDbUrl: () => '/api/settings/export/db',
-
-  importConfig: (formData: FormData) =>
-    apiFetch<ApiResponse>('/settings/import/config', {
-      method: 'POST',
-      body: formData,
-    }),
 };

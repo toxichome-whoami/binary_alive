@@ -38,13 +38,13 @@ authRouter.post('/setup', async (c) => {
     return c.json({ success: false, message: 'Setup is already completed.' }, 403);
   }
 
-  const { username, password } = await c.req.json();
+  const { username, password, email } = await c.req.json();
   if (!username || !password || password.length < 6) {
     return c.json({ success: false, message: 'Username and password (min 6 chars) required.' }, 400);
   }
 
   const hash = await hashPassword(password);
-  const id = await createUser(username, hash, 'admin');
+  const id = await createUser(username, hash, 'owner', '{}', email || null);
 
   await logAudit(id, username, 'setup_first_admin', 'Initial master admin account initialized');
   return c.json({ success: true, message: 'Master Administrator created successfully!' });
@@ -120,7 +120,7 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
   const match = await verifyPassword(password, user.password_hash);
   if (!match) {
     await incrementFailedAttempts(username);
-    await logLoginAttempt(username, false, ip);
+    await logLoginAttempt(username, false, ip, user.email || null);
     return c.json({ success: false, message: 'Invalid username or password.' }, 401);
   }
 
@@ -128,7 +128,7 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
   if (user.totp_secret) {
     const secret = decryptData(user.totp_secret);
     if (!totpCode || !TotpService.verifyCode(secret, totpCode)) {
-      await logLoginAttempt(username, false, ip);
+      await logLoginAttempt(username, false, ip, user.email || null);
       return c.json(
         {
           success: false,
@@ -142,8 +142,8 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
 
   // Login success
   await resetFailedAttempts(username);
-  await logLoginAttempt(username, true, ip);
-  await logAudit(user.id, user.username, 'login_success', '', ip);
+  await logLoginAttempt(username, true, ip, user.email || null);
+  await logAudit(user.id, user.username, 'login_success', '', ip, user.email || null);
 
   const sessionId = await createSession(user.id);
   const csrfToken = generateCsrfToken();

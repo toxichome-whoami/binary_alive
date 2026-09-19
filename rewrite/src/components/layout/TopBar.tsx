@@ -10,7 +10,7 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
   const navigate = useNavigate();
-  const { user, isMasterAdmin, isAdmin, setUser } = useAuthStore();
+  const { user, isOwner, hasPermission, setUser } = useAuthStore();
   const [isDark, setIsDark] = useState(true);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -136,7 +136,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
                     {user?.username || 'admin'}
                   </span>
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium text-[#8c8c8c] bg-[#1a1a1a] border border-[#262626] capitalize shrink-0">
-                    {isMasterAdmin() ? 'Master' : user?.role || 'Admin'}
+                    {isOwner() ? 'Owner' : user?.role || 'Member'}
                   </span>
                 </div>
                 <p className="text-[13px] text-[#8c8c8c] truncate leading-tight mt-1">
@@ -158,7 +158,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
                   <span>Settings</span>
                 </button>
 
-                {isAdmin() && (
+                {hasPermission('users_create') && (
                   <button
                     type="button"
                     onClick={() => {

@@ -7,7 +7,7 @@ import type { Process } from '../types';
 import { SlideOver } from '../components/ui/SlideOver';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog';
 import { CloudflareAnalytics } from '../components/dashboard/CloudflareAnalytics';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const PlayIcon: React.FC<{ className?: string }> = ({ className = "w-[15px] h-[15px]" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -222,7 +222,7 @@ const CustomSelect = <T extends string>({
 
 export const Dashboard: React.FC = () => {
   const { processes, sysLoad, isLoading, refresh } = useProcesses();
-  const { canControl, isAdmin } = useAuthStore();
+  const { hasPermission } = useAuthStore();
   const { push: pushToast } = useToastStore();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -1074,9 +1074,13 @@ export const Dashboard: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleApplyFilters}
-                      className="h-8 px-3.5 rounded-lg bg-[#2f80ed] hover:bg-[#2563eb] text-white text-[14px] font-medium transition-colors cursor-pointer shadow-sm"
+                      className="group relative flex shrink-0 items-center justify-center h-8 px-3.5 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb]"
                     >
-                      Apply
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                      <span className="relative flex items-center gap-1.5 text-[14px]">
+                        Apply filters
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -1136,7 +1140,7 @@ export const Dashboard: React.FC = () => {
                     </button>
                   );
                 })}
-                <div className="border-t border-[#1e1e1e] my-1" />
+                <div className="-mx-1 my-1 border-t border-[#222222]" />
                 <button
                   type="button"
                   onClick={() =>
@@ -1187,10 +1191,14 @@ export const Dashboard: React.FC = () => {
           <button
             type="button"
             onClick={openAddModal}
-            className="flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-[#2f80ed] hover:bg-[#2563eb] text-white text-[14px] font-medium transition-colors cursor-pointer shrink-0"
+            className="group relative flex shrink-0 items-center justify-center h-9 px-3.5 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb]"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add process</span>
+            <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+            <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+            <span className="relative flex items-center gap-1.5 text-[14px]">
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>Add process</span>
+            </span>
           </button>
         </div>
       </div>
@@ -1285,7 +1293,7 @@ export const Dashboard: React.FC = () => {
               })}
             </div>
           )}
-          {canControl() && selectedIds.length > 0 && (
+          {hasPermission('processes_view') && selectedIds.length > 0 && (
             <div className="flex min-h-9 w-full flex-wrap items-center justify-between gap-3 pt-0.5">
               <div className="flex min-w-0 flex-wrap items-center gap-3">
                 <p className="text-[14px] font-normal text-white">
@@ -1346,16 +1354,20 @@ export const Dashboard: React.FC = () => {
                     <span>Edit 1 process</span>
                   </button>
                 )}
-                {isAdmin() && (
+                {hasPermission('processes_view') && (
                   <button
                     type="button"
                     onClick={() => setIsBulkDeleting(true)}
-                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[14px] font-medium text-white bg-[#e5484d] hover:bg-[#d03d42] ring-1 ring-[#f87171]/40 shadow-xs transition-colors cursor-pointer"
+                    className="group relative flex shrink-0 items-center justify-center h-8 px-3 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#991b1b] bg-[#dc2626]"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256">
-                      <path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z" />
-                    </svg>
-                    <span>Delete {selectedIds.length} process{selectedIds.length !== 1 ? 'es' : ''}</span>
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                    <span className="relative flex items-center gap-1.5 text-[14px]">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256">
+                        <path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z" />
+                      </svg>
+                      <span>Delete {selectedIds.length} process{selectedIds.length !== 1 ? 'es' : ''}</span>
+                    </span>
                   </button>
                 )}
               </div>
@@ -1380,7 +1392,7 @@ export const Dashboard: React.FC = () => {
                   aria-rowindex={1}
                   className="flex w-full items-center border-b border-[#222222] bg-[#141414] h-[40px] min-h-[40px] max-h-[40px]"
                 >
-                {canControl() && (
+                {hasPermission('processes_view') && (
                   <th
                     role="columnheader"
                     aria-colindex={1}
@@ -1412,11 +1424,11 @@ export const Dashboard: React.FC = () => {
                 {/* Status */}
                 <th
                   role="columnheader"
-                  aria-colindex={canControl() ? 2 : 1}
+                  aria-colindex={hasPermission('processes_view') ? 2 : 1}
                   aria-sort={sortField === 'status' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   onClick={() => handleSort('status')}
                   style={{ width: `${columnWidths.status}px` }}
-                  className={`group relative flex items-center shrink-0 h-[40px] pl-3 pr-4 cursor-pointer select-none ${!canControl() ? 'rounded-tl-lg' : ''}`}
+                  className={`group relative flex items-center shrink-0 h-[40px] pl-3 pr-4 cursor-pointer select-none ${!hasPermission('processes_view') ? 'rounded-tl-lg' : ''}`}
                 >
                   <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none">
                     <span>Status</span>
@@ -1451,7 +1463,7 @@ export const Dashboard: React.FC = () => {
                 {/* Name */}
                 <th
                   role="columnheader"
-                  aria-colindex={canControl() ? 3 : 2}
+                  aria-colindex={hasPermission('processes_view') ? 3 : 2}
                   aria-sort={sortField === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   onClick={() => handleSort('name')}
                   style={{ width: `${columnWidths.name}px` }}
@@ -1625,7 +1637,7 @@ export const Dashboard: React.FC = () => {
                         isChecked ? 'bg-[#181818] hover:bg-[#181818]' : 'bg-[#0e0e0e] hover:bg-[#161616]'
                       }`}
                     >
-                      {canControl() && (
+                      {hasPermission('processes_view') && (
                         <td
                           role="cell"
                           className="flex items-center justify-center shrink-0 w-[44px] min-w-[44px] h-[40px]"
@@ -1654,24 +1666,13 @@ export const Dashboard: React.FC = () => {
                         style={{ width: `${columnWidths.status}px` }}
                         className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          {isRunning ? (
-                            <>
-                              <span className="w-2 h-2 rounded-full bg-[#30a46c] shrink-0" />
-                              <span className="text-[14px] font-normal text-white leading-none">Running</span>
-                            </>
-                          ) : p.status === 'crashed' ? (
-                            <>
-                              <span className="w-2 h-2 rounded-full bg-[#e5484d] shrink-0" />
-                              <span className="text-[14px] font-normal text-[#e5484d] leading-none">Crashed</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="w-2 h-2 rounded-full bg-[#3a3a3a] shrink-0 ring-1 ring-[#555555]" />
-                              <span className="text-[14px] font-normal text-[#8c8c8c] leading-none">Stopped</span>
-                            </>
-                          )}
-                        </div>
+                        {isRunning ? (
+                          <span className="text-[14px] font-normal text-white leading-none">Running</span>
+                        ) : p.status === 'crashed' ? (
+                          <span className="text-[14px] font-normal text-[#e5484d] leading-none">Crashed</span>
+                        ) : (
+                          <span className="text-[14px] font-normal text-[#8c8c8c] leading-none">Stopped</span>
+                        )}
                       </td>
 
                       {/* Name */}
@@ -1794,9 +1795,7 @@ export const Dashboard: React.FC = () => {
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[13px] font-normal text-[#8c8c8c] hover:text-white hover:bg-[#161616] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:hover:text-[#8c8c8c] disabled:cursor-not-allowed transition-all cursor-pointer"
               aria-label="Previous page"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
-                <path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z" />
-              </svg>
+              <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
               <span>Previous</span>
             </button>
 
@@ -1812,9 +1811,7 @@ export const Dashboard: React.FC = () => {
               aria-label="Next page"
             >
               <span>Next</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
-                <path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z" />
-              </svg>
+              <ChevronRight className="w-3.5 h-3.5 shrink-0" />
             </button>
           </div>
         </div>
@@ -1861,7 +1858,7 @@ export const Dashboard: React.FC = () => {
       >
         <form onSubmit={handleSaveProcess} className="flex flex-col h-full min-h-0 bg-[#0e0e0e]">
           {/* Action buttons (Clean Cloudflare toolbar style) */}
-          {liveEditingProcess && canControl() && (
+          {liveEditingProcess && hasPermission('processes_view') && (
             <div className="shrink-0 px-4 py-2.5 bg-[#141414] border-b border-[#222222] flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <button
@@ -1892,14 +1889,18 @@ export const Dashboard: React.FC = () => {
                   <span>{actionLoadingMap[`${liveEditingProcess.id}-restart`] ? 'Restarting...' : 'Restart'}</span>
                 </button>
               </div>
-              {isAdmin() && (
+              {hasPermission('processes_view') && (
                 <button
                   type="button"
                   onClick={() => setDeletingId(liveEditingProcess.id)}
-                  className="h-8 px-3 rounded-lg text-[13px] font-medium text-white bg-[#e5484d] hover:bg-[#d03d42] border border-[#f87171]/40 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 ml-auto"
+                  className="group relative flex shrink-0 items-center justify-center h-8 px-3 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#991b1b] bg-[#dc2626] ml-auto"
                 >
-                  <TrashIcon className="w-3.5 h-3.5 text-white" />
-                  <span>Delete</span>
+                  <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                  <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                  <span className="relative flex items-center gap-1.5 text-[14px]">
+                    <TrashIcon className="w-3.5 h-3.5 text-white" />
+                    <span>Delete</span>
+                  </span>
                 </button>
               )}
             </div>
@@ -2021,31 +2022,25 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Pinned Bottom Footer Bar */}
-          <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-between">
-            <span className="text-[13px] text-[#8c8c8c] font-sans flex items-center gap-2">
-              {liveEditingProcess ? (
-                <>
-                  <span className={`w-2 h-2 rounded-full ${liveEditingProcess.status === 'running' ? 'bg-[#30a46c]' : 'bg-[#555555]'}`} />
-                  <span>{liveEditingProcess.status === 'running' ? 'Active telemetry' : 'Process stopped'}</span>
-                </>
-              ) : (
-                <span>New background process</span>
-              )}
-            </span>
+          <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-end font-sans">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setIsSlideOverOpen(false)}
-                className="h-9 px-4 rounded-lg text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center h-9 px-4 rounded-lg text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={formLoading}
-                className="h-9 px-5 rounded-lg text-[14px] font-medium text-white bg-[#2f80ed] hover:bg-[#2563eb] disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
+                className="group relative flex shrink-0 items-center justify-center h-9 px-5 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb]"
               >
-                {formLoading ? 'Saving...' : 'Save'}
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                <span className="relative flex items-center gap-1.5 text-[14px]">
+                  {formLoading ? (liveEditingProcess ? 'Saving...' : 'Adding...') : (liveEditingProcess ? 'Save changes' : 'Add process')}
+                </span>
               </button>
             </div>
           </div>

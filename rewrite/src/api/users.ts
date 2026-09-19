@@ -1,16 +1,19 @@
 import { apiFetch } from './client';
-import type { User, PaginatedResult, ApiResponse, Role } from '../types';
+import type { User, PaginatedResult, ApiResponse, Permissions } from '../types';
 
 export interface CreateUserPayload {
   username: string;
+  email?: string;
   password: string;
-  role: Role;
+  permissions?: Permissions;
 }
 
 export interface UpdateUserPayload {
   username?: string;
+  email?: string;
   password?: string;
-  role?: Role;
+  permissions?: Permissions;
+  is_disabled?: boolean;
 }
 
 export const usersApi = {
@@ -27,6 +30,16 @@ export const usersApi = {
     apiFetch<ApiResponse>(`/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
+    }),
+
+  disable: (id: number) =>
+    apiFetch<ApiResponse>(`/users/${id}/disable`, {
+      method: 'POST',
+    }),
+
+  enable: (id: number) =>
+    apiFetch<ApiResponse>(`/users/${id}/enable`, {
+      method: 'POST',
     }),
 
   delete: (id: number) =>

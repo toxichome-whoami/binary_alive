@@ -1,22 +1,26 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { usersApi } from '../api/users';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { apiTokensApi } from '../api/apiTokens';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
-import type { User, Permissions } from '../types';
+import type { ApiToken, Permissions } from '../types';
 import { SlideOver } from '../components/ui/SlideOver';
+import { Dialog } from '../components/ui/Dialog';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog';
 import { PermissionTable } from '../components/shared/PermissionTable';
 import {
-  Shield,
-  Plus,
+  Key,
   KeyRound,
+  Copy,
+  Check,
+  Plus,
+  Activity,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Trash2,
-  Users as UsersIcon,
+  Shield,
   Lock,
-  ShieldCheck,
   Ban,
   CheckCircle2,
 } from 'lucide-react';
@@ -24,7 +28,7 @@ import {
 const DEFAULT_PERMISSIONS: Permissions = {
   users_view: false, users_create: false, users_edit: false, users_disable: false, users_delete: false, users_reset_2fa: false,
   api_keys_view: false, api_keys_create: false, api_keys_edit: false, api_keys_disable: false, api_keys_delete: false,
-  processes_view: true, processes_start: false, processes_stop: false, processes_restart: false, processes_create: false, processes_edit: false, processes_delete: false,
+  processes_view: false, processes_start: false, processes_stop: false, processes_restart: false, processes_create: false, processes_edit: false, processes_delete: false,
   logs_view_audit: false, logs_view_login: false, logs_view_terminal: false,
   settings_view: false, settings_edit: false, settings_security: false,
   terminal_access: false, terminal_unrestricted: false,
@@ -49,32 +53,31 @@ const CaretUpDownIcon: React.FC<{ active: boolean; direction: 'asc' | 'desc' }> 
   );
 };
 
-export type UserFilterField = 'username' | 'email' | 'status' | 'two_fa' | 'role';
+export type ApiKeyFilterField = 'name' | 'status' | 'user' | 'email';
 
-export type UserFilterOperator =
+export type ApiKeyFilterOperator =
   | 'contains'
   | 'equals'
   | 'starts_with'
   | 'is'
   | 'is_not';
 
-export interface UserFilterRule {
+export interface ApiKeyFilterRule {
   id: string;
-  field: UserFilterField;
-  operator: UserFilterOperator;
+  field: ApiKeyFilterField;
+  operator: ApiKeyFilterOperator;
   value: string;
 }
 
-const USER_FILTER_FIELD_OPTIONS: { value: UserFilterField; label: string }[] = [
-  { value: 'username', label: 'Member' },
-  { value: 'email', label: 'Email' },
+const API_KEY_FILTER_FIELD_OPTIONS: { value: ApiKeyFilterField; label: string }[] = [
+  { value: 'name', label: 'Token Name' },
   { value: 'status', label: 'Status' },
-  { value: 'two_fa', label: '2FA' },
-  { value: 'role', label: 'Role' },
+  { value: 'user', label: 'Member' },
+  { value: 'email', label: 'Email' },
 ];
 
-const getUserFilterOperatorOptions = (field: UserFilterField): { value: UserFilterOperator; label: string }[] => {
-  if (field === 'status' || field === 'two_fa' || field === 'role') {
+const getApiKeyFilterOperatorOptions = (field: ApiKeyFilterField): { value: ApiKeyFilterOperator; label: string }[] => {
+  if (field === 'status') {
     return [
       { value: 'is', label: 'is' },
       { value: 'is_not', label: 'is not' },
@@ -87,19 +90,10 @@ const getUserFilterOperatorOptions = (field: UserFilterField): { value: UserFilt
   ];
 };
 
-const USER_FILTER_STATUS_OPTIONS = [
+const API_KEY_FILTER_STATUS_OPTIONS = [
   { value: 'active', label: 'active' },
   { value: 'disabled', label: 'disabled' },
-];
-
-const USER_FILTER_2FA_OPTIONS = [
-  { value: 'enabled', label: 'enabled' },
-  { value: 'disabled', label: 'disabled' },
-];
-
-const USER_FILTER_ROLE_OPTIONS = [
-  { value: 'owner', label: 'owner' },
-  { value: 'member', label: 'member' },
+  { value: 'expired', label: 'expired' },
 ];
 
 const CustomSelect = <T extends string>({
@@ -197,127 +191,99 @@ const CustomSelect = <T extends string>({
   );
 };
 
-export const Users: React.FC = () => {
+export const ApiKeys: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const userIdFilter = searchParams.get('user');
   const navigate = useNavigate();
+
   const { user: currentUser, isOwner } = useAuthStore();
   const { push: pushToast } = useToastStore();
 
-  const [users, setUsers] = useState<User[]>([]);
+  const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [page, setPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [total, setTotal] = useState<number>(0);
+  const pageSize = 15;
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Sorting
-  const [sortField, setSortField] = useState<'id' | 'username' | 'email' | 'status' | null>(null);
+  const [sortField, setSortField] = useState<'id' | 'name' | 'status' | 'scopes' | 'last_used' | 'created_at' | 'email' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
-  // Create user form state
+  // Determine what permissions the current user CAN grant
+  const disabledPermissions = useMemo(() => {
+    if (isOwner()) return {}; // Owner can grant anything
+    const disabled: Partial<Record<keyof Permissions, boolean>> = {};
+    for (const key of Object.keys(DEFAULT_PERMISSIONS)) {
+      if (!(currentUser?.permissions as any)?.[key]) {
+        disabled[key as keyof Permissions] = true;
+      }
+    }
+    return disabled;
+  }, [currentUser, isOwner]);
+
+  // Create form state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newUsername, setNewUsername] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newExpiration, setNewExpiration] = useState<string>('never');
   const [newPermissions, setNewPermissions] = useState<Permissions>({ ...DEFAULT_PERMISSIONS });
   const [createLoading, setCreateLoading] = useState(false);
 
-  // Edit user state
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editUsername, setEditUsername] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editPassword, setEditPassword] = useState('');
+  // Edit form state
+  const [editingToken, setEditingToken] = useState<ApiToken | null>(null);
+  const [editName, setEditName] = useState('');
   const [editPermissions, setEditPermissions] = useState<Permissions>({ ...DEFAULT_PERMISSIONS });
   const [editLoading, setEditLoading] = useState(false);
 
-  // Confirmation dialogs
-  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
-  const [remove2faTarget, setRemove2faTarget] = useState<User | null>(null);
-  const [disableTarget, setDisableTarget] = useState<{ user: User; disable: boolean } | null>(null);
+  // New token reveal modal
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
+
+  // Delete dialog
+  const [deleteTarget, setDeleteTarget] = useState<ApiToken | null>(null);
+  const [disableTarget, setDisableTarget] = useState<{ token: ApiToken; disable: boolean } | null>(null);
   const [dialogLoading, setDialogLoading] = useState(false);
-
-  const fetchUsers = useCallback(async (targetPage = page) => {
-    setIsLoading(true);
-    try {
-      const res = await usersApi.list(targetPage, 15);
-      if (res.success && res.data) {
-        setUsers(res.data.data);
-        setTotalPages(res.data.total_pages);
-        setTotal(res.data.total);
-      }
-    } catch (err: any) {
-      pushToast('error', err.message || 'Failed to load user records');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [page, pushToast]);
-
-  useEffect(() => {
-    if (!currentUser?.permissions?.users_view && !isOwner()) {
-      navigate('/dashboard');
-      return;
-    }
-    fetchUsers(page);
-  }, [fetchUsers, page, currentUser, isOwner, navigate]);
-
-  // Derived stats
-  const stats = useMemo(() => {
-    let activeTokens = 0;
-    let twoFaCount = 0;
-    let lockedCount = 0;
-
-    users.forEach((u) => {
-      activeTokens += u.api_keys_count || 0;
-      if (u.has_2fa) twoFaCount++;
-      if (u.locked_until && new Date(u.locked_until) > new Date()) lockedCount++;
-    });
-
-    return {
-      members: total,
-      tokens: activeTokens,
-      twoFa: twoFaCount,
-      locked: lockedCount,
-    };
-  }, [users, total]);
 
   // Display options
   const [showDisplayOptions, setShowDisplayOptions] = useState(false);
   const displayOptionsRef = useRef<HTMLDivElement | null>(null);
   const [visibleColumns, setVisibleColumns] = useState({
+    user: true,
     email: true,
-    permissions: true,
-    api_keys: true,
-    two_fa: true,
-    logins: true,
+    scopes: true,
+    last_used: true,
+    created_at: true,
+    expires_at: false,
   });
 
   const COLUMN_LABELS: Record<string, string> = {
+    user: 'Member',
     email: 'Email',
-    permissions: 'Permissions',
-    api_keys: 'API Keys',
-    two_fa: '2FA Status',
-    logins: 'Logins',
+    scopes: 'Permissions',
+    last_used: 'Last Used',
+    created_at: 'Created Date',
+    expires_at: 'Expiration',
   };
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
   const filtersRef = useRef<HTMLDivElement | null>(null);
   const [matchMode, setMatchMode] = useState<'all' | 'any'>('all');
-  const [filterRules, setFilterRules] = useState<UserFilterRule[]>([
-    { id: '1', field: 'username', operator: 'contains', value: '' },
+  const [filterRules, setFilterRules] = useState<ApiKeyFilterRule[]>([
+    { id: '1', field: 'name', operator: 'contains', value: '' },
   ]);
-  const [appliedFilterRules, setAppliedFilterRules] = useState<UserFilterRule[]>([]);
+  const [appliedFilterRules, setAppliedFilterRules] = useState<ApiKeyFilterRule[]>([]);
 
   const activeFiltersCount = appliedFilterRules.length;
 
   const addFilterRule = () => {
     setFilterRules((prev) => [
       ...prev,
-      { id: String(Date.now()), field: 'username', operator: 'contains', value: '' },
+      { id: String(Date.now()), field: 'name', operator: 'contains', value: '' },
     ]);
   };
 
@@ -325,18 +291,16 @@ export const Users: React.FC = () => {
     setFilterRules((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const updateFilterRule = (id: string, patch: Partial<UserFilterRule>) => {
+  const updateFilterRule = (id: string, patch: Partial<ApiKeyFilterRule>) => {
     setFilterRules((prev) =>
       prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
     );
   };
 
-  const handleFieldChange = (id: string, newField: UserFilterField) => {
-    const ops = getUserFilterOperatorOptions(newField);
+  const handleFieldChange = (id: string, newField: ApiKeyFilterField) => {
+    const ops = getApiKeyFilterOperatorOptions(newField);
     let initialValue = '';
     if (newField === 'status') initialValue = 'active';
-    else if (newField === 'two_fa') initialValue = 'enabled';
-    else if (newField === 'role') initialValue = 'owner';
 
     setFilterRules((prev) =>
       prev.map((r) =>
@@ -360,7 +324,7 @@ export const Users: React.FC = () => {
 
   const handleClearFilters = () => {
     setAppliedFilterRules([]);
-    setFilterRules([{ id: '1', field: 'username', operator: 'contains', value: '' }]);
+    setFilterRules([{ id: '1', field: 'name', operator: 'contains', value: '' }]);
     setShowFilters(false);
   };
 
@@ -396,49 +360,128 @@ export const Users: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Filter & sort
-  const filteredUsers = useMemo(() => {
-    let list = [...users];
+  const fetchTokens = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      let res;
+      if (isOwner() && userIdFilter) {
+        res = await apiTokensApi.listAll();
+      } else if (isOwner()) {
+        res = await apiTokensApi.listAll();
+      } else {
+        res = await apiTokensApi.list();
+      }
+      
+      if (res.success && res.data) {
+        let finalTokens = res.data;
+        if (userIdFilter) {
+          finalTokens = finalTokens.filter((t) => t.user_id === parseInt(userIdFilter, 10));
+        }
+        setTokens(finalTokens);
+      }
+    } catch (err: any) {
+      pushToast('error', err.message || 'Failed to load API keys');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isOwner, userIdFilter, pushToast]);
+
+  useEffect(() => {
+    if (!currentUser?.permissions?.api_keys_view && !isOwner()) {
+      navigate('/dashboard');
+      return;
+    }
+    fetchTokens();
+  }, [fetchTokens, currentUser, isOwner, navigate]);
+
+  const countGrantedPermissions = (perms?: Permissions) => {
+    if (!perms) return 0;
+    return Object.values(perms).filter(Boolean).length;
+  };
+
+  const isTokenExpired = (expiresAt: string | null) => {
+    if (!expiresAt) return false;
+    return new Date(expiresAt).getTime() <= Date.now();
+  };
+
+  // Stats
+  const stats = useMemo(() => {
+    const now = new Date();
+    let active = 0;
+    let disabled = 0;
+    let expiring = 0;
+    
+    tokens.forEach((t) => {
+      const isDisabled = Boolean(t.is_disabled);
+      const isExpired = isTokenExpired(t.expires_at);
+
+      if (isDisabled) {
+        disabled++;
+      } else if (!isExpired) {
+        active++;
+        if (t.expires_at) {
+          const daysLeft = (new Date(t.expires_at).getTime() - now.getTime()) / (1000 * 3600 * 24);
+          if (daysLeft <= 7) expiring++;
+        }
+      }
+    });
+    
+    const lastUsed = tokens
+      .filter((t) => t.last_used)
+      .map((t) => new Date(t.last_used!).getTime())
+      .sort((a, b) => b - a)[0];
+
+    return {
+      total: tokens.length,
+      active,
+      disabled,
+      expiring,
+      lastUsed: lastUsed ? new Date(lastUsed).toLocaleDateString() : 'Never',
+    };
+  }, [tokens]);
+
+  // Filtering & Sorting
+  const filteredTokens = useMemo(() => {
+    let list = [...tokens];
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       list = list.filter(
-        (u) =>
-          u.username.toLowerCase().includes(q) ||
-          (u.email && u.email.toLowerCase().includes(q)) ||
-          String(u.id).includes(q)
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          String(t.id).includes(q) ||
+          String(t.user_id).includes(q) ||
+          (t.username && t.username.toLowerCase().includes(q)) ||
+          (t.email && t.email.toLowerCase().includes(q))
       );
     }
 
     if (appliedFilterRules.length > 0) {
-      list = list.filter((u) => {
-        const evalRule = (rule: UserFilterRule) => {
+      list = list.filter((t) => {
+        const evalRule = (rule: ApiKeyFilterRule) => {
           const val = rule.value.trim().toLowerCase();
           if (!val) return true;
 
-          const isLocked = !!(u.locked_until && new Date(u.locked_until) > new Date());
-          const statusStr = isLocked ? 'disabled' : 'active';
-          const twoFaStr = u.has_2fa ? 'enabled' : 'disabled';
-          const roleStr = u.id === 1 ? 'owner' : 'member';
+          const isExpired = isTokenExpired(t.expires_at);
+          const statusStr = t.is_disabled ? 'disabled' : isExpired ? 'expired' : 'active';
+          const userStr = (t.username || String(t.user_id)).toLowerCase();
 
-          if (rule.field === 'username') {
-            const target = u.username.toLowerCase();
-            if (rule.operator === 'contains') return target.includes(val);
-            if (rule.operator === 'equals') return target === val;
-            if (rule.operator === 'starts_with') return target.startsWith(val);
-          } else if (rule.field === 'email') {
-            const target = (u.email || '').toLowerCase();
+          if (rule.field === 'name') {
+            const target = t.name.toLowerCase();
             if (rule.operator === 'contains') return target.includes(val);
             if (rule.operator === 'equals') return target === val;
             if (rule.operator === 'starts_with') return target.startsWith(val);
           } else if (rule.field === 'status') {
             if (rule.operator === 'is') return statusStr === val;
             if (rule.operator === 'is_not') return statusStr !== val;
-          } else if (rule.field === 'two_fa') {
-            if (rule.operator === 'is') return twoFaStr === val;
-            if (rule.operator === 'is_not') return twoFaStr !== val;
-          } else if (rule.field === 'role') {
-            if (rule.operator === 'is') return roleStr === val;
-            if (rule.operator === 'is_not') return roleStr !== val;
+          } else if (rule.field === 'user') {
+            if (rule.operator === 'contains') return userStr.includes(val);
+            if (rule.operator === 'equals') return userStr === val;
+            if (rule.operator === 'starts_with') return userStr.startsWith(val);
+          } else if (rule.field === 'email') {
+            const emailStr = (t.email || '').toLowerCase();
+            if (rule.operator === 'contains') return emailStr.includes(val);
+            if (rule.operator === 'equals') return emailStr === val;
+            if (rule.operator === 'starts_with') return emailStr.startsWith(val);
           }
           return true;
         };
@@ -456,10 +499,17 @@ export const Users: React.FC = () => {
       let valB: any = (b as any)[sortField];
 
       if (sortField === 'status') {
-        const aLocked = a.locked_until && new Date(a.locked_until) > new Date();
-        const bLocked = b.locked_until && new Date(b.locked_until) > new Date();
-        valA = aLocked ? 'disabled' : 'active';
-        valB = bLocked ? 'disabled' : 'active';
+        valA = a.is_disabled ? 'disabled' : isTokenExpired(a.expires_at) ? 'expired' : 'active';
+        valB = b.is_disabled ? 'disabled' : isTokenExpired(b.expires_at) ? 'expired' : 'active';
+      } else if (sortField === 'scopes') {
+        valA = countGrantedPermissions(a.permissions);
+        valB = countGrantedPermissions(b.permissions);
+      } else if (sortField === 'last_used') {
+        valA = a.last_used ? new Date(a.last_used).getTime() : 0;
+        valB = b.last_used ? new Date(b.last_used).getTime() : 0;
+      } else if (sortField === 'created_at') {
+        valA = new Date(a.created_at).getTime();
+        valB = new Date(b.created_at).getTime();
       } else if (sortField === 'email') {
         valA = (a.email || '').toLowerCase();
         valB = (b.email || '').toLowerCase();
@@ -469,9 +519,18 @@ export const Users: React.FC = () => {
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [users, searchQuery, appliedFilterRules, matchMode, sortField, sortDirection]);
+  }, [tokens, searchQuery, appliedFilterRules, matchMode, sortField, sortDirection]);
 
-  const handleSort = (field: 'id' | 'username' | 'email' | 'status') => {
+  // Pagination derived slice
+  const total = filteredTokens.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const startIndex = (page - 1) * pageSize;
+  const paginatedTokens = useMemo(() => {
+    return filteredTokens.slice(startIndex, startIndex + pageSize);
+  }, [filteredTokens, startIndex, pageSize]);
+  const endIndex = Math.min(total, startIndex + paginatedTokens.length);
+
+  const handleSort = (field: 'id' | 'name' | 'status' | 'scopes' | 'last_used' | 'created_at' | 'email') => {
     if (sortField === field) {
       if (sortDirection === 'asc') {
         setSortDirection('desc');
@@ -487,15 +546,15 @@ export const Users: React.FC = () => {
 
   // Selection handlers
   const isAllSelected =
-    filteredUsers.length > 0 && filteredUsers.every((u) => selectedIds.includes(u.id));
+    paginatedTokens.length > 0 && paginatedTokens.every((t) => selectedIds.includes(t.id));
   const isSomeSelected =
-    filteredUsers.some((u) => selectedIds.includes(u.id));
+    paginatedTokens.some((t) => selectedIds.includes(t.id));
 
   const handleSelectAll = () => {
     if (isAllSelected) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredUsers.map((u) => u.id));
+      setSelectedIds(paginatedTokens.map((t) => t.id));
     }
   };
 
@@ -505,92 +564,95 @@ export const Users: React.FC = () => {
     );
   };
 
-  const handleCreateUser = async (e: React.FormEvent) => {
+  const handleCreateToken = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUsername.trim() || !newPassword) return;
+    if (!newName.trim()) return;
     setCreateLoading(true);
 
     try {
-      const res = await usersApi.create({
-        username: newUsername.trim(),
-        email: newEmail.trim() || undefined,
-        password: newPassword,
+      let expiresAt: string | null = null;
+      if (newExpiration !== 'never') {
+        const days = parseInt(newExpiration, 10);
+        const expDate = new Date();
+        expDate.setDate(expDate.getDate() + days);
+        expiresAt = expDate.toISOString();
+      }
+
+      const res = await apiTokensApi.create({
+        name: newName.trim(),
         permissions: newPermissions,
+        expires_at: expiresAt,
       });
 
-      if (res.success) {
-        pushToast('success', `User "${newUsername}" created`);
+      if (res.success && res.data) {
+        setGeneratedToken(res.data.token);
+        setTokenCopied(false);
         setIsCreateOpen(false);
-        setNewUsername('');
-        setNewEmail('');
-        setNewPassword('');
+        setNewName('');
+        setNewExpiration('never');
         setNewPermissions({ ...DEFAULT_PERMISSIONS });
-        fetchUsers(1);
+        fetchTokens();
+        pushToast('success', `API Key "${newName.trim()}" generated`);
       }
     } catch (err: any) {
-      pushToast('error', err.message || 'Failed to create user');
+      pushToast('error', err.message || 'Failed to create API key');
     } finally {
       setCreateLoading(false);
     }
   };
 
-  const openEditModal = (u: User) => {
-    setEditingUser(u);
-    setEditUsername(u.username);
-    setEditEmail(u.email || '');
-    setEditPassword('');
-    setEditPermissions(u.permissions || { ...DEFAULT_PERMISSIONS });
+  const handleCopyToken = () => {
+    if (generatedToken) {
+      navigator.clipboard.writeText(generatedToken);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    }
+  };
+
+  const openEditModal = (t: ApiToken) => {
+    setEditingToken(t);
+    setEditName(t.name);
+    setEditPermissions(t.permissions || { ...DEFAULT_PERMISSIONS });
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser) return;
+    if (!editingToken) return;
     setEditLoading(true);
 
     try {
       const updates: any = {};
-      if (editUsername.trim() && editUsername !== editingUser.username) {
-        updates.username = editUsername.trim();
-      }
-      if (editEmail.trim() !== (editingUser.email || '')) {
-        updates.email = editEmail.trim();
-      }
-      if (editPassword) {
-        updates.password = editPassword;
-      }
-      if (editingUser.id !== 1) {
-        updates.permissions = editPermissions;
-      }
+      if (editName.trim() && editName !== editingToken.name) updates.name = editName.trim();
+      updates.permissions = editPermissions;
 
-      const res = await usersApi.update(editingUser.id, updates);
+      const res = await apiTokensApi.update(editingToken.id, updates);
 
       if (res.success) {
-        pushToast('success', 'User updated successfully');
-        setEditingUser(null);
-        fetchUsers();
+        pushToast('success', 'API Key updated');
+        setEditingToken(null);
+        fetchTokens();
       }
     } catch (err: any) {
-      pushToast('error', err.message || 'Failed to update user');
+      pushToast('error', err.message || 'Failed to update API key');
     } finally {
       setEditLoading(false);
     }
   };
 
-  const confirmDeleteUser = async () => {
+  const confirmDeleteToken = async () => {
     if (isBulkDeleting) {
-      const deletableIds = selectedIds.filter((id) => id !== 1 && id !== currentUser?.id);
-      if (deletableIds.length === 0) return;
+      if (selectedIds.length === 0) return;
       setDialogLoading(true);
       try {
-        for (const id of deletableIds) {
-          await usersApi.delete(id);
+        for (const id of selectedIds) {
+          await apiTokensApi.delete(id);
         }
-        pushToast('success', `Deleted ${deletableIds.length} user accounts`);
+        pushToast('success', `Revoked ${selectedIds.length} API keys`);
         setSelectedIds([]);
         setIsBulkDeleting(false);
-        fetchUsers();
+        fetchTokens();
       } catch (err: any) {
-        pushToast('error', err.message || 'Failed to delete selected accounts');
+        pushToast('error', err.message || 'Failed to revoke selected API keys');
       } finally {
         setDialogLoading(false);
       }
@@ -598,53 +660,36 @@ export const Users: React.FC = () => {
       if (!deleteTarget) return;
       setDialogLoading(true);
       try {
-        const res = await usersApi.delete(deleteTarget.id);
+        const res = await apiTokensApi.delete(deleteTarget.id);
         if (res.success) {
-          pushToast('success', 'User deleted');
+          pushToast('success', 'API key revoked');
           setDeleteTarget(null);
-          fetchUsers();
+          fetchTokens();
         }
       } catch (err: any) {
-        pushToast('error', err.message || 'Failed to delete user');
+        pushToast('error', err.message || 'Failed to revoke API key');
       } finally {
         setDialogLoading(false);
       }
     }
   };
 
-  const confirmRemove2fa = async () => {
-    if (!remove2faTarget) return;
+  const handleToggleTokenStatus = async (token: ApiToken, disable: boolean) => {
     setDialogLoading(true);
     try {
-      const res = await usersApi.remove2fa(remove2faTarget.id);
+      const res = disable ? await apiTokensApi.disable(token.id) : await apiTokensApi.enable(token.id);
       if (res.success) {
-        pushToast('success', '2FA removed for user');
-        setRemove2faTarget(null);
-        fetchUsers();
-      }
-    } catch (err: any) {
-      pushToast('error', err.message || 'Failed to remove 2FA');
-    } finally {
-      setDialogLoading(false);
-    }
-  };
-
-  const handleToggleUserStatus = async (user: User, disable: boolean) => {
-    setDialogLoading(true);
-    try {
-      const res = disable ? await usersApi.disable(user.id) : await usersApi.enable(user.id);
-      if (res.success) {
-        pushToast('success', res.message || `Account "${user.username}" ${disable ? 'disabled' : 'enabled'}`);
+        pushToast('success', res.message || `API Key "${token.name}" ${disable ? 'disabled' : 'enabled'}`);
         setDisableTarget(null);
-        if (editingUser?.id === user.id) {
-          setEditingUser(null);
+        if (editingToken?.id === token.id) {
+          setEditingToken(null);
         }
-        await fetchUsers(page);
+        await fetchTokens();
       } else {
         pushToast('error', res.message || 'Operation failed');
       }
     } catch (err: any) {
-      pushToast('error', err.message || 'Failed to update account status');
+      pushToast('error', err.message || 'Failed to update API key status');
     } finally {
       setDialogLoading(false);
     }
@@ -656,14 +701,13 @@ export const Users: React.FC = () => {
     try {
       let count = 0;
       for (const id of selectedIds) {
-        if (id === 1 || id === currentUser?.id) continue;
-        if (disable) await usersApi.disable(id);
-        else await usersApi.enable(id);
+        if (disable) await apiTokensApi.disable(id);
+        else await apiTokensApi.enable(id);
         count++;
       }
-      pushToast('success', `${count} account${count !== 1 ? 's' : ''} ${disable ? 'disabled' : 'enabled'}`);
+      pushToast('success', `${count} API key${count !== 1 ? 's' : ''} ${disable ? 'disabled' : 'enabled'}`);
       setSelectedIds([]);
-      await fetchUsers(page);
+      await fetchTokens();
     } catch (err: any) {
       pushToast('error', err.message || 'Failed bulk status update');
     } finally {
@@ -671,69 +715,63 @@ export const Users: React.FC = () => {
     }
   };
 
-  const countGrantedPermissions = (perms?: Permissions) => {
-    if (!perms) return 0;
-    return Object.values(perms).filter(Boolean).length;
-  };
-
-  const startIndex = (page - 1) * 15;
-  const endIndex = Math.min(total, startIndex + filteredUsers.length);
   const activeColSpan =
-    5 +
+    3 + // Checkbox, Status, Key Name
+    (visibleColumns.user ? 1 : 0) +
     (visibleColumns.email ? 1 : 0) +
-    (visibleColumns.permissions ? 1 : 0) +
-    (visibleColumns.api_keys ? 1 : 0) +
-    (visibleColumns.two_fa ? 1 : 0) +
-    (visibleColumns.logins ? 1 : 0);
+    (visibleColumns.scopes ? 1 : 0) +
+    (visibleColumns.last_used ? 1 : 0) +
+    (visibleColumns.created_at ? 1 : 0) +
+    (visibleColumns.expires_at ? 1 : 0) +
+    2; // Spacer + Actions
 
   return (
     <div className="space-y-6 w-full max-w-[1600px] mx-auto pb-12 select-none font-sans">
-      {/* 4 Clean Black Metric Cards */}
+      {/* 4 Clean Black Metric Cards matching Users.tsx */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full font-sans">
         <div className="relative rounded-xl border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Total accounts</span>
-            <UsersIcon className="w-4 h-4 text-[#555555]" />
-          </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.members}</div>
-          </div>
-        </div>
-        <div className="relative rounded-xl border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Active API keys</span>
+            <span className="text-[13px] font-medium text-[#8c8c8c]">Total tokens</span>
             <KeyRound className="w-4 h-4 text-[#555555]" />
           </div>
           <div className="flex items-baseline gap-2 mt-0.5">
-            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.tokens}</div>
+            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.total}</div>
           </div>
         </div>
         <div className="relative rounded-xl border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">2FA protection</span>
-            <ShieldCheck className="w-4 h-4 text-[#555555]" />
+            <span className="text-[13px] font-medium text-[#8c8c8c]">Active keys</span>
+            <Activity className="w-4 h-4 text-[#555555]" />
           </div>
           <div className="flex items-baseline gap-2 mt-0.5">
-            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.twoFa}</div>
-            <span className="text-xs font-normal text-[#555555]">secured</span>
+            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.active}</div>
           </div>
         </div>
         <div className="relative rounded-xl border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Disabled accounts</span>
+            <span className="text-[13px] font-medium text-[#8c8c8c]">Disabled keys</span>
             <Lock className="w-4 h-4 text-[#555555]" />
           </div>
           <div className="flex items-baseline gap-2 mt-0.5">
-            <div className={`text-[28px] font-semibold tracking-tight tabular-nums leading-tight ${stats.locked > 0 ? 'text-[#ef4444]' : 'text-white'}`}>{stats.locked}</div>
+            <div className={`text-[28px] font-semibold tracking-tight tabular-nums leading-tight ${stats.disabled > 0 ? 'text-[#ef4444]' : 'text-white'}`}>{stats.disabled}</div>
+          </div>
+        </div>
+        <div className="relative rounded-xl border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[13px] font-medium text-[#8c8c8c]">Expiring soon</span>
+            <AlertTriangle className="w-4 h-4 text-[#555555]" />
+          </div>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <div className={`text-[28px] font-semibold tracking-tight tabular-nums leading-tight ${stats.expiring > 0 ? 'text-[#f59e0b]' : 'text-white'}`}>{stats.expiring}</div>
           </div>
         </div>
       </div>
 
-      {/* Toolbar Controls — Matches Dashboard */}
+      {/* Toolbar Controls — Exact Users & Dashboard Match */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1 select-none font-sans">
         {/* Search Input Group */}
         <label
-          title="Search members (/ or Ctrl+K)"
+          title="Search API keys (/ or Ctrl+K)"
           className="relative flex items-center h-9 rounded-xl bg-transparent border border-[#262626] focus-within:border-[#2f80ed] transition-colors px-3 gap-2 w-full sm:w-[280px] md:w-[320px]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" className="text-[#8c8c8c] shrink-0">
@@ -743,8 +781,11 @@ export const Users: React.FC = () => {
             ref={searchInputRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search members..."
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search API keys..."
             className="w-full bg-transparent border-0 text-[14px] text-white placeholder-[#8c8c8c] outline-none font-normal font-sans"
           />
           {searchQuery ? (
@@ -795,7 +836,7 @@ export const Users: React.FC = () => {
                     if (appliedFilterRules.length > 0) {
                       setFilterRules(appliedFilterRules.map((r) => ({ ...r })));
                     } else if (filterRules.length === 0) {
-                      setFilterRules([{ id: '1', field: 'username', operator: 'contains', value: '' }]);
+                      setFilterRules([{ id: '1', field: 'name', operator: 'contains', value: '' }]);
                     }
                   }
                   return next;
@@ -806,7 +847,7 @@ export const Users: React.FC = () => {
                   ? 'border-[#444444] text-white bg-[#141414]'
                   : 'border-[#262626] text-white hover:bg-[#141414] hover:border-[#383838]'
               }`}
-              title="Filter members"
+              title="Filter API keys"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -857,17 +898,17 @@ export const Users: React.FC = () => {
                       {/* Field */}
                       <CustomSelect
                         value={rule.field}
-                        options={USER_FILTER_FIELD_OPTIONS}
-                        onChange={(val) => handleFieldChange(rule.id, val as UserFilterField)}
-                        className="w-28 sm:w-32 shrink-0"
+                        options={API_KEY_FILTER_FIELD_OPTIONS}
+                        onChange={(val) => handleFieldChange(rule.id, val as ApiKeyFilterField)}
+                        className="w-32 sm:w-36 shrink-0"
                         menuWidth="w-40"
                       />
 
                       {/* Operator */}
                       <CustomSelect
                         value={rule.operator}
-                        options={getUserFilterOperatorOptions(rule.field)}
-                        onChange={(val) => updateFilterRule(rule.id, { operator: val as UserFilterOperator })}
+                        options={getApiKeyFilterOperatorOptions(rule.field)}
+                        onChange={(val) => updateFilterRule(rule.id, { operator: val as ApiKeyFilterOperator })}
                         className="w-32 sm:w-36 shrink-0"
                         menuWidth="w-44"
                       />
@@ -876,23 +917,7 @@ export const Users: React.FC = () => {
                       {rule.field === 'status' ? (
                         <CustomSelect
                           value={rule.value || 'active'}
-                          options={USER_FILTER_STATUS_OPTIONS}
-                          onChange={(val) => updateFilterRule(rule.id, { value: val })}
-                          className="flex-1 min-w-0"
-                          menuWidth="w-full"
-                        />
-                      ) : rule.field === 'two_fa' ? (
-                        <CustomSelect
-                          value={rule.value || 'enabled'}
-                          options={USER_FILTER_2FA_OPTIONS}
-                          onChange={(val) => updateFilterRule(rule.id, { value: val })}
-                          className="flex-1 min-w-0"
-                          menuWidth="w-full"
-                        />
-                      ) : rule.field === 'role' ? (
-                        <CustomSelect
-                          value={rule.value || 'owner'}
-                          options={USER_FILTER_ROLE_OPTIONS}
+                          options={API_KEY_FILTER_STATUS_OPTIONS}
                           onChange={(val) => updateFilterRule(rule.id, { value: val })}
                           className="flex-1 min-w-0"
                           menuWidth="w-full"
@@ -905,7 +930,7 @@ export const Users: React.FC = () => {
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleApplyFilters();
                           }}
-                          placeholder="e.g. alex"
+                          placeholder={rule.field === 'user' ? 'e.g. alex' : 'e.g. Deploy Key'}
                           className="flex-1 min-w-0 h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
                         />
                       )}
@@ -985,7 +1010,7 @@ export const Users: React.FC = () => {
 
             {showDisplayOptions && (
               <div className="absolute right-0 top-10 w-52 rounded-md bg-[#0c0c0c] border border-[#262626] shadow-xl p-1 z-40 select-none font-sans">
-                {(['email', 'permissions', 'api_keys', 'two_fa', 'logins'] as const).map((col) => {
+                {(['user', 'email', 'scopes', 'last_used', 'created_at', 'expires_at'] as const).map((col) => {
                   const isVisible = visibleColumns[col];
                   return (
                     <button
@@ -1019,11 +1044,12 @@ export const Users: React.FC = () => {
                   type="button"
                   onClick={() =>
                     setVisibleColumns({
+                      user: true,
                       email: true,
-                      permissions: true,
-                      api_keys: true,
-                      two_fa: true,
-                      logins: true,
+                      scopes: true,
+                      last_used: true,
+                      created_at: true,
+                      expires_at: false,
                     })
                   }
                   className="w-full text-left px-2.5 py-1.5 rounded text-[14px] text-[#888888] hover:text-white hover:bg-[#1a1a1a] transition-colors cursor-pointer font-sans"
@@ -1034,7 +1060,7 @@ export const Users: React.FC = () => {
             )}
           </div>
 
-          {/* Create member button */}
+          {/* Create API key button */}
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
@@ -1044,25 +1070,25 @@ export const Users: React.FC = () => {
             <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
             <span className="relative flex items-center gap-1.5 text-[14px] font-sans">
               <Plus className="w-4 h-4 shrink-0" />
-              <span>Create member</span>
+              <span>Create API Key</span>
             </span>
           </button>
         </div>
       </div>
 
-      {/* Users Table Card — Exact Cloudflare DNS table structure */}
-      <div id="users-table-card" className="w-full flex flex-col rounded-xl border border-[#222222] bg-black shadow-sm select-none font-sans">
+      {/* API Keys Table Card — Exact Cloudflare DNS table structure matching Users */}
+      <div id="tokens-table-card" className="w-full flex flex-col rounded-xl border border-[#222222] bg-black shadow-sm select-none font-sans">
         {/* Status bar */}
         <div className="flex w-full flex-col gap-2 px-4 py-3 bg-black font-sans">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[13px] text-[#8c8c8c] font-normal select-none font-sans">
-              {filteredUsers.length === users.length ? (
+              {filteredTokens.length === tokens.length ? (
                 <>
-                  You have <strong className="font-semibold text-white">{total}</strong> {total === 1 ? 'member' : 'members'} configured.
+                  You have <strong className="font-semibold text-white">{total}</strong> {total === 1 ? 'API key' : 'API keys'} configured.
                 </>
               ) : (
                 <>
-                  Showing <strong className="font-semibold text-white">{filteredUsers.length}</strong> of <strong className="font-semibold text-white">{total}</strong> members.
+                  Showing <strong className="font-semibold text-white">{filteredTokens.length}</strong> of <strong className="font-semibold text-white">{tokens.length}</strong> API keys.
                 </>
               )}
             </p>
@@ -1093,7 +1119,7 @@ export const Users: React.FC = () => {
             <div className="flex flex-wrap items-center gap-1.5 pt-0.5 font-sans">
               {appliedFilterRules.map((rule) => {
                 const fieldLabel =
-                  USER_FILTER_FIELD_OPTIONS.find((f) => f.value === rule.field)?.label || rule.field;
+                  API_KEY_FILTER_FIELD_OPTIONS.find((f) => f.value === rule.field)?.label || rule.field;
                 return (
                   <span
                     key={rule.id}
@@ -1108,7 +1134,7 @@ export const Users: React.FC = () => {
                         const next = appliedFilterRules.filter((r) => r.id !== rule.id);
                         setAppliedFilterRules(next);
                         if (next.length === 0) {
-                          setFilterRules([{ id: String(Date.now()), field: 'username', operator: 'contains', value: '' }]);
+                          setFilterRules([{ id: String(Date.now()), field: 'name', operator: 'contains', value: '' }]);
                         } else {
                           setFilterRules(next);
                         }
@@ -1129,7 +1155,7 @@ export const Users: React.FC = () => {
             <div className="flex min-h-9 w-full flex-wrap items-center justify-between gap-3 pt-0.5 font-sans">
               <div className="flex min-w-0 flex-wrap items-center gap-3">
                 <p className="text-[14px] font-normal text-white font-sans">
-                  <span className="font-medium">{selectedIds.length} of {filteredUsers.length} selected</span>
+                  <span className="font-medium">{selectedIds.length} of {paginatedTokens.length} selected</span>
                 </p>
                 <button
                   type="button"
@@ -1143,11 +1169,11 @@ export const Users: React.FC = () => {
                   onClick={handleSelectAll}
                   className="inline-flex items-center h-8 px-2.5 rounded-xl text-[14px] font-medium text-white bg-transparent hover:bg-[#1a1a1a] transition-colors cursor-pointer font-sans"
                 >
-                  Select all {filteredUsers.length} eligible members
+                  Select all {paginatedTokens.length} eligible keys
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-2.5 font-sans">
-                {isOwner() && (
+                {(currentUser?.permissions?.api_keys_disable || isOwner()) && (
                   <>
                     <button
                       type="button"
@@ -1165,31 +1191,33 @@ export const Users: React.FC = () => {
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       <span>Enable</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsBulkDeleting(true)}
-                      className="group relative flex shrink-0 items-center justify-center h-8 px-3 rounded-xl font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#991b1b] bg-[#dc2626] font-sans"
-                    >
-                      <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
-                      <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
-                      <span className="relative flex items-center gap-1.5 text-[14px] font-sans">
-                        <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                        <span>Delete {selectedIds.length} member{selectedIds.length !== 1 ? 's' : ''}</span>
-                      </span>
-                    </button>
                   </>
+                )}
+                {(currentUser?.permissions?.api_keys_delete || isOwner()) && (
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkDeleting(true)}
+                    className="group relative flex shrink-0 items-center justify-center h-8 px-3 rounded-xl font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#991b1b] bg-[#dc2626] font-sans"
+                  >
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+                    <span className="relative flex items-center gap-1.5 text-[14px] font-sans">
+                      <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>Revoke {selectedIds.length} key{selectedIds.length !== 1 ? 's' : ''}</span>
+                    </span>
+                  </button>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Inset Table Card with rounded corners matching Dashboard */}
+        {/* Inset Table Card with rounded corners matching Dashboard & Users */}
         <div className="mx-[6px] mb-[6px] border border-[#262626] rounded-xl overflow-hidden bg-[#0e0e0e]">
           <div className="overflow-x-auto overflow-y-hidden">
             <table
               role="table"
-              aria-label="User members"
+              aria-label="API Keys"
               className="w-full min-w-[900px] text-left border-collapse font-sans"
             >
               {/* Sticky 40px Header */}
@@ -1230,22 +1258,29 @@ export const Users: React.FC = () => {
                     </span>
                   </th>
 
-                  {/* Member Column */}
+                  {/* Key Identifier Column */}
                   <th
-                    onClick={() => handleSort('username')}
-                    className="group flex items-center shrink-0 w-[180px] h-[40px] px-3 cursor-pointer select-none"
+                    onClick={() => handleSort('name')}
+                    className="group flex items-center shrink-0 w-[220px] h-[40px] px-3 cursor-pointer select-none"
                   >
                     <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
-                      <span>Member</span>
-                      <CaretUpDownIcon active={sortField === 'username'} direction={sortDirection} />
+                      <span>Key Identifier</span>
+                      <CaretUpDownIcon active={sortField === 'name'} direction={sortDirection} />
                     </span>
                   </th>
+
+                  {/* Member Column */}
+                  {visibleColumns.user && (
+                    <th className="flex items-center shrink-0 w-[140px] h-[40px] px-3">
+                      <span className="text-[14px] font-medium text-white leading-none font-sans">Member</span>
+                    </th>
+                  )}
 
                   {/* Email Column */}
                   {visibleColumns.email && (
                     <th
                       onClick={() => handleSort('email')}
-                      className="group flex items-center shrink-0 w-[220px] h-[40px] px-3 cursor-pointer select-none"
+                      className="group flex items-center shrink-0 w-[180px] h-[40px] px-3 cursor-pointer select-none"
                     >
                       <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
                         <span>Email</span>
@@ -1254,31 +1289,49 @@ export const Users: React.FC = () => {
                     </th>
                   )}
 
-                  {/* Permissions Column */}
-                  {visibleColumns.permissions && (
-                    <th className="flex items-center shrink-0 w-[150px] h-[40px] px-3">
-                      <span className="text-[14px] font-medium text-white leading-none font-sans">Permissions</span>
+                  {/* Scopes Column */}
+                  {visibleColumns.scopes && (
+                    <th
+                      onClick={() => handleSort('scopes')}
+                      className="group flex items-center shrink-0 w-[140px] h-[40px] px-3 cursor-pointer select-none"
+                    >
+                      <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
+                        <span>Permissions</span>
+                        <CaretUpDownIcon active={sortField === 'scopes'} direction={sortDirection} />
+                      </span>
                     </th>
                   )}
 
-                  {/* API Keys Column */}
-                  {visibleColumns.api_keys && (
+                  {/* Last Used Column */}
+                  {visibleColumns.last_used && (
+                    <th
+                      onClick={() => handleSort('last_used')}
+                      className="group flex items-center shrink-0 w-[180px] h-[40px] px-3 cursor-pointer select-none"
+                    >
+                      <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
+                        <span>Last Used</span>
+                        <CaretUpDownIcon active={sortField === 'last_used'} direction={sortDirection} />
+                      </span>
+                    </th>
+                  )}
+
+                  {/* Created Column */}
+                  {visibleColumns.created_at && (
+                    <th
+                      onClick={() => handleSort('created_at')}
+                      className="group flex items-center shrink-0 w-[130px] h-[40px] px-3 cursor-pointer select-none"
+                    >
+                      <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-white leading-none font-sans">
+                        <span>Created</span>
+                        <CaretUpDownIcon active={sortField === 'created_at'} direction={sortDirection} />
+                      </span>
+                    </th>
+                  )}
+
+                  {/* Expiration Column (Optional) */}
+                  {visibleColumns.expires_at && (
                     <th className="flex items-center shrink-0 w-[130px] h-[40px] px-3">
-                      <span className="text-[14px] font-medium text-white leading-none font-sans">API Keys</span>
-                    </th>
-                  )}
-
-                  {/* 2FA Status Column */}
-                  {visibleColumns.two_fa && (
-                    <th className="flex items-center shrink-0 w-[130px] h-[40px] px-3">
-                      <span className="text-[14px] font-medium text-white leading-none font-sans">2FA Status</span>
-                    </th>
-                  )}
-
-                  {/* Failed Logins Column */}
-                  {visibleColumns.logins && (
-                    <th className="flex items-center shrink-0 w-[100px] h-[40px] px-3">
-                      <span className="text-[14px] font-medium text-white leading-none font-sans">Logins</span>
+                      <span className="text-[14px] font-medium text-white leading-none font-sans">Expires</span>
                     </th>
                   )}
 
@@ -1297,28 +1350,26 @@ export const Users: React.FC = () => {
                 {isLoading ? (
                   <tr>
                     <td colSpan={activeColSpan} className="px-4 py-12 text-center bg-[#0e0e0e]">
-                      <p className="text-[14px] text-[#6b6b6b] font-normal font-sans">Loading members...</p>
+                      <p className="text-[14px] text-[#6b6b6b] font-normal font-sans">Loading API keys...</p>
                     </td>
                   </tr>
-                ) : filteredUsers.length === 0 ? (
+                ) : paginatedTokens.length === 0 ? (
                   <tr>
                     <td colSpan={activeColSpan} className="px-4 py-12 text-center bg-[#0e0e0e]">
                       <p className="text-[14px] text-[#6b6b6b] font-normal font-sans">
-                        No members match your search criteria.
+                        No API keys match your search criteria.
                       </p>
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((u) => {
-                    const isMaster = u.id === 1;
-                    const isSelf = u.id === currentUser?.id;
-                    const isChecked = selectedIds.includes(u.id);
-                    const isLocked = u.locked_until && new Date(u.locked_until) > new Date();
-                    const grantedPerms = countGrantedPermissions(u.permissions);
+                  paginatedTokens.map((t) => {
+                    const isChecked = selectedIds.includes(t.id);
+                    const isExpired = isTokenExpired(t.expires_at);
+                    const grantedPerms = countGrantedPermissions(t.permissions);
 
                     return (
                       <tr
-                        key={u.id}
+                        key={t.id}
                         className={`group/row flex w-full items-center h-[40px] min-h-[40px] max-h-[40px] border-b border-[#1e1e1e] transition-colors font-sans ${
                           isChecked ? 'bg-[#181818]' : 'bg-[#0e0e0e] hover:bg-[#161616]'
                         }`}
@@ -1329,8 +1380,8 @@ export const Users: React.FC = () => {
                             type="button"
                             role="checkbox"
                             aria-checked={isChecked}
-                            aria-label={`Select ${u.username}`}
-                            onClick={() => handleSelectOne(u.id)}
+                            aria-label={`Select ${t.name}`}
+                            onClick={() => handleSelectOne(t.id)}
                             className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border-0 bg-[#141414] ring-1 ring-[#3a3a3a] hover:ring-[#555555] focus:outline-none focus:ring-2 focus:ring-[#2f80ed] transition-all cursor-pointer data-[checked]:bg-[#2f80ed] data-[checked]:ring-[#2f80ed]"
                             data-checked={isChecked ? '' : undefined}
                           >
@@ -1342,47 +1393,56 @@ export const Users: React.FC = () => {
                           </button>
                         </td>
 
-                        {/* Status cell */}
+                        {/* Status cell (clean text matching Users.tsx) */}
                         <td className="flex items-center shrink-0 w-[110px] h-[40px] px-3 font-sans">
-                          {isLocked ? (
+                          {t.is_disabled ? (
                             <span className="text-[14px] font-normal text-[#ef4444] leading-none font-sans">Disabled</span>
+                          ) : isExpired ? (
+                            <span className="text-[14px] font-normal text-[#ef4444] leading-none font-sans">Expired</span>
                           ) : (
                             <span className="text-[14px] font-normal text-white leading-none font-sans">Active</span>
                           )}
                         </td>
 
-                        {/* Member cell with Owner Shield Icon */}
-                        <td className="flex items-center shrink-0 w-[180px] h-[40px] px-3 font-sans">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="truncate font-sans text-[14px] font-medium text-white">{u.username}</span>
-                            {isMaster && (
-                              <span title="System Owner" className="inline-flex items-center text-amber-500/90 shrink-0">
-                                <Shield className="w-3.5 h-3.5" />
-                              </span>
-                            )}
-                            {isSelf && (
-                              <span className="text-[10px] px-1 py-0.5 rounded bg-[#1d4ed8]/20 text-[#60a5fa] font-medium leading-none shrink-0 font-sans">
-                                You
-                              </span>
-                            )}
+                        {/* Key Identifier cell */}
+                        <td className="flex items-center shrink-0 w-[220px] h-[40px] px-3 text-[14px] font-medium text-white truncate font-sans">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Key className="w-3.5 h-3.5 text-[#8c8c8c] shrink-0" />
+                            <span className="truncate font-sans">{t.name}</span>
                           </div>
                         </td>
 
-                        {/* Email cell */}
-                        {visibleColumns.email && (
-                          <td className="flex items-center shrink-0 w-[220px] h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate">
-                            {u.email ? (
-                              <span className="truncate font-sans text-[14px] text-[#cccccc]">{u.email}</span>
+                        {/* Member / User ID cell */}
+                        {visibleColumns.user && (
+                          <td className="flex items-center shrink-0 w-[140px] h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate">
+                            {t.username ? (
+                              <div className="flex items-center gap-1.5 truncate">
+                                <span>{t.username}</span>
+                                {t.user_id === 1 && (
+                                  <Shield className="w-3 h-3 text-amber-500 shrink-0" />
+                                )}
+                              </div>
                             ) : (
-                              <span className="text-[#555555]">—</span>
+                              <span className="font-mono text-[#8c8c8c]">#{t.user_id}</span>
                             )}
                           </td>
                         )}
 
-                        {/* Permissions cell */}
-                        {visibleColumns.permissions && (
-                          <td className="flex items-center shrink-0 w-[150px] h-[40px] px-3 font-sans">
-                            {isMaster || grantedPerms === 21 ? (
+                        {/* Email cell */}
+                        {visibleColumns.email && (
+                          <td className="flex items-center shrink-0 w-[180px] h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate">
+                            {t.email ? (
+                              <span className="truncate">{t.email}</span>
+                            ) : (
+                              <span className="text-[#666666]">—</span>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Permissions / Scopes cell */}
+                        {visibleColumns.scopes && (
+                          <td className="flex items-center shrink-0 w-[140px] h-[40px] px-3 font-sans">
+                            {grantedPerms === 21 ? (
                               <span className="text-[14px] font-normal text-white font-sans" title="All 21 permissions granted">
                                 Full access
                               </span>
@@ -1398,45 +1458,28 @@ export const Users: React.FC = () => {
                           </td>
                         )}
 
-                        {/* API Keys cell */}
-                        {visibleColumns.api_keys && (
-                          <td className="flex items-center shrink-0 w-[130px] h-[40px] px-3 font-sans">
-                            {(u.api_keys_count || 0) > 0 ? (
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/api-keys?user=${u.id}`)}
-                                className="inline-flex items-center gap-1.5 text-[14px] text-[#2f80ed] hover:underline cursor-pointer font-sans"
-                              >
-                                <KeyRound className="w-3.5 h-3.5 shrink-0" />
-                                <span>{u.api_keys_count} key{u.api_keys_count !== 1 ? 's' : ''}</span>
-                              </button>
-                            ) : (
-                              <span className="text-[14px] text-[#555555] font-sans">-</span>
-                            )}
+                        {/* Last Used cell */}
+                        {visibleColumns.last_used && (
+                          <td className="flex items-center shrink-0 w-[180px] h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans truncate">
+                            {t.last_used ? new Date(t.last_used).toLocaleString() : 'Never used'}
                           </td>
                         )}
 
-                        {/* 2FA Status cell */}
-                        {visibleColumns.two_fa && (
-                          <td className="flex items-center shrink-0 w-[130px] h-[40px] px-3 font-sans">
-                            <span
-                              className={`text-[14px] font-normal leading-none font-sans ${
-                                u.has_2fa ? 'text-white' : 'text-[#8c8c8c]'
-                              }`}
-                            >
-                              {u.has_2fa ? 'Enabled' : 'Disabled'}
-                            </span>
+                        {/* Created cell */}
+                        {visibleColumns.created_at && (
+                          <td className="flex items-center shrink-0 w-[130px] h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans tabular-nums">
+                            {new Date(t.created_at).toLocaleDateString()}
                           </td>
                         )}
 
-                        {/* Failed Logins cell */}
-                        {visibleColumns.logins && (
-                          <td className="flex items-center shrink-0 w-[100px] h-[40px] px-3 font-sans text-[14px] text-[#888888] tabular-nums">
-                            {u.failed_attempts || 0}
+                        {/* Expiration cell */}
+                        {visibleColumns.expires_at && (
+                          <td className="flex items-center shrink-0 w-[130px] h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans tabular-nums">
+                            {t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'Never'}
                           </td>
                         )}
 
-                        {/* Flexible Spacer to ensure all data columns stay left and ONLY Edit is right */}
+                        {/* Flexible Spacer to keep data packed left */}
                         <td className="flex-1 h-[40px]" />
 
                         {/* Sticky Action Cell — Exact Cloudflare Edit Button */}
@@ -1453,7 +1496,7 @@ export const Users: React.FC = () => {
                           />
                           <button
                             type="button"
-                            onClick={() => openEditModal(u)}
+                            onClick={() => openEditModal(t)}
                             className="inline-flex items-center justify-center h-7 px-3 rounded-md text-[14px] font-medium leading-none text-white hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer shrink-0 font-sans"
                           >
                             Edit
@@ -1467,7 +1510,7 @@ export const Users: React.FC = () => {
             </table>
           </div>
 
-          {/* Table Footer — Embedded Pagination matching Dashboard */}
+          {/* Table Footer — Embedded Pagination matching Users & Dashboard */}
           <div className="flex items-center justify-between px-4 py-2.5 border-t border-[#222222] bg-[#0e0e0e] rounded-b-lg font-sans">
             <span className="text-[13px] text-[#8c8c8c] font-normal select-none font-sans">
               Showing <span className="text-[#cccccc] font-medium tabular-nums">{total === 0 ? 0 : `${startIndex + 1}–${endIndex}`}</span> of <span className="text-[#cccccc] font-medium tabular-nums">{total}</span>
@@ -1503,61 +1546,56 @@ export const Users: React.FC = () => {
         </div>
       </div>
 
-      {/* Create Member SlideOver Drawer */}
+      {/* Create API Key SlideOver Drawer — Exactly matches Users Create Drawer */}
       <SlideOver
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        title="Create member"
+        title="Create API key"
       >
-        <form onSubmit={handleCreateUser} className="flex flex-col h-full min-h-0 bg-[#0e0e0e] font-sans">
+        <form onSubmit={handleCreateToken} className="flex flex-col h-full min-h-0 bg-[#0e0e0e] font-sans">
           <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 font-sans">
             <div>
               <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
-                Username <span className="text-[#ef4444]">*</span>
+                Token Name <span className="text-[#ef4444]">*</span>
               </label>
               <input
                 type="text"
                 required
-                placeholder="e.g. alex"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
+                placeholder="e.g. CI/CD Deploy Key"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
                 className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
               />
             </div>
 
             <div>
               <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
-                Email
+                Expiration
               </label>
-              <input
-                type="email"
-                placeholder="e.g. alex@example.com"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
-                Password <span className="text-[#ef4444]">*</span>
-              </label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••••••"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
+              <CustomSelect
+                value={newExpiration}
+                options={[
+                  { value: 'never', label: 'Never expires' },
+                  { value: '30', label: '30 days' },
+                  { value: '60', label: '60 days' },
+                  { value: '90', label: '90 days' },
+                  { value: '365', label: '1 year' },
+                ]}
+                onChange={setNewExpiration}
+                className="w-full"
               />
             </div>
 
             <div className="pt-2 font-sans">
               <div className="mb-2 font-sans">
                 <span className="text-[14px] font-medium text-white block font-sans">Permissions</span>
-                <span className="text-[13px] text-[#8c8c8c] font-sans">Fine-grained access rights for this member</span>
+                <span className="text-[13px] text-[#8c8c8c] font-sans">Fine-grained access rights for this API key</span>
               </div>
-              <PermissionTable value={newPermissions} onChange={setNewPermissions} />
+              <PermissionTable 
+                value={newPermissions} 
+                onChange={setNewPermissions} 
+                disabled={disabledPermissions} 
+              />
             </div>
           </div>
 
@@ -1582,7 +1620,7 @@ export const Users: React.FC = () => {
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
                 <span className="relative flex items-center gap-1.5 text-[14px] font-sans">
-                  {createLoading ? 'Creating...' : 'Create member'}
+                  {createLoading ? 'Generating...' : 'Create key'}
                 </span>
               </button>
             </div>
@@ -1590,34 +1628,45 @@ export const Users: React.FC = () => {
         </form>
       </SlideOver>
 
-      {/* Edit Member SlideOver Drawer */}
+      {/* Edit API Key SlideOver Drawer — Exactly matches Users Edit Drawer */}
       <SlideOver
-        isOpen={editingUser !== null}
-        onClose={() => setEditingUser(null)}
+        isOpen={editingToken !== null}
+        onClose={() => setEditingToken(null)}
         title={
           <span className="flex items-center gap-2">
-            <span>Edit member</span>
+            <span>Edit API key</span>
             <span className="text-[#555555] font-normal">/</span>
-            <span className="text-[#e6e6e6] font-medium">{editingUser?.username}</span>
+            <span className="text-[#e6e6e6] font-medium">{editingToken?.name}</span>
           </span>
         }
         subtitle={
-          editingUser && (
+          editingToken && (
             <div className="flex items-center gap-2 text-[13px] text-[#8c8c8c] mt-0.5 font-sans">
-              {editingUser.id === 1 && (
-                <span className="inline-flex items-center text-amber-500/90 shrink-0">
-                  <Shield className="w-3.5 h-3.5" />
-                </span>
-              )}
-              <span className={editingUser.id === 1 ? 'text-white font-medium font-sans text-[13px]' : 'text-[#8c8c8c] font-sans text-[13px]'}>
-                {editingUser.id === 1 ? 'Owner' : 'Member'}
-              </span>
+              <span className="text-[#8c8c8c] font-sans text-[13px]">Key</span>
               <span className="text-[#555555]">•</span>
-              <span className="text-[13px] text-[#8c8c8c] font-sans">#{editingUser.id}</span>
-              {editingUser.has_2fa && (
+              <span className="text-[13px] text-[#8c8c8c] font-sans">#{editingToken.id}</span>
+              {editingToken.is_disabled ? (
                 <>
                   <span className="text-[#555555]">•</span>
-                  <span className="text-[#30a46c] font-sans">2FA Active</span>
+                  <span className="text-[#ef4444] font-sans">Disabled</span>
+                </>
+              ) : null}
+              {editingToken.username && (
+                <>
+                  <span className="text-[#555555]">•</span>
+                  <span className="text-[#8c8c8c] font-sans text-[13px]">{editingToken.username}</span>
+                </>
+              )}
+              {editingToken.email && (
+                <>
+                  <span className="text-[#555555]">•</span>
+                  <span className="text-[#8c8c8c] font-sans text-[13px]">{editingToken.email}</span>
+                </>
+              )}
+              {editingToken.last_used && (
+                <>
+                  <span className="text-[#555555]">•</span>
+                  <span className="text-[13px] text-[#8c8c8c] font-sans">Last used {new Date(editingToken.last_used).toLocaleDateString()}</span>
                 </>
               )}
             </div>
@@ -1628,96 +1677,61 @@ export const Users: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 font-sans">
             <div>
               <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
-                Username <span className="text-[#ef4444]">*</span>
+                Token Name <span className="text-[#ef4444]">*</span>
               </label>
               <input
                 type="text"
                 required
-                value={editUsername}
-                onChange={(e) => setEditUsername(e.target.value)}
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
                 className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white outline-none transition-colors font-sans"
               />
             </div>
 
-            <div>
-              <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
-                Email
-              </label>
-              <input
-                type="email"
-                placeholder="e.g. alex@example.com"
-                value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl bg-[#141414] border border-[#262626] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
+            <div className="pt-2 font-sans">
+              <div className="mb-2 font-sans">
+                <span className="text-[14px] font-medium text-white block font-sans">Permissions</span>
+                <span className="text-[13px] text-[#8c8c8c] font-sans">Adjust functional scopes for this API key</span>
+              </div>
+              <PermissionTable 
+                value={editPermissions} 
+                onChange={setEditPermissions}
+                disabled={disabledPermissions}
               />
             </div>
 
-            <div>
-              <label className="block text-[13px] font-medium text-[#8c8c8c] mb-1.5 font-sans">
-                New Password <span className="text-[13px] text-[#555555] font-normal">(leave blank to keep current)</span>
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••••••"
-                value={editPassword}
-                onChange={(e) => setEditPassword(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl border border-[#262626] bg-[#141414] hover:border-[#383838] focus:border-[#2f80ed] text-[14px] text-white placeholder-[#555555] outline-none transition-colors font-sans"
-              />
-            </div>
-
-            {/* Permissions */}
-            {editingUser?.id !== 1 ? (
-              <div className="pt-2 font-sans">
-                <div className="mb-2 font-sans">
-                  <span className="text-[14px] font-medium text-white block font-sans">Permissions</span>
-                  <span className="text-[13px] text-[#8c8c8c] font-sans">Adjust functional scopes for this member</span>
-                </div>
-                <PermissionTable value={editPermissions} onChange={setEditPermissions} />
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-xl bg-[#141414] border border-[#262626] font-sans">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span className="text-[14px] font-medium text-amber-500 font-sans">System Owner Account</span>
-                </div>
-                <p className="text-[13px] text-[#8c8c8c] mt-1 leading-relaxed font-sans">
-                  The primary system owner account automatically possesses all permissions across processes, terminal, users, and security settings.
-                </p>
-              </div>
-            )}
-
-            {/* Account Management & Security Actions */}
+            {/* Security & Key Control Action Section matching Users */}
             <div className="pt-2 space-y-3 font-sans">
-              <span className="text-[14px] font-medium text-white block font-sans">Security & Account Control</span>
+              <span className="text-[14px] font-medium text-white block font-sans">Security & Key Control</span>
 
-              {/* Account Status / Disable Account Action */}
-              {editingUser && editingUser.id !== 1 && isOwner() && (
-                editingUser?.locked_until && new Date(editingUser.locked_until) > new Date() ? (
+              {/* Disable / Enable Action */}
+              {editingToken && (currentUser?.permissions?.api_keys_disable || isOwner()) && (
+                editingToken.is_disabled ? (
                   <div className="flex items-center justify-between p-3 rounded-xl bg-[#141414] border border-[#262626] font-sans">
                     <div>
-                      <span className="text-[14px] font-medium text-white block font-sans">Account Disabled</span>
-                      <span className="text-[13px] text-[#8c8c8c] font-sans">User login is currently blocked</span>
+                      <span className="text-[14px] font-medium text-white block font-sans">API Key Disabled</span>
+                      <span className="text-[13px] text-[#8c8c8c] font-sans">Requests using this key are currently blocked</span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleToggleUserStatus(editingUser, false)}
+                      onClick={() => handleToggleTokenStatus(editingToken, false)}
                       className="group relative inline-flex items-center justify-center h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#257850] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
                     >
                       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#30a46c] to-[#247c52] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)] opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                       <span className="relative z-10">Enable</span>
                     </button>
                   </div>
-                ) : editingUser?.id !== currentUser?.id ? (
+                ) : (
                   <div className="flex items-center justify-between p-3 rounded-xl bg-[#141414] border border-[#262626] font-sans">
                     <div>
-                      <span className="text-[14px] font-medium text-white block font-sans">Disable Account</span>
-                      <span className="text-[13px] text-[#8c8c8c] font-sans">Temporarily suspend this member's access</span>
+                      <span className="text-[14px] font-medium text-white block font-sans">Disable API Key</span>
+                      <span className="text-[13px] text-[#8c8c8c] font-sans">Temporarily suspend access for this token</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        setDisableTarget({ user: editingUser!, disable: true });
-                        setEditingUser(null);
+                        setDisableTarget({ token: editingToken!, disable: true });
+                        setEditingToken(null);
                       }}
                       className="group relative inline-flex items-center justify-center h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#b45309] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
                     >
@@ -1725,47 +1739,26 @@ export const Users: React.FC = () => {
                       <span className="relative z-10">Disable</span>
                     </button>
                   </div>
-                ) : null
+                )
               )}
 
-              {/* Force Remove 2FA Action */}
-              {editingUser?.has_2fa && (
+              {/* Revoke API Key Action */}
+              {(currentUser?.permissions?.api_keys_delete || isOwner()) && (
                 <div className="flex items-center justify-between p-3 rounded-xl bg-[#141414] border border-[#262626] font-sans">
                   <div>
-                    <span className="text-[14px] font-medium text-white block font-sans">Two-Factor Authentication</span>
-                    <span className="text-[13px] text-[#8c8c8c] font-sans">Disable if user lost their authenticator device</span>
+                    <span className="text-[14px] font-medium text-white block font-sans">Revoke API Key</span>
+                    <span className="text-[13px] text-[#8c8c8c] font-sans">Permanently invalidate and revoke this token</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      setRemove2faTarget(editingUser);
-                      setEditingUser(null);
+                      setDeleteTarget(editingToken);
+                      setEditingToken(null);
                     }}
                     className="group relative inline-flex items-center justify-center h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#b91c1c] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
                   >
                     <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
-                    <span className="relative z-10">Reset 2FA</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Delete Member Action (Only for non-owner, non-self) */}
-              {editingUser?.id !== 1 && editingUser?.id !== currentUser?.id && isOwner() && (
-                <div className="flex items-center justify-between p-3 rounded-xl bg-[#141414] border border-[#262626] font-sans">
-                  <div>
-                    <span className="text-[14px] font-medium text-white block font-sans">Delete Account</span>
-                    <span className="text-[13px] text-[#8c8c8c] font-sans">Permanently revoke this member's access</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDeleteTarget(editingUser);
-                      setEditingUser(null);
-                    }}
-                    className="group relative inline-flex items-center justify-center h-8 px-3 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-[#181818] border border-[#282828] hover:border-[#b91c1c] overflow-hidden transition-all duration-150 cursor-pointer font-sans shadow-xs"
-                  >
-                    <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#ef4444] to-[#dc2626] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
-                    <span className="relative z-10">Delete</span>
+                    <span className="relative z-10">Revoke</span>
                   </button>
                 </div>
               )}
@@ -1775,12 +1768,12 @@ export const Users: React.FC = () => {
           {/* Pinned Bottom Footer Bar */}
           <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-between font-sans">
             <span className="text-[13px] text-[#8c8c8c] font-sans">
-              {editingUser?.id === 1 ? 'All scopes enabled' : `${countGrantedPermissions(editPermissions)} of 21 granted`}
+              {countGrantedPermissions(editPermissions)} of 21 granted
             </span>
             <div className="flex items-center gap-2 font-sans">
               <button
                 type="button"
-                onClick={() => setEditingUser(null)}
+                onClick={() => setEditingToken(null)}
                 className="inline-flex items-center justify-center h-9 px-4 rounded-xl text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#161616] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
               >
                 Cancel
@@ -1801,18 +1794,74 @@ export const Users: React.FC = () => {
         </form>
       </SlideOver>
 
+      {/* API Token Created Reveal Modal */}
+      <Dialog
+        isOpen={generatedToken !== null}
+        onClose={() => setGeneratedToken(null)}
+        title="API Key Created"
+      >
+        <div className="space-y-4 font-sans">
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[13px] leading-relaxed font-sans">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              <strong>Important:</strong> Copy your new API key now. It will not be shown again for security reasons.
+            </span>
+          </div>
+
+          <div className="relative">
+            <input
+              type="text"
+              readOnly
+              value={generatedToken || ''}
+              className="w-full h-10 pl-3 pr-24 font-mono text-[14px] rounded-xl border border-[#262626] bg-[#141414] text-white select-all focus:outline-none focus:border-[#383838] transition-colors"
+            />
+            <button
+              type="button"
+              onClick={handleCopyToken}
+              className="absolute right-1 top-1 h-8 px-3 rounded-md text-[13px] font-medium text-[#cccccc] hover:text-white bg-[#1a1a1a] border border-[#2e2e2e] hover:border-[#444444] transition-colors cursor-pointer flex items-center gap-1.5 font-sans"
+            >
+              {tokenCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-[#30a46c]" />
+                  <span className="text-[#30a46c]">Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-[#8c8c8c]" />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="flex justify-end pt-2 font-sans">
+            <button
+              type="button"
+              onClick={() => setGeneratedToken(null)}
+              className="group relative flex shrink-0 items-center justify-center h-9 px-4 rounded-xl font-medium text-white shadow-xs outline-none cursor-pointer overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
+            >
+              <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
+              <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />
+              <span className="relative flex items-center text-[14px] font-sans">
+                Done
+              </span>
+            </button>
+          </div>
+        </div>
+      </Dialog>
+
       {/* Confirmation Dialogs */}
       <ConfirmDialog
         isOpen={disableTarget !== null}
         onClose={() => setDisableTarget(null)}
-        onConfirm={() => disableTarget && handleToggleUserStatus(disableTarget.user, disableTarget.disable)}
-        title={disableTarget?.disable ? 'Disable Member Account' : 'Enable Member Account'}
+        onConfirm={() => disableTarget && handleToggleTokenStatus(disableTarget.token, disableTarget.disable)}
+        title={disableTarget?.disable ? 'Disable API Key' : 'Enable API Key'}
         message={
           disableTarget?.disable
-            ? `Are you sure you want to disable "${disableTarget?.user.username}"? Their active sessions will be terminated immediately, and they will be blocked from logging in.`
-            : `Are you sure you want to enable "${disableTarget?.user.username}"? They will be able to log in normally again.`
+            ? `Are you sure you want to disable "${disableTarget?.token.name}"? Any applications or services using this token will be blocked immediately.`
+            : `Are you sure you want to enable "${disableTarget?.token.name}"? Applications using it will be able to make requests normally again.`
         }
-        confirmLabel={disableTarget?.disable ? 'Disable Account' : 'Enable Account'}
+        confirmLabel={disableTarget?.disable ? 'Disable Key' : 'Enable Key'}
         variant={disableTarget?.disable ? 'danger' : 'primary'}
         isLoading={dialogLoading}
       />
@@ -1823,25 +1872,14 @@ export const Users: React.FC = () => {
           setDeleteTarget(null);
           setIsBulkDeleting(false);
         }}
-        onConfirm={confirmDeleteUser}
-        title={isBulkDeleting ? `Delete ${selectedIds.length} Member Accounts` : 'Delete Member Account'}
+        onConfirm={confirmDeleteToken}
+        title={isBulkDeleting ? `Revoke ${selectedIds.length} API Keys` : 'Revoke API Key'}
         message={
           isBulkDeleting
-            ? `Are you sure you want to permanently delete ${selectedIds.length} member accounts? This action cannot be undone.`
-            : `Are you sure you want to permanently delete member "${deleteTarget?.username}"? This action cannot be undone.`
+            ? `Are you sure you want to permanently revoke ${selectedIds.length} API keys? Any applications or services using these tokens will lose access immediately.`
+            : `Are you sure you want to permanently revoke the API key "${deleteTarget?.name}"? Any applications using it will lose access immediately.`
         }
-        confirmLabel={isBulkDeleting ? `Delete ${selectedIds.length} Members` : 'Delete User'}
-        variant="danger"
-        isLoading={dialogLoading}
-      />
-
-      <ConfirmDialog
-        isOpen={remove2faTarget !== null}
-        onClose={() => setRemove2faTarget(null)}
-        onConfirm={confirmRemove2fa}
-        title="Force Remove 2FA"
-        message={`This will immediately disable 2FA for "${remove2faTarget?.username}". Use this only if the user has lost access to their authenticator device.`}
-        confirmLabel="Disable 2FA"
+        confirmLabel={isBulkDeleting ? `Revoke ${selectedIds.length} Keys` : 'Revoke Key'}
         variant="danger"
         isLoading={dialogLoading}
       />
