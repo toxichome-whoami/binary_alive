@@ -260,6 +260,15 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   
   const [selectedRangeLabel, setSelectedRangeLabel] = useState('Live (60s)');
   const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [minDate, setMinDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    processesApi.getTelemetryBounds().then(res => {
+      if (res.success && res.data && res.data.min_time) {
+        setMinDate(new Date(res.data.min_time + "Z"));
+      }
+    }).catch(console.error);
+  }, []);
   
   
 
@@ -552,6 +561,7 @@ return (
         <div className="flex items-center gap-2">
             <DateRangePicker
               selectedRangeLabel={selectedRangeLabel}
+              minDate={minDate}
               onRangeChange={(label, start, end) => {
                 setSelectedRangeLabel(label);
                 if (label === 'Live (60s)') {
@@ -1348,24 +1358,12 @@ return (
                       <linearGradient id="drawerSparklineGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop
                           offset="0%"
-                          stopColor={
-                            selectedMetric === 'restarts'
-                              ? '#f59e0b'
-                              : selectedMetric === 'active' || selectedMetric === 'load' || selectedMetric === 'uptime'
-                              ? '#30a46c'
-                              : '#2f80ed'
-                          }
+                          stopColor='#2f80ed'
                           stopOpacity="0.28"
                         />
                         <stop
                           offset="100%"
-                          stopColor={
-                            selectedMetric === 'restarts'
-                              ? '#f59e0b'
-                              : selectedMetric === 'active' || selectedMetric === 'load' || selectedMetric === 'uptime'
-                              ? '#30a46c'
-                              : '#2f80ed'
-                          }
+                          stopColor='#2f80ed'
                           stopOpacity="0.0"
                         />
                       </linearGradient>
@@ -1381,13 +1379,7 @@ return (
                     <path
                       d={selectedMetric ? generateGraphPaths(selectedMetric, 220, 48, getGraphData(selectedMetric)).line : ''}
                       fill="none"
-                      stroke={
-                        selectedMetric === 'restarts'
-                          ? '#f59e0b'
-                          : selectedMetric === 'active' || selectedMetric === 'load' || selectedMetric === 'uptime'
-                          ? '#30a46c'
-                          : '#2f80ed'
-                      }
+                      stroke='#2f80ed'
                       strokeWidth="1.75"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -1415,13 +1407,7 @@ return (
                           return 48 - ((val / maxVal) * (48 - 20));
                         })()}
                         r="2.5" 
-                      fill={
-                        selectedMetric === 'restarts'
-                          ? '#f59e0b'
-                          : selectedMetric === 'active' || selectedMetric === 'load' || selectedMetric === 'uptime'
-                          ? '#30a46c'
-                          : '#2f80ed'
-                      }
+                      fill='#2f80ed'
                     />
                   </svg>
                 </div>

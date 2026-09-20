@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getAuditLogs, getLoginLogs, getTerminalLogs } from '../db/logs.js';
+import { getAuditLogs, getLoginLogs, getTerminalLogs, getLogMetrics, getLogBounds } from '../db/logs.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 
 export const logRouter = new Hono();
@@ -13,7 +13,9 @@ logRouter.get('/audit', requirePermission('logs_view_audit'), async (c) => {
   const search = c.req.query('search') || '';
   const sort = c.req.query('sort') || 'timestamp';
   const dir = c.req.query('dir') || 'desc';
-  const result = await getAuditLogs(page, limit, search, sort, dir);
+  const start = c.req.query('start');
+  const end = c.req.query('end');
+  const result = await getAuditLogs(page, limit, search, sort, dir, start, end);
   return c.json({ success: true, data: result });
 });
 
@@ -24,7 +26,9 @@ logRouter.get('/login', requirePermission('logs_view_login'), async (c) => {
   const search = c.req.query('search') || '';
   const sort = c.req.query('sort') || 'timestamp';
   const dir = c.req.query('dir') || 'desc';
-  const result = await getLoginLogs(page, limit, search, sort, dir);
+  const start = c.req.query('start');
+  const end = c.req.query('end');
+  const result = await getLoginLogs(page, limit, search, sort, dir, start, end);
   return c.json({ success: true, data: result });
 });
 
@@ -35,6 +39,22 @@ logRouter.get('/terminal', requirePermission('logs_view_terminal'), async (c) =>
   const search = c.req.query('search') || '';
   const sort = c.req.query('sort') || 'timestamp';
   const dir = c.req.query('dir') || 'desc';
-  const result = await getTerminalLogs(page, limit, search, sort, dir);
+  const start = c.req.query('start');
+  const end = c.req.query('end');
+  const result = await getTerminalLogs(page, limit, search, sort, dir, start, end);
+  return c.json({ success: true, data: result });
+});
+
+
+// Metrics
+logRouter.get('/metrics', requirePermission('logs_view_audit'), async (c) => {
+  const start = c.req.query('start');
+  const end = c.req.query('end');
+  const result = await getLogMetrics(start, end);
+  return c.json({ success: true, data: result });
+});
+
+logRouter.get('/bounds', requirePermission('logs_view_audit'), async (c) => {
+  const result = await getLogBounds();
   return c.json({ success: true, data: result });
 });

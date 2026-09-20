@@ -17,26 +17,20 @@ export interface DateRangePickerProps {
   selectedRangeLabel?: string;
   onRangeChange?: (label: string, start?: Date, end?: Date) => void;
   className?: string;
+  minDate?: Date | null;
 }
 
 export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   selectedRangeLabel: initialLabel = 'Live (60s)',
   onRangeChange,
   className = '',
+  minDate = null,
 }) => {
   const datePickerRef = useRef<HTMLDivElement>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedRangeLabel, setSelectedRangeLabel] = useState(initialLabel);
   const [activePreset, setActivePreset] = useState(initialLabel);
-  const [minDate, setMinDate] = useState<Date | null>(null);
-
-  useEffect(() => {
-    processesApi.getTelemetryBounds().then(res => {
-      if (res.success && res.data && res.data.min_time) {
-        setMinDate(new Date(res.data.min_time + "Z"));
-      }
-    }).catch(console.error);
-  }, []);
+  // minDate is now controlled by props
 
   const [customRangeQuery, setCustomRangeQuery] = useState('');
 
@@ -86,6 +80,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
 
   const handleDayClick = (dayDate: Date) => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (dayDate > today) return;
     if (minDate && dayDate < new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate())) return;
 
     setActivePreset('');
@@ -305,10 +302,15 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                               
                               {(() => {
                                 let isDisabled = false;
+                                const todayDate = new Date();
+                                const todayStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
+                                const itemStart = new Date(item.date.getFullYear(), item.date.getMonth(), item.date.getDate());
+                                
+                                if (itemStart > todayStart) isDisabled = true;
+                                
                                 if (minDate) {
-                                  const dayStart = new Date(item.date.getFullYear(), item.date.getMonth(), item.date.getDate());
                                   const minDay = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
-                                  if (dayStart < minDay) isDisabled = true;
+                                  if (itemStart < minDay) isDisabled = true;
                                 }
                                 
                                 if (isDisabled) {
@@ -350,16 +352,27 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
               <div className="relative w-full border-t sm:w-[154px] sm:shrink-0 sm:border-t-0 sm:border-l border-[#222222] p-1.5 flex flex-col gap-0.5 justify-center">
                 {DATE_PRESETS.map((preset) => {
                   const isSelected = activePreset === preset.label;
+                  let isDisabled = false;
+                  if (minDate && preset.minutes > 0) {
+                    const presetStart = new Date(Date.now() - preset.minutes * 60 * 1000);
+                    if (presetStart < minDate) {
+                      isDisabled = true;
+                    }
+                  }
                   return (
                     <button
                       key={preset.label}
                       type="button"
+                      disabled={isDisabled}
                       onClick={() => handleSelectPreset(preset.label, preset.minutes)}
-                      className={`flex w-full px-2.5 py-1.5 text-[14px] rounded-md items-center justify-between text-left transition-colors cursor-pointer font-sans whitespace-nowrap ${
-                        isSelected
-                          ? 'bg-[#1f1f1f] text-white font-medium'
-                          : 'text-[#a0a0a0] hover:text-white hover:bg-[#161616]'
+                      className={`flex w-full px-2.5 py-1.5 text-[14px] rounded-md items-center justify-between text-left transition-colors font-sans whitespace-nowrap ${
+                        isDisabled
+                          ? 'opacity-50 cursor-not-allowed text-[#555]'
+                          : isSelected
+                            ? 'bg-[#1f1f1f] text-white font-medium cursor-pointer'
+                            : 'text-[#a0a0a0] hover:text-white hover:bg-[#161616] cursor-pointer'
                       }`}
+                      title={isDisabled ? 'No data available for this range' : ''}
                     >
                       <span>{preset.label}</span>
                     </button>
@@ -381,9 +394,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                     <input
                       type="text"
                       value={formatDateTime(rangeStart)}
-                      onChange={() => {}}
+                      readOnly
                       placeholder="yyyy-MM-dd HH:mm"
-                      className="w-full bg-transparent text-[14px] text-white outline-none font-sans"
+                      className="w-full bg-transparent text-[14px] text-white outline-none font-sans cursor-default opacity-80"
                     />
                   </div>
                 </div>
@@ -393,15 +406,15 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   <label className="text-[#8c8c8c] text-[14px] mb-1 font-sans">End</label>
                   <div className="flex items-center h-9 px-2.5 rounded-lg bg-[#141414] border border-[#262626] focus-within:border-[#2f80ed] transition-colors gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 256 256" className="text-[#8c8c8c] shrink-0">
-                      <path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-68-76a12,12,0,1,1-12-12A12,12,0,0,1,140,132Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,132ZM96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,140,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z" />
+                      <path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-68-76a12,12,0,1,1-12-12A12,12,0,0,1,140,132Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,132Zm96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,140,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z" />
                     </svg>
-                    <input
-                      type="text"
-                      value={formatDateTime(rangeEnd)}
-                      onChange={() => {}}
-                      placeholder="yyyy-MM-dd HH:mm"
-                      className="w-full bg-transparent text-[14px] text-white outline-none font-sans"
-                    />
+                      <input
+                        type="text"
+                        value={formatDateTime(rangeEnd)}
+                        readOnly
+                        placeholder="yyyy-MM-dd HH:mm"
+                        className="w-full bg-transparent text-[14px] text-white outline-none font-sans cursor-default opacity-80"
+                      />
                   </div>
                 </div>
               </div>

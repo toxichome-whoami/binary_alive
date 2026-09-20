@@ -231,6 +231,18 @@ export const Logs: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<string>('timestamp');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [selectedRangeLabel, setSelectedRangeLabel] = useState('Live (60s)');
+  const [startDate, setStartDate] = useState<string | undefined>(undefined);
+  const [endDate, setEndDate] = useState<string | undefined>(undefined);
+  const [minDate, setMinDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    logsApi.getBounds().then(res => {
+      if (res.success && res.data && res.data.min_time) {
+        setMinDate(new Date(res.data.min_time + "Z"));
+      }
+    }).catch(console.error);
+  }, []);
 
   // Filter and display options state
   const [showFilters, setShowFilters] = useState(false);
@@ -555,19 +567,19 @@ export const Logs: React.FC = () => {
       if (showSpinner) setIsLoading(true);
       try {
         if (activeTab === 'audit') {
-          const res = await logsApi.getAuditLogs(page, pageSize);
+          const res = await logsApi.getAuditLogs(page, pageSize, searchQuery, sortField, sortDirection, startDate, endDate);
           if (res.success && res.data && res.data.data) {
             setAuditLogs(res.data.data);
             setTotalAuditItems(res.data.total);
           }
         } else if (activeTab === 'login') {
-          const res = await logsApi.getLoginLogs(page, pageSize);
+          const res = await logsApi.getLoginLogs(page, pageSize, searchQuery, sortField, sortDirection, startDate, endDate);
           if (res.success && res.data && res.data.data) {
             setLoginLogs(res.data.data);
             setTotalLoginItems(res.data.total);
           }
         } else if (activeTab === 'terminal') {
-          const res = await logsApi.getTerminalLogs(page, pageSize);
+          const res = await logsApi.getTerminalLogs(page, pageSize, searchQuery, sortField, sortDirection, startDate, endDate);
           if (res.success && res.data && res.data.data) {
             setTermLogs(res.data.data);
             setTotalTermItems(res.data.total);
@@ -580,7 +592,7 @@ export const Logs: React.FC = () => {
         setIsRefreshing(false);
       }
     },
-    [activeTab, page, pageSize]
+    [activeTab, page, pageSize, searchQuery, sortField, sortDirection, startDate, endDate, pushToast]
   );
 
   useEffect(() => {
@@ -824,121 +836,152 @@ export const Logs: React.FC = () => {
   const paginatedTermLogs = termLogs;
 
   // Telemetry metrics
-  const metrics = useMemo(() => {
-    const totalAudit = auditLogs.length;
-    const totalLogin = loginLogs.length;
-    const totalTerminal = termLogs.length;
-    const total = totalAudit + totalLogin + totalTerminal;
+    const [realMetrics, setRealMetrics] = useState({
+    totalEvents: 0,
+    authRate: 100,
+    failedLogins: 0,
+    mutations: 0,
+    uniqueUsers: 0,
+    auditDays: [] as any[],
+    authDays: [] as any[],
+    mutationDays: [] as any[],
+    userDays: [] as any[]
+  });
+  
+  useEffect(() => {
+    logsApi.getMetrics(startDate, endDate).then(res => {
+      if (res.success && res.data) setRealMetrics(res.data);
+    }).catch(e => console.error(e));
+  }, [startDate, endDate]);
 
-    const successfulLogins = loginLogs.filter((l) => Boolean(l.is_successful)).length;
-    const failedLogins = loginLogs.filter((l) => !Boolean(l.is_successful)).length;
-    const authRate = totalLogin > 0 ? ((successfulLogins / totalLogin) * 100).toFixed(1) : '—';
-
-    const mutations = auditLogs.filter(
-      (l) =>
-        l.action.includes('restart') ||
-        l.action.includes('start') ||
-        l.action.includes('stop') ||
-        l.action.includes('update') ||
-        l.action.includes('create')
-    ).length;
-
-    const uniqueUsers = new Set([
-      ...auditLogs.map((l) => l.username),
-      ...loginLogs.map((l) => l.username),
-      ...termLogs.map((l) => l.username),
-    ]).size;
-
-    const auditPct = total > 0 ? ((totalAudit / total) * 100).toFixed(1) : '0';
-    const loginPct = total > 0 ? ((totalLogin / total) * 100).toFixed(1) : '0';
-    const termPct = total > 0 ? Math.max(0, 100 - parseFloat(auditPct) - parseFloat(loginPct)).toFixed(1) : '0';
-
+  // Utility for dynamic badges based on daily series
+  const getBadgeFromSeries = (series: any[], inverted = false) => {
+    if (!series || series.length < 2) return { text: '0%', icon: 'none' as const, color: '#8c8c8c' };
+    const current = series[0].c || 0;
+    const prev = series[1].c || 0;
+    const diff = current - prev;
+    if (diff === 0) return { text: '0%', icon: 'none' as const, color: '#8c8c8c' };
+    const pct = prev === 0 ? 100 : (diff / prev) * 100;
+    
+    let isGood = diff > 0;
+    if (inverted) isGood = diff < 0;
+    
     return {
-      total,
-      totalAudit,
-      totalLogin,
-      totalTerminal,
-      successfulLogins,
-      failedLogins,
-      authRate,
-      mutations,
-      uniqueUsers,
-      auditPct,
-      loginPct,
-      termPct,
+      text: `${diff > 0 ? '+' : ''}${pct.toFixed(1)}%`,
+      icon: (diff > 0 ? 'up' : 'down') as 'up' | 'down',
+      color: isGood ? '#30a46c' : '#e5484d',
     };
-  }, [auditLogs, loginLogs, termLogs]);
+  };
+
+  // Convert daily counts to a smooth SVG path
+  const generateTrendPath = (series: any[], width = 1000, height = 90, yOffset = 30) => {
+    if (!series || series.length === 0) {
+      return {
+        pathD: `M 0,${height + yOffset} L ${width},${height + yOffset}`,
+        fillD: `M 0,${height + yOffset} L ${width},${height + yOffset} L ${width},130 L 0,130 Z`,
+        maxVal: 1,
+        data: [],
+        labels: []
+      };
+    }
+    
+    // Reverse because query returns DESC (newest first), but graph is left-to-right (oldest to newest)
+    const reversed = [...series].reverse();
+    const data = reversed.map(d => d.c);
+    const labels = reversed.map(d => d.day);
+    
+    const maxVal = Math.max(...data, 10);
+    const stepX = width / Math.max(data.length - 1, 1);
+    
+    let line = '';
+    reversed.forEach((d, i) => {
+      const x = i * stepX;
+      let rawY = (height + yOffset) - ((d.c / maxVal) * height);
+      if (d.c === 0) rawY = height + yOffset;
+      
+      if (i === 0) line += `M ${x.toFixed(1)},${rawY.toFixed(1)}`;
+      else line += ` L ${x.toFixed(1)},${rawY.toFixed(1)}`;
+    });
+    
+    let fill = line;
+    fill += ` L ${width.toFixed(1)},130 L 0,130 Z`;
+    
+    return { pathD: line, fillD: fill, maxVal, data, labels };
+  };
+
+  const auditTrend = useMemo(() => generateTrendPath(realMetrics.auditDays || []), [realMetrics.auditDays]);
+  const authTrend = useMemo(() => generateTrendPath(realMetrics.authDays || []), [realMetrics.authDays]);
+  const mutationTrend = useMemo(() => generateTrendPath(realMetrics.mutationDays || []), [realMetrics.mutationDays]);
+  const userTrend = useMemo(() => generateTrendPath(realMetrics.userDays || []), [realMetrics.userDays]);
+
+
 
   // --------------------------------------------------------------------------
   // Telemetry Hover Compute Resolvers (exact polynomial Bezier / spike curves)
   // --------------------------------------------------------------------------
-  const computeTotalEventsHover = (pct: number, svgX: number) => {
-    let y = 82;
-    if (svgX <= 280) {
-      y = cubicBezierY(svgX, [0, 82], [120, 82], [180, 48], [280, 48]);
-    } else if (svgX <= 540) {
-      y = cubicBezierY(svgX, [280, 48], [380, 48], [440, 90], [540, 90]);
-    } else if (svgX <= 840) {
-      y = cubicBezierY(svgX, [540, 90], [660, 90], [740, 35], [840, 35]);
-    } else {
-      y = cubicBezierY(svgX, [840, 35], [910, 35], [960, 65], [1000, 65]);
+  const getHoverData = (pct: number, trendData: any) => {
+    if (!trendData || trendData.data.length === 0) return { pct, yPct: 1, time: 'No data', value: '0' };
+    
+    const len = trendData.data.length;
+    if (len === 1) {
+      const val = trendData.data[0];
+      const rawY = 120 - ((val / trendData.maxVal) * 90);
+      return { pct, yPct: val === 0 ? 120 / 130 : rawY / 130, time: 'Today', value: `${val}` };
     }
-    const count = Math.max(1, Math.round(((116 - y) / (116 - 35)) * (metrics.total || 45)));
-    return { pct, yPct: y / 130, time: formatTimeFromPct(pct), value: `${count} events` };
-  };
-
-  const computeAuthRateHover = (pct: number, svgX: number) => {
-    let y = 32;
-    if (svgX <= 340) {
-      y = cubicBezierY(svgX, [0, 32], [150, 32], [220, 28], [340, 28]);
-    } else if (svgX <= 640) {
-      y = cubicBezierY(svgX, [340, 28], [460, 28], [520, 38], [640, 38]);
-    } else if (svgX <= 920) {
-      y = cubicBezierY(svgX, [640, 38], [750, 38], [820, 22], [920, 22]);
-    } else {
-      y = cubicBezierY(svgX, [920, 22], [960, 22], [980, 26], [1000, 26]);
-    }
-    const rate = Math.min(100, Math.max(92, 100 - ((y - 22) / (38 - 22)) * 6.5)).toFixed(1);
-    return { pct, yPct: y / 130, time: formatTimeFromPct(pct), value: `${rate}% rate` };
-  };
-
-  const computeMutationsHover = (pct: number, svgX: number) => {
-    let y = 116;
-    let count = 0;
-    const spikes = [
-      { start: 240, mid: 255, end: 270, peakY: 42, ops: 8 },
-      { start: 520, mid: 535, end: 550, peakY: 28, ops: 15 },
-      { start: 790, mid: 805, end: 820, peakY: 60, ops: 5 },
-    ];
-    for (const s of spikes) {
-      if (svgX >= s.start && svgX <= s.mid) {
-        const t = (svgX - s.start) / (s.mid - s.start);
-        y = 116 + t * (s.peakY - 116);
-        count = Math.round(t * s.ops);
-        break;
-      } else if (svgX > s.mid && svgX <= s.end) {
-        const t = (svgX - s.mid) / (s.end - s.mid);
-        y = s.peakY + t * (116 - s.peakY);
-        count = Math.round((1 - t) * s.ops);
-        break;
+    
+    // The SVG points are at exactly i / (len - 1)
+    const exactIdx = pct * (len - 1);
+    const idx1 = Math.floor(exactIdx);
+    const idx2 = Math.min(idx1 + 1, len - 1);
+    const remainder = exactIdx - idx1;
+    
+    // Interpolate value visually to keep dot glued to the line
+    const val1 = trendData.data[idx1];
+    const val2 = trendData.data[idx2];
+    const visualVal = val1 + (val2 - val1) * remainder;
+    
+    // For tooltip text, use the closest data point
+    const closestIdx = remainder > 0.5 ? idx2 : idx1;
+    const tooltipVal = trendData.data[closestIdx];
+    
+    const rawY = 120 - ((visualVal / trendData.maxVal) * 90);
+    const yPct = visualVal === 0 ? 120 / 130 : rawY / 130;
+    
+    const daysAgo = (len - 1) - closestIdx;
+    
+    let timeStr = daysAgo === 0 ? 'Today' : `${daysAgo}d ago`;
+    if (trendData.labels && trendData.labels[closestIdx]) {
+      const lbl = trendData.labels[closestIdx];
+      // Try to format nice if it has time
+      if (lbl.includes(' ')) {
+        const timePart = lbl.split(' ')[1];
+        timeStr = timePart; // e.g. "14:30"
+      } else {
+        timeStr = lbl; // e.g. "2023-10-01"
       }
     }
-    return { pct, yPct: y / 130, time: formatTimeFromPct(pct), value: `${count} ops` };
+    
+    return { pct, yPct, time: timeStr, value: `${tooltipVal}` };
   };
 
-  const computePrincipalsHover = (pct: number, svgX: number) => {
-    let y = 95;
-    if (svgX <= 320) {
-      y = cubicBezierY(svgX, [0, 95], [140, 95], [200, 60], [320, 60]);
-    } else if (svgX <= 620) {
-      y = cubicBezierY(svgX, [320, 60], [440, 60], [500, 85], [620, 85]);
-    } else if (svgX <= 920) {
-      y = cubicBezierY(svgX, [640, 38], [750, 38], [820, 40], [920, 40]);
-    } else {
-      y = cubicBezierY(svgX, [920, 40], [960, 40], [980, 52], [1000, 52]);
-    }
-    const count = Math.max(1, Math.round(((116 - y) / (116 - 40)) * (metrics.uniqueUsers || 4)));
-    return { pct, yPct: y / 130, time: formatTimeFromPct(pct), value: `${count} active` };
+  const computeTotalEventsHover = (pct: number) => {
+    const d = getHoverData(pct, auditTrend);
+    return { ...d, value: `${d.value} events` };
+  };
+
+  const computeAuthRateHover = (pct: number) => {
+    const d = getHoverData(pct, authTrend);
+    return { ...d, value: `${Number(d.value).toFixed(1)}%` };
+  };
+
+  const computeMutationsHover = (pct: number) => {
+    const d = getHoverData(pct, mutationTrend);
+    return { ...d, value: `${d.value} mutations` };
+  };
+
+  const computePrincipalsHover = (pct: number) => {
+    const d = getHoverData(pct, userTrend);
+    return { ...d, value: `${d.value} active` };
   };
 
   // Copy JSON payload
@@ -1287,7 +1330,16 @@ export const Logs: React.FC = () => {
 
         {/* Date Range Picker Popover trigger + Reload Button */}
         <div className="flex items-center gap-2">
-          <DateRangePicker />
+          <DateRangePicker 
+            selectedRangeLabel={selectedRangeLabel}
+            minDate={minDate}
+            onRangeChange={(label, start, end) => {
+              setSelectedRangeLabel(label);
+              setStartDate(start ? start.toISOString() : undefined);
+              setEndDate(end ? end.toISOString() : undefined);
+              setPage(1);
+            }}
+          />
 
           {/* Reload button */}
           <button
@@ -1319,11 +1371,12 @@ export const Logs: React.FC = () => {
         {/* Card 1: Total Events */}
         <TelemetryCard
           title="Total Events"
-          value={metrics.total.toLocaleString()}
-          badge={{ text: '+8.4%', icon: 'up', color: '#30a46c' }}
-          strokeColor="#3E8EFF"
-          gradientId="total-events-grad"
-          pathD="M 0,82 C 120,82 180,48 280,48 C 380,48 440,90 540,90 C 660,90 740,35 840,35 C 910,35 960,65 1000,65"
+          value={realMetrics.totalEvents.toLocaleString()}
+          badge={getBadgeFromSeries(realMetrics.auditDays, true)}
+            strokeColor="#3E8EFF"
+            gradientId="total-events-grad"
+            pathD={auditTrend.pathD}
+            fillD={auditTrend.fillD}
           yAxisLabels={['250', '150', '50', '0']}
           tooltipMetricName="Total events"
           onHoverCompute={computeTotalEventsHover}
@@ -1332,12 +1385,13 @@ export const Logs: React.FC = () => {
         {/* Card 2: Auth Success Rate */}
         <TelemetryCard
           title="Auth Success Rate"
-          value={metrics.authRate !== '—' ? `${metrics.authRate}%` : '100%'}
-          subLabel={`/ ${metrics.failedLogins} blocked`}
-          badge={{ text: '99.4%', icon: 'up', color: '#30a46c', mlAuto: true }}
-          strokeColor="#30a46c"
-          gradientId="auth-rate-grad"
-          pathD="M 0,32 C 150,32 220,28 340,28 C 460,28 520,38 640,38 C 750,38 820,22 920,22 C 960,22 980,26 1000,26"
+          value={realMetrics.authRate !== 100 ? `${realMetrics.authRate}%` : '100%'}
+          subLabel={`/ ${realMetrics.failedLogins} blocked`}
+          badge={{ ...getBadgeFromSeries(realMetrics.authDays), mlAuto: true }}
+            strokeColor="#3E8EFF"
+            gradientId="auth-rate-grad"
+            pathD={authTrend.pathD}
+            fillD={authTrend.fillD}
           yAxisLabels={['100%', '75%', '50%', '0%']}
           tooltipMetricName="Auth rate"
           onHoverCompute={computeAuthRateHover}
@@ -1346,12 +1400,12 @@ export const Logs: React.FC = () => {
         {/* Card 3: Mutations & Ops */}
         <TelemetryCard
           title="Mutations & Ops"
-          value={metrics.mutations}
-          badge={{ text: '-2.1%', icon: 'down', color: '#f59e0b' }}
-          strokeColor="#f59e0b"
-          gradientId="mut-ops-grad"
-          pathD="M 0,116 L 240,116 L 255,42 L 270,116 L 520,116 L 535,28 L 550,116 L 790,116 L 805,60 L 820,116 L 1000,116"
-          fillD="M 0,116 L 240,116 L 255,42 L 270,116 L 520,116 L 535,28 L 550,116 L 790,116 L 805,60 L 820,116 L 1000,116 L 1000,126 L 0,126 Z"
+          value={realMetrics.mutations}
+          badge={getBadgeFromSeries(realMetrics.mutationDays, true)}
+            strokeColor="#3E8EFF"
+            gradientId="mut-ops-grad"
+            pathD={mutationTrend.pathD}
+            fillD={mutationTrend.fillD}
           yAxisLabels={['60', '40', '20', '0']}
           tooltipMetricName="Mutations"
           onHoverCompute={computeMutationsHover}
@@ -1360,11 +1414,12 @@ export const Logs: React.FC = () => {
         {/* Card 4: Active Principals */}
         <TelemetryCard
           title="Active Principals"
-          value={metrics.uniqueUsers}
-          badge={{ text: 'active', icon: 'up', color: '#2f80ed' }}
-          strokeColor="#2f80ed"
-          gradientId="principals-grad"
-          pathD="M 0,95 C 140,95 200,60 320,60 C 440,60 500,85 620,85 C 740,85 820,40 920,40 C 960,40 980,52 1000,52"
+          value={realMetrics.uniqueUsers}
+          badge={getBadgeFromSeries(realMetrics.userDays)}
+            strokeColor="#3E8EFF"
+            gradientId="principals-grad"
+            pathD={userTrend.pathD}
+            fillD={userTrend.fillD}
           yAxisLabels={['60', '40', '20', '0']}
           tooltipMetricName="Active principals"
           onHoverCompute={computePrincipalsHover}
