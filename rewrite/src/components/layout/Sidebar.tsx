@@ -62,28 +62,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { hasPermission } = useAuthStore();
+  const { user, hasPermission } = useAuthStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
-  // Handle Ctrl+K shortcut to focus quick search
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      }
-      if (e.key === 'Escape' && searchQuery) {
-        setSearchQuery('');
-        searchInputRef.current?.blur();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [searchQuery]);
+
 
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => ({
@@ -151,24 +137,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  // Quick search filtering logic
   const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return sections;
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
 
     return sections
       .map((sec) => {
         const filteredItems = sec.items
           .map((item) => {
+            // Unconditionally filter out items the user lacks permission for
             if (item.permission && !hasPermission(item.permission)) return null;
-            const matchesItem = item.label.toLowerCase().includes(q);
+
+            const matchesItem = q ? item.label.toLowerCase().includes(q) : true;
 
             if (item.subRoutes) {
               const matchingSubRoutes = item.subRoutes.filter((sub) => {
-                if ('roles' in sub && sub.permission && !hasPermission(sub.permission)) return false;
+                if (sub.permission && !hasPermission(sub.permission)) return false;
+                
+                if (!q) return true;
                 if (sub.label.toLowerCase().includes(q)) return true;
                 if ('children' in sub && sub.children) {
-                  return sub.children.some((c) => c.label.toLowerCase().includes(q));
+                  return sub.children.some((c) => {
+                    if (c.permission && !hasPermission(c.permission)) return false;
+                    return c.label.toLowerCase().includes(q);
+                  });
                 }
                 return false;
               });
@@ -176,7 +167,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               if (matchesItem || matchingSubRoutes.length > 0) {
                 return {
                   ...item,
-                  subRoutes: matchesItem ? item.subRoutes : matchingSubRoutes,
+                  // If searching and item name matches, keep all (permission-filtered) subroutes
+                  // If searching and item name doesn't match, only keep matching subroutes
+                  subRoutes: (matchesItem && !q) ? matchingSubRoutes : matchingSubRoutes, 
+                  // Wait, actually `matchingSubRoutes` is already permission-filtered.
+                  // Let's just always use `matchingSubRoutes`. If `!q` it contains all permitted subroutes.
                 };
               }
               return null;
@@ -192,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         };
       })
       .filter((sec) => sec.items.length > 0);
-  }, [searchQuery, sections, hasPermission]);
+  }, [searchQuery, sections, hasPermission, user]);
 
   const handleNavigate = (path?: string) => {
     if (path) {
@@ -298,7 +293,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             ) : (
               <div className="relative flex items-center group">
-                <div className="group items-center select-none border-0 rounded-lg bg-[#0c0c0c] text-[#d4d4d4] ring-1 ring-[#262626] focus-within:ring-1 focus-within:ring-[#f6821f] flex h-8 text-sm font-normal shrink-0 w-full overflow-hidden px-3 gap-2.5 transition-all">
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-global-search'))}
+                  className="group items-center select-none border-0 rounded-lg bg-[#0c0c0c] text-[#d4d4d4] ring-1 ring-[#262626] hover:ring-[#f6821f] flex h-8 text-sm font-normal shrink-0 w-full overflow-hidden px-3 gap-2.5 transition-all cursor-pointer text-left"
+                >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="15"
@@ -309,27 +308,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z" />
                   </svg>
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Quick search..."
-                    className="w-full bg-transparent border-none outline-none text-xs text-white placeholder-[#8c8c8c] font-normal"
-                  />
-                  {searchQuery ? (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="text-[#8c8c8c] hover:text-white text-xs p-0.5"
-                    >
-                      ✕
-                    </button>
-                  ) : (
-                    <kbd className="ml-auto font-sans text-xs font-semibold text-[#d4d4d4] whitespace-nowrap select-none pointer-events-none shrink-0">
-                      <span className="text-[#8c8c8c] font-medium">Ctrl</span>&nbsp;K
-                    </kbd>
-                  )}
-                </div>
+                  <span className="w-full text-xs text-[#8c8c8c] font-normal flex-1">Quick search...</span>
+                  <kbd className="ml-auto font-sans text-xs font-semibold text-[#d4d4d4] whitespace-nowrap select-none pointer-events-none shrink-0">
+                    <span className="text-[#8c8c8c] font-medium">Ctrl</span>&nbsp;K
+                  </kbd>
+                </button>
               </div>
             )}
           </div>
@@ -344,13 +327,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => handleNavigate('/dashboard')}
                   title="Dashboard"
                   className={cn(
-                    'group/menu-button relative flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-lg outline-none min-h-[34px] px-3 py-0 text-sm font-medium transition-colors duration-150',
+                    'group/menu-button relative flex w-full min-w-0 cursor-pointer items-center rounded-lg outline-none min-h-[34px] py-0 text-sm font-medium transition-colors duration-150',
+                    isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-3',
                     isCurrentActive('/dashboard') && !searchQuery
                       ? 'bg-[#111111] text-white'
                       : 'text-[#d4d4d4] hover:bg-[#161616] hover:text-white'
                   )}
                 >
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className={cn("flex min-w-0 flex-1 items-center", isCollapsed ? "justify-center" : "gap-3")}>
                     <Home className="w-4 h-4 shrink-0 opacity-50 group-hover/menu-button:opacity-80" />
                     {!isCollapsed && <span className="truncate">Dashboard</span>}
                   </div>
@@ -391,13 +375,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }}
                         title={item.label}
                         className={cn(
-                          'group/menu-button relative flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-lg outline-none min-h-[34px] px-3 py-0 text-sm font-medium transition-colors duration-150',
+                          'group/menu-button relative flex w-full min-w-0 cursor-pointer items-center rounded-lg outline-none min-h-[34px] py-0 text-sm font-medium transition-colors duration-150',
+                          isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-3',
                           active
                             ? 'bg-[#111111] text-white'
                             : 'text-[#d4d4d4] hover:bg-[#161616] hover:text-white'
                         )}
                       >
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className={cn("flex min-w-0 flex-1 items-center", isCollapsed ? "justify-center" : "gap-3")}>
                           <Icon className="w-4 h-4 shrink-0 opacity-50 group-hover/menu-button:opacity-80" />
                           {!isCollapsed && (
                             <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left">

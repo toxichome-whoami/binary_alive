@@ -25,8 +25,9 @@ export interface Permissions {
   logs_view_terminal: boolean;
 
   settings_view: boolean;
-  settings_edit: boolean;
-  settings_security: boolean;
+  settings_maintenance: boolean;
+  settings_captcha: boolean;
+  settings_ai: boolean;
 
   terminal_access: boolean;
   terminal_unrestricted: boolean;

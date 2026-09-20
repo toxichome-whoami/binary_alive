@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { totpApi } from '../api/totp';
 import { useToastStore } from '../store/toastStore';
+import { useAuthStore } from '../store/authStore';
 import { QRCodeSVG } from 'qrcode.react';
 import { Dialog } from '../components/ui/Dialog';
 import { Check, Copy, ShieldCheck, Smartphone } from 'lucide-react';
 
 export const Setup2FA: React.FC = () => {
+  const { user } = useAuthStore();
   const { push: pushToast } = useToastStore();
 
   const [is2faEnabled, setIs2faEnabled] = useState<boolean>(false);
@@ -24,7 +26,13 @@ export const Setup2FA: React.FC = () => {
   useEffect(() => {
     loadSetup();
 
-    const handleRefresh = () => {
+    const handleRefresh = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const targetUserId = customEvent.detail?.targetUserId;
+      // Setup2FA is for the current user. Only reset if the event targets us or is global.
+      if (targetUserId && targetUserId !== user?.id) {
+        return;
+      }
       loadSetup();
     };
     

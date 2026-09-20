@@ -13,8 +13,10 @@ export const Terminal: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  const hasAccess = !!(user && (hasPermission('terminal_access') || user.role === 'owner'));
+
   useEffect(() => {
-    if (!user || (!hasPermission('terminal_access') && user.role !== 'owner')) {
+    if (!hasAccess) {
       return;
     }
 
@@ -44,54 +46,69 @@ export const Terminal: React.FC = () => {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/api/terminal/ws`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
 
-    ws.onopen = () => {
-      setIsConnected(true);
-      // Let backend know the initial size
-      ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-        if (parsed.type === 'data') {
-          term.write(parsed.data);
-        }
-      } catch (e) {
-        term.write(event.data);
+    const connectTerminal = () => {
+      if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+        return;
       }
-    };
 
-    ws.onclose = () => {
-      setIsConnected(false);
-      term.write('\r\n[Connection Closed]\r\n');
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setIsConnected(true);
+        term.write('\r\n[Connected]\r\n');
+        // Let backend know the initial size
+        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed.type === 'data') {
+            term.write(parsed.data);
+          }
+        } catch (e) {
+          term.write(event.data);
+        }
+      };
+
+      ws.onclose = () => {
+        setIsConnected(false);
+        term.write('\r\n[Connection Closed. Press any key to restart.]\r\n');
+      };
     };
 
     term.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'data', data }));
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'data', data }));
+      } else {
+        // Reconnect if disconnected
+        term.write('\r\n[Starting new session...]\r\n');
+        connectTerminal();
       }
     });
 
     const handleResize = () => {
       fitAddon.fit();
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
       }
     };
 
     window.addEventListener('resize', handleResize);
 
+    // Initial connection
+    connectTerminal();
+
     return () => {
       window.removeEventListener('resize', handleResize);
-      ws.close();
+      if (wsRef.current) wsRef.current.close();
       term.dispose();
     };
-  }, [user, hasPermission]);
+  }, [hasAccess]);
 
-  if (!user || (!hasPermission('terminal_access') && user.role !== 'owner')) {
+  if (!hasAccess) {
     return (
       <div className="w-full max-w-[1200px] mx-auto p-4 flex flex-col items-center justify-center min-h-[50vh]">
         <TerminalIcon className="w-12 h-12 text-[#333333] mb-4" />
@@ -102,7 +119,7 @@ export const Terminal: React.FC = () => {
   }
 
   return (
-    <div className="w-full flex-1 -mb-6 flex flex-col mx-auto bg-[#0B0B0C] border border-[#222222] rounded-lg overflow-hidden shadow-sm select-none">
+    <div className="w-full flex-1 flex flex-col mx-auto bg-[#0B0B0C] border border-[#222222] rounded-lg overflow-hidden shadow-sm select-none">
       <div className="h-10 px-4 bg-black border-b border-[#222222] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <TerminalIcon className="w-4 h-4 text-[#8c8c8c]" />

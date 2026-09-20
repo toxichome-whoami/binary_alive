@@ -41,16 +41,19 @@ settingsRouter.post('/toggle', requireAuth(), async (c) => {
     return c.json({ success: false, message: 'Invalid setting key' }, 400);
   }
 
-  if (key === 'maintenance_mode' && user.role !== 'owner' && !user.permissions?.settings_edit) {
-    return c.json({ success: false, message: 'Missing permission: settings_edit' }, 403);
+  if (key === 'maintenance_mode' && user.role !== 'owner' && !user.permissions?.settings_maintenance) {
+    return c.json({ success: false, message: 'Missing permission: settings_maintenance' }, 403);
   }
 
-  if (key === 'enable_captcha' && user.role !== 'owner' && !user.permissions?.settings_security) {
-    return c.json({ success: false, message: 'Missing permission: settings_security' }, 403);
+  if (key === 'enable_captcha' && user.role !== 'owner' && !user.permissions?.settings_captcha) {
+    return c.json({ success: false, message: 'Missing permission: settings_captcha' }, 403);
   }
 
   const val = enabled ? '1' : '0';
   await setSetting(key, val);
+  
+  const { broadcastSettingUpdated } = await import('../websocket.js');
+  broadcastSettingUpdated(key, val);
   
   await logAudit(
     user.id,
@@ -65,8 +68,8 @@ settingsRouter.post('/toggle', requireAuth(), async (c) => {
 // Update AI Model Settings
 settingsRouter.post('/ai', requireAuth(), async (c) => {
   const user = c.get('user');
-  if (user.role !== 'owner' && !user.permissions?.settings_edit) {
-    return c.json({ success: false, message: 'Missing permission: settings_edit' }, 403);
+  if (user.role !== 'owner' && !user.permissions?.settings_ai) {
+    return c.json({ success: false, message: 'Missing permission: settings_ai' }, 403);
   }
 
   const { provider, model, base_url, api_key } = await c.req.json();

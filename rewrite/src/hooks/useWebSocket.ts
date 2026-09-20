@@ -71,14 +71,13 @@ export function useWebSocketInit() {
             useAuthStore.getState().setUser(null);
             window.location.href = '/login';
           } else if (data.type === 'USERS_REFRESH') {
-            window.dispatchEvent(new CustomEvent('users-refresh'));
+            window.dispatchEvent(new CustomEvent('users-refresh', { detail: data }));
           } else if (data.type === 'PERMISSIONS_UPDATED') {
-            // Read fresh from store — never stale closure
             const fresh = useAuthStore.getState().user;
             if (fresh) {
               useAuthStore.getState().setUser({ ...fresh, permissions: data.permissions });
               // Also refresh the users table so permission counts update for the admin
-              window.dispatchEvent(new CustomEvent('users-refresh'));
+              window.dispatchEvent(new CustomEvent('users-refresh', { detail: { targetUserId: fresh.id } }));
             }
           } else if (data.type === 'PROCESS_STATS') {
             useProcessStore.getState().setStats(data.data, data.sys_load);
@@ -86,6 +85,15 @@ export function useWebSocketInit() {
             useWsStore.getState().setOnlineStatus(data.userId, data.isOnline);
           } else if (data.type === 'PRESENCE_SYNC') {
             useWsStore.getState().setOnlineUsers(data.users);
+          } else if (data.type === 'SETTING_UPDATED') {
+            window.dispatchEvent(new CustomEvent('settings-refresh', { detail: data }));
+            if (data.key === 'maintenance_mode' && data.value === '1') {
+              const u = useAuthStore.getState().user;
+              if (u && u.role !== 'owner' && !u.permissions?.settings_maintenance) {
+                 useAuthStore.getState().setUser(null);
+                 window.location.href = '/login';
+              }
+            }
           }
         } catch (err) {
           console.error('Failed to parse WS message', err);

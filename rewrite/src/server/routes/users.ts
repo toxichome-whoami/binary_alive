@@ -29,7 +29,7 @@ function enforcePermissionConstraints(perms: any): any {
     p.processes_create = false; p.processes_edit = false; p.processes_delete = false;
   }
   if (!p.settings_view) {
-    p.settings_edit = false; p.settings_security = false;
+    p.settings_maintenance = false; p.settings_captcha = false; p.settings_ai = false;
   }
   if (!p.terminal_access) {
     p.terminal_unrestricted = false;
@@ -83,7 +83,7 @@ userRouter.post('/', requireAuth(), requirePermission('users_create'), async (c)
   try {
     const id = await createUser(username, hash, 'member', JSON.stringify(permissions), email);
     await logAudit(currentUser.id, currentUser.username, 'create_user', `Created user: ${username}`);
-    broadcastUsersRefresh();
+    broadcastUsersRefresh(id);
     return c.json({ success: true, data: { id } });
   } catch (err: any) {
     return c.json({ success: false, message: 'Username already exists.' }, 400);
@@ -164,13 +164,13 @@ userRouter.put('/:id', requireAuth(), requirePermission('users_edit'), async (c)
 
     if (updates.permissions) {
       notifyUserPermissionsUpdated(targetId, body.permissions);
-      broadcastUsersRefresh();
+      broadcastUsersRefresh(targetId);
     }
     if (body.is_disabled !== undefined) {
       if (body.is_disabled) {
         notifyUserDisabled(targetId);
       }
-      broadcastUsersRefresh();
+      broadcastUsersRefresh(targetId);
     }
   }
 
@@ -198,7 +198,7 @@ userRouter.post('/:id/disable', requireAuth(), requirePermission('users_disable'
   await deleteUserSessions(targetId);
   await logAudit(currentUser.id, currentUser.username, 'disable_user', `Disabled account: ${target.username}`);
   notifyUserDisabled(targetId);
-      broadcastUsersRefresh();
+      broadcastUsersRefresh(targetId);
   return c.json({ success: true, message: `Account "${target.username}" has been disabled.` });
 });
 
@@ -239,7 +239,7 @@ userRouter.delete('/:id', requireAuth(), requirePermission('users_delete'), asyn
   await deleteUser(targetId);
   await logAudit(currentUser.id, currentUser.username, 'delete_user', `Deleted user: ${target.username}`);
   notifyUserDisabled(targetId);
-      broadcastUsersRefresh();
+      broadcastUsersRefresh(targetId);
   return c.json({ success: true, message: 'User deleted.' });
 });
 

@@ -31,7 +31,13 @@ export function useAuth() {
       checkAuth();
     }
 
-    const handleRefresh = () => {
+    const handleRefresh = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const targetUserId = customEvent.detail?.targetUserId;
+      // If the event specifically targets someone else, don't refetch our own auth state
+      if (targetUserId && targetUserId !== useAuthStore.getState().user?.id) {
+        return;
+      }
       checkAuth();
     };
 

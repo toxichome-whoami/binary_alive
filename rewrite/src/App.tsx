@@ -7,7 +7,6 @@ import type { Permissions } from './types';
 import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
-import { Terminal } from './pages/Terminal';
 import { Users } from './pages/Users';
 import { Logs } from './pages/Logs';
 import { Settings } from './pages/Settings';
@@ -76,7 +75,7 @@ export const App: React.FC = () => {
             path="/terminal"
             element={
               <PermissionGuard permission="terminal_access">
-                <Terminal />
+                <></>
               </PermissionGuard>
             }
           />

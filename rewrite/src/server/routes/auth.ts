@@ -116,6 +116,15 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
     return c.json({ success: false, message: 'Invalid username or password.' }, 401);
   }
 
+  // Check maintenance mode
+  const maintenanceSetting = await getSetting('maintenance_mode', '0');
+  const canBypassMaintenance = user.role === 'owner' || user.permissions?.settings_maintenance;
+  
+  if (maintenanceSetting === '1' && !canBypassMaintenance) {
+    await logLoginAttempt(username, false, ip);
+    return c.json({ success: false, message: 'System is under maintenance. Only authorized staff can log in.' }, 503);
+  }
+
   // Check account lockout
   if (user.locked_until && new Date(user.locked_until) > new Date()) {
     return c.json({ success: false, message: 'Account is temporarily locked due to failed attempts.' }, 403);

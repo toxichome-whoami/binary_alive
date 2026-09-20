@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { Footer } from './Footer';
+import { Terminal } from '../../pages/Terminal';
+import { GlobalSearchModal } from '../shared/GlobalSearchModal';
 import { AiAssistantDrawer } from '../ai/AiAssistantDrawer';
 
 class ErrorBoundary extends React.Component<
@@ -51,6 +53,14 @@ export const Layout: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
 
+  const location = useLocation();
+  const isTerminal = location.pathname === '/terminal';
+  const [hasVisitedTerminal, setHasVisitedTerminal] = useState(false);
+
+  useEffect(() => {
+    if (isTerminal) setHasVisitedTerminal(true);
+  }, [isTerminal]);
+
   return (
     <div className="flex min-h-screen bg-[#0c0c0c] text-gray-100 font-sans transition-colors">
       <Sidebar
@@ -69,7 +79,14 @@ export const Layout: React.FC = () => {
 
         <main className="flex-1 px-3 sm:px-5 py-6 w-full flex flex-col items-center">
           <ErrorBoundary>
-            <Outlet />
+            <div className="w-full flex-1 flex flex-col" style={{ display: isTerminal ? 'none' : 'flex' }}>
+              <Outlet />
+            </div>
+            {hasVisitedTerminal && (
+              <div className="w-full flex-1 flex flex-col" style={{ display: isTerminal ? 'flex' : 'none' }}>
+                <Terminal />
+              </div>
+            )}
           </ErrorBoundary>
         </main>
 
@@ -81,6 +98,7 @@ export const Layout: React.FC = () => {
         isOpen={isAiPanelOpen}
         onClose={() => setIsAiPanelOpen(false)}
       />
+      <GlobalSearchModal />
     </div>
   );
 };

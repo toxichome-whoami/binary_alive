@@ -27,7 +27,7 @@ const DEFAULT_PERMISSIONS: Permissions = {
   api_keys_view: false, api_keys_create: false, api_keys_edit: false, api_keys_disable: false, api_keys_delete: false,
   processes_view: false, processes_start: false, processes_stop: false, processes_restart: false, processes_create: false, processes_edit: false, processes_delete: false,
   logs_view_audit: false, logs_view_login: false, logs_view_terminal: false,
-  settings_view: false, settings_edit: false, settings_security: false,
+  settings_view: false, settings_maintenance: false, settings_captcha: false, settings_ai: false,
   terminal_access: false, terminal_unrestricted: false,
   ai_access: false, ai_data_read: false, ai_data_write: false,
 };
@@ -328,8 +328,10 @@ export const Users: React.FC = () => {
     }
   }, [page, pushToast]);
 
+  const hasViewAccess = !!(currentUser?.permissions?.users_view || isOwner());
+
   useEffect(() => {
-    if (!currentUser?.permissions?.users_view && !isOwner()) {
+    if (!hasViewAccess) {
       navigate('/dashboard');
       return;
     }
@@ -338,7 +340,7 @@ export const Users: React.FC = () => {
     const handleRefresh = () => fetchUsers(page);
     window.addEventListener('users-refresh', handleRefresh);
     return () => window.removeEventListener('users-refresh', handleRefresh);
-  }, [fetchUsers, page, currentUser, isOwner, navigate]);
+  }, [fetchUsers, page, hasViewAccess, navigate]);
 
   // Sync editingUser state when the users list updates via WebSocket
   useEffect(() => {
@@ -834,7 +836,9 @@ export const Users: React.FC = () => {
 
   const countGrantedPermissions = (perms?: Permissions) => {
     if (!perms) return 0;
-    return Object.values(perms).filter(Boolean).length;
+    return Object.keys(DEFAULT_PERMISSIONS).filter(
+      (key) => perms[key as keyof Permissions] === true
+    ).length;
   };
 
   const startIndex = (page - 1) * 15;

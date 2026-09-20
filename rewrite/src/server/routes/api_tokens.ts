@@ -27,7 +27,7 @@ function enforcePermissionConstraints(perms: any): any {
     p.processes_create = false; p.processes_edit = false; p.processes_delete = false;
   }
   if (!p.settings_view) {
-    p.settings_edit = false; p.settings_security = false;
+    p.settings_maintenance = false; p.settings_captcha = false; p.settings_ai = false;
   }
   if (!p.terminal_access) {
     p.terminal_unrestricted = false;
@@ -129,7 +129,7 @@ apiTokensRouter.post('/', requirePermission('api_keys_create'), async (c) => {
   );
   
   await logAudit(user.id, user.username, 'create_api_token', `Created token: ${name}`);
-  broadcastUsersRefresh();
+  broadcastUsersRefresh(user.id);
   
   return c.json({
     success: true,
@@ -181,6 +181,7 @@ apiTokensRouter.put('/:id', requirePermission('api_keys_edit'), async (c) => {
   if (Object.keys(updates).length > 0) {
     await updateApiToken(targetId, updates);
     await logAudit(user.id, user.username, 'edit_api_token', `Updated token: ${targetToken.name}`);
+    broadcastUsersRefresh(targetToken.user_id);
   }
   
   return c.json({ success: true, message: 'Token updated' });
@@ -200,7 +201,7 @@ apiTokensRouter.post('/:id/disable', requirePermission('api_keys_disable'), asyn
   
   await disableApiToken(targetId);
   await logAudit(user.id, user.username, 'disable_api_token', `Disabled token: ${targetToken.name}`);
-  broadcastUsersRefresh();
+  broadcastUsersRefresh(targetToken.user_id);
   
   return c.json({ success: true, message: `API Key "${targetToken.name}" has been disabled.` });
 });
@@ -219,7 +220,7 @@ apiTokensRouter.post('/:id/enable', requirePermission('api_keys_disable'), async
   
   await enableApiToken(targetId);
   await logAudit(user.id, user.username, 'enable_api_token', `Enabled token: ${targetToken.name}`);
-  broadcastUsersRefresh();
+  broadcastUsersRefresh(targetToken.user_id);
   
   return c.json({ success: true, message: `API Key "${targetToken.name}" has been enabled.` });
 });
@@ -238,7 +239,7 @@ apiTokensRouter.delete('/:id', requirePermission('api_keys_delete'), async (c) =
   
   await deleteApiToken(targetId);
   await logAudit(user.id, user.username, 'delete_api_token', `Revoked token: ${targetToken.name}`);
-  broadcastUsersRefresh();
+  broadcastUsersRefresh(targetToken.user_id);
   
   return c.json({ success: true, message: 'Token revoked' });
 });

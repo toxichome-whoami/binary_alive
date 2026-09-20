@@ -38,8 +38,9 @@ export const Settings: React.FC = () => {
   const { push: pushToast } = useToastStore();
   const { hasPermission } = useAuthStore();
   
-  const canEditMaintenance = hasPermission('settings_edit');
-  const canEditSecurity = hasPermission('settings_security');
+  const canEditMaintenance = hasPermission('settings_maintenance');
+  const canEditSecurity = hasPermission('settings_captcha');
+  const canEditAi = hasPermission('settings_ai');
 
   const [settings, setSettings] = useState({
     enable_captcha: false,
@@ -56,23 +57,39 @@ export const Settings: React.FC = () => {
   const [isSavingAi, setIsSavingAi] = useState(false);
 
   useEffect(() => {
-    import('../api/settings').then(({ settingsApi }) => {
-      settingsApi.get().then((res) => {
-        if (res.success && res.data) {
-          setSettings({
-            enable_captcha: res.data.enable_captcha,
-            maintenance_mode: res.data.maintenance_mode,
-          });
-          setAiConfig({
-            provider: res.data.ai_provider || '',
-            model: res.data.ai_model || '',
-            base_url: res.data.ai_base_url || '',
-            api_key: res.data.has_ai_key ? '••••••••••••••••' : '',
-            has_key: !!res.data.has_ai_key,
-          });
-        }
+    const fetchSettings = () => {
+      import('../api/settings').then(({ settingsApi }) => {
+        settingsApi.get().then((res) => {
+          if (res.success && res.data) {
+            setSettings({
+              enable_captcha: res.data.enable_captcha,
+              maintenance_mode: res.data.maintenance_mode,
+            });
+            setAiConfig({
+              provider: res.data.ai_provider || '',
+              model: res.data.ai_model || '',
+              base_url: res.data.ai_base_url || '',
+              api_key: res.data.has_ai_key ? '••••••••••••••••' : '',
+              has_key: !!res.data.has_ai_key,
+            });
+          }
+        });
       });
-    });
+    };
+
+    fetchSettings();
+
+    const handleRefresh = (e: Event) => {
+      const data = (e as CustomEvent).detail;
+      if (data && data.key && (data.key === 'enable_captcha' || data.key === 'maintenance_mode')) {
+        setSettings(prev => ({ ...prev, [data.key]: data.value === '1' }));
+      } else {
+        fetchSettings();
+      }
+    };
+
+    window.addEventListener('settings-refresh', handleRefresh);
+    return () => window.removeEventListener('settings-refresh', handleRefresh);
   }, []);
   
   const handleToggle = async (key: keyof typeof settings) => {
@@ -105,7 +122,7 @@ export const Settings: React.FC = () => {
 
   const handleSaveAi = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEditMaintenance) {
+    if (!canEditAi) {
       pushToast('error', 'You do not have permission to modify AI configuration');
       return;
     }

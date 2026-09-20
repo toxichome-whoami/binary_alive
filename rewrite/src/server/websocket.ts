@@ -62,6 +62,16 @@ export function notifyUserDisabled(userId: number) {
   }
 }
 
+export function broadcastSettingUpdated(key: string, value: string) {
+  const payload = JSON.stringify({ type: 'SETTING_UPDATED', key, value });
+  for (const [, sockets] of connectedUsers.entries()) {
+    for (const ws of sockets) {
+      if (ws.readyState === 1) ws.send(payload);
+    }
+  }
+}
+// Extra lines removed
+
 
 
 import { getUserById } from './db/users.js';
@@ -125,8 +135,8 @@ export function startProcessStatsBroadcaster() {
   }, 1000);
 }
 
-export function broadcastUsersRefresh() {
-  const payload = JSON.stringify({ type: 'USERS_REFRESH' });
+export function broadcastUsersRefresh(targetUserId?: number) {
+  const payload = JSON.stringify({ type: 'USERS_REFRESH', targetUserId });
   for (const [, sockets] of connectedUsers.entries()) {
     for (const ws of sockets) {
       if (ws.readyState === 1) ws.send(payload);

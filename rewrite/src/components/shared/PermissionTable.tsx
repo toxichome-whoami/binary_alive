@@ -60,8 +60,9 @@ const GROUPS = [
     label: 'System Settings',
     items: [
       { key: 'settings_view', label: 'View settings', desc: 'Can access and view system configuration' },
-      { key: 'settings_edit', label: 'Modify settings', desc: 'Can adjust maintenance mode and AI model settings' },
-      { key: 'settings_security', label: 'Captcha protection', desc: 'Can toggle login CAPTCHA verification' },
+      { key: 'settings_maintenance', label: 'Maintenance Mode', desc: 'Can toggle maintenance mode and access system while active' },
+      { key: 'settings_captcha', label: 'Captcha protection', desc: 'Can toggle login CAPTCHA verification' },
+      { key: 'settings_ai', label: 'AI Configuration', desc: 'Can configure AI models and API keys' },
     ],
   },
   {
@@ -124,8 +125,9 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
       processes_edit: 'processes_view',
       processes_delete: 'processes_view',
 
-      settings_edit: 'settings_view',
-      settings_security: 'settings_view',
+      settings_maintenance: 'settings_view',
+      settings_captcha: 'settings_view',
+      settings_ai: 'settings_view',
 
       terminal_unrestricted: 'terminal_access',
 

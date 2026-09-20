@@ -549,17 +549,28 @@ export const Logs: React.FC = () => {
   // Search input ref for Ctrl+K
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Keyboard shortcut Ctrl+K to search
+  // Keyboard shortcuts: '/' to search, 'Escape' to clear
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if (
+        e.key === '/' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
         e.preventDefault();
         searchInputRef.current?.focus();
+      }
+      if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
+        if (searchQuery) {
+          setSearchQuery('');
+        } else {
+          searchInputRef.current?.blur();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [searchQuery]);
 
   // Fetch real data from server
   const loadLogs = useCallback(

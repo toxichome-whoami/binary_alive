@@ -86,6 +86,16 @@ export function requireAuth(): MiddlewareHandler {
     if (!user) {
       return c.json({ success: false, message: 'Unauthorized - Please sign in' }, 401);
     }
+    
+    // Check maintenance mode
+    const { getSetting } = await import('../db/settings.js');
+    const maintenance = await getSetting('maintenance_mode', '0');
+    const canBypassMaintenance = user.role === 'owner' || user.permissions?.settings_maintenance;
+    
+    if (maintenance === '1' && !canBypassMaintenance) {
+      return c.json({ success: false, message: 'System is currently under maintenance.' }, 503);
+    }
+    
     await next();
   };
 }

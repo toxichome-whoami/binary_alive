@@ -1,8 +1,26 @@
 import * as pty from 'node-pty';
 import os from 'os';
+import { exec } from 'child_process';
 import { logAudit } from '../db/logs.js';
 
 export const ptyMap = new Map<any, pty.IPty>();
+
+export function killTerminal(wsKey: any) {
+  const ptyProcess = ptyMap.get(wsKey);
+  if (!ptyProcess) return;
+  
+  const pid = ptyProcess.pid;
+  if (os.platform() === 'win32') {
+    // Forcefully kill the process tree on Windows to prevent orphaned powershell/conhost leaks
+    exec(`taskkill /pid ${pid} /T /F`, () => {
+      try { ptyProcess.kill(); } catch (e) {}
+    });
+  } else {
+    try { ptyProcess.kill(); } catch (e) {}
+  }
+  
+  ptyMap.delete(wsKey);
+}
 
 export function handleTerminalConnection(ws: any, user: any) {
   // We only allow users with terminal_access
@@ -44,5 +62,13 @@ export function handleTerminalConnection(ws: any, user: any) {
     if (ws.readyState === 1) { // OPEN
       ws.send(JSON.stringify({ type: 'data', data }));
     }
+  });
+
+  ptyProcess.onExit(({ exitCode, signal }) => {
+    if (ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'data', data: `\r\n[Process exited with code ${exitCode}]\r\n` }));
+      ws.close();
+    }
+    ptyMap.delete(ws.raw || ws);
   });
 }

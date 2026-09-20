@@ -17,7 +17,7 @@ import { terminalRouter } from './routes/terminal.js';
 import { settingsRouter } from './routes/settings.js';
 import { totpRouter } from './routes/totp.js';
 import { internalRouter } from './routes/internal.js';
-import { handleTerminalConnection, ptyMap } from './routes/terminal_ws.js';
+import { handleTerminalConnection, ptyMap, killTerminal } from './routes/terminal_ws.js';
 
 
 dotenv.config();
@@ -136,9 +136,7 @@ app.get('/api/terminal/ws', wsParts.upgradeWebSocket((c) => {
       handleTerminalConnection(ws, user);
     },
     onMessage: (event, ws) => {
-      console.log('WS msg received:', event.data);
       const ptyProcess = ptyMap.get(ws.raw || ws);
-      console.log('PTY found?', !!ptyProcess);
       if (ptyProcess) {
         try {
           const parsed = JSON.parse(event.data.toString());
@@ -153,11 +151,7 @@ app.get('/api/terminal/ws', wsParts.upgradeWebSocket((c) => {
       }
     },
     onClose: (event, ws) => {
-      const ptyProcess = ptyMap.get(ws.raw || ws);
-      if (ptyProcess) {
-        ptyProcess.kill();
-        ptyMap.delete(ws.raw || ws);
-      }
+      killTerminal(ws.raw || ws);
     }
   };
 }));

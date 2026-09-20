@@ -413,15 +413,9 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  // Keyboard shortcuts: Ctrl+K / Cmd+K or '/' to focus search, Esc to clear/blur
+  // Keyboard shortcuts: '/' to focus search, Esc to clear/blur
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-        return;
-      }
       if (
         e.key === '/' &&
         document.activeElement?.tagName !== 'INPUT' &&
