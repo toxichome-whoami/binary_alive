@@ -7,7 +7,8 @@ interface UseProcessesOptions {
   intervalMs?: number;
 }
 
-export function useProcesses({ intervalMs = 5000 }: UseProcessesOptions = {}) {
+export function useProcesses({ intervalMs: defaultIntervalMs = 1000 }: UseProcessesOptions = {}) {
+  const [intervalMs, setIntervalMs] = useState(defaultIntervalMs);
   const [processes, setProcesses] = useState<Process[]>([]);
   const [sysLoad, setSysLoad] = useState<string | number>('0.00');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -39,6 +40,9 @@ export function useProcesses({ intervalMs = 5000 }: UseProcessesOptions = {}) {
         setProcesses(processList);
         if (res.sys_load !== undefined) {
           setSysLoad(res.sys_load);
+        }
+        if (res.poll_interval_ms && res.poll_interval_ms !== intervalMs) {
+          setIntervalMs(res.poll_interval_ms);
         }
         setError(null);
       }

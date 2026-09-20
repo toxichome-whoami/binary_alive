@@ -181,7 +181,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     }
     setSelectedRangeLabel(newLabel);
     setShowDatePicker(false);
-    onRangeChange?.(newLabel, rangeStart, rangeEnd || undefined);
+    onRangeChange?.(newLabel, rangeStart || undefined, rangeEnd || undefined);
   };
 
   return (

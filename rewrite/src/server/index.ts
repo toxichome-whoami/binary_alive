@@ -1,9 +1,7 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import cron from 'node-cron';
 import dotenv from 'dotenv';
-import { initDatabase } from './db/schema.js';
-import { runAutorestart, logTelemetryData } from './lib/cron.js';
+import { initApp } from './app.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { ipWhitelist } from './middleware/ipWhitelist.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -64,15 +62,9 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 
 async function start() {
   try {
-    console.log('[Binary Alive] Initializing database schema...');
-    await initDatabase();
-    console.log('[Binary Alive] Database ready.');
-
-    // Internal background cron supervisor (runs every 30 seconds)
-    cron.schedule('*/30 * * * * *', async () => {
-      await runAutorestart();
-      await logTelemetryData();
-    });
+    console.log('[Binary Alive] Initializing backend engine...');
+    await initApp();
+    console.log('[Binary Alive] Backend engine ready.');
 
     const { getInjectWebSocket } = await import('./websocket.js');
 

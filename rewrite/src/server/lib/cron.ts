@@ -61,7 +61,7 @@ export async function logTelemetryData(): Promise<void> {
       if (activePid) {
         activeProcs++;
         restarts += p.restart_count || 0;
-        const metrics = Monitor.getMetrics(activePid);
+        const metrics = await Monitor.getMetrics(activePid);
         
         const cpuVal = typeof metrics.cpu === 'number' ? metrics.cpu : parseFloat(String(metrics.cpu).replace('%', ''));
         if (!isNaN(cpuVal)) cpuSum += cpuVal;

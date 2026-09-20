@@ -1,3 +1,4 @@
+import { runAutorestart, logTelemetryData } from './lib/cron.js';
 import { Hono } from 'hono';
 import dotenv from 'dotenv';
 import { initDatabase } from './db/schema.js';
@@ -5,6 +6,7 @@ import { securityHeaders } from './middleware/securityHeaders.js';
 import { ipWhitelist } from './middleware/ipWhitelist.js';
 import { authMiddleware } from './middleware/auth.js';
 import { csrfProtection } from './middleware/csrf.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
 
 import { authRouter } from './routes/auth.js';
 import { processRouter } from './routes/processes.js';
@@ -88,6 +90,7 @@ app.use('*', securityHeaders());
 app.use('*', ipWhitelist());
 app.use('*', authMiddleware());
 app.use('*', csrfProtection());
+app.use('*', rateLimiter());
 
 // API Routes
 app.route('/api/auth', authRouter);
@@ -124,5 +127,14 @@ let isInitialized = false;
 export async function initApp(): Promise<void> {
   if (isInitialized) return;
   await initDatabase();
+  
+  // Internal background cron supervisor
+  // TODO (DEVELOPER): This is currently set to 7 seconds (7000ms) for TESTING PURPOSES ONLY! 
+  // BEFORE PRODUCTION, this MUST be updated back to 30000ms (30 seconds) to prevent excessive CPU usage!
+  setInterval(async () => {
+    await runAutorestart();
+    await logTelemetryData();
+  }, 7000);
+
   isInitialized = true;
 }

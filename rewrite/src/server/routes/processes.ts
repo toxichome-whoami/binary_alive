@@ -16,7 +16,22 @@ export const processRouter = new Hono();
 processRouter.use('*', requireAuth());
 
 // Fetch process status with live metrics
+let statusCache: { data: any[]; sys_load: string | number; timestamp: number } | null = null;
+const CACHE_TTL_MS = 500;
+
 processRouter.get('/', async (c) => {
+  const now = Date.now();
+  const pollIntervalMs = parseInt(process.env.DASHBOARD_POLL_INTERVAL || '1000', 10);
+
+  if (statusCache && now - statusCache.timestamp < CACHE_TTL_MS) {
+    return c.json({
+      success: true,
+      data: statusCache.data,
+      sys_load: statusCache.sys_load,
+      poll_interval_ms: pollIntervalMs
+    });
+  }
+
   const processes = await getAllProcesses();
   const sysLoad = Monitor.getSysLoad();
 
@@ -25,7 +40,7 @@ processRouter.get('/', async (c) => {
       const activePid = Monitor.isRunning(proc);
 
       if (activePid) {
-        const metrics = Monitor.getMetrics(activePid);
+        const metrics = await Monitor.getMetrics(activePid);
         return {
           ...proc,
           status: 'running',
@@ -35,20 +50,26 @@ processRouter.get('/', async (c) => {
           uptime: metrics.uptime,
         };
       } else if (proc.status === 'running') {
-        const seed = proc.id || 1;
-        const cpuNum = ((seed * 1.3) % 4.5 + 0.5).toFixed(1);
-        const memNum = Math.floor((seed * 19) % 110 + 24);
-        const days = (seed * 2) % 14 + 1;
-        const hours = String((seed * 5) % 24).padStart(2, '0');
-        return {
-          ...proc,
-          status: 'running',
-          pid: proc.pid || 4100 + seed,
-          cpu: `${cpuNum}%`,
-          mem: `${memNum} MB`,
-          uptime: `${days}d ${hours}:12:00`,
-        };
-      } else {
+          // Process died unexpectedly
+          if (proc.auto_restart) {
+            const newPid = Monitor.startProcess(proc);
+            if (newPid) {
+              const restartedProc = { ...proc, pid: newPid, status: 'running' as const, restart_count: proc.restart_count + 1 };
+              await updateProcess(proc.id, restartedProc);
+              return { ...restartedProc, cpu: '0.0%', mem: '0 MB', uptime: '00:00:00' };
+            }
+          }
+          
+          await updateProcess(proc.id, { pid: null, status: 'stopped' });
+          return {
+            ...proc,
+            status: 'stopped',
+            pid: null,
+            cpu: '0.0%',
+            mem: '0 MB',
+            uptime: '00:00:00',
+          };
+        } else {
         return {
           ...proc,
           status: proc.status === 'crashed' ? 'crashed' : 'stopped',
@@ -61,11 +82,13 @@ processRouter.get('/', async (c) => {
     })
   );
 
-  return c.json({
-    success: true,
-    data: enriched,
-    sys_load: sysLoad,
-  });
+  statusCache = { data: enriched, sys_load: sysLoad, timestamp: Date.now() };
+    return c.json({
+      success: true,
+      data: enriched,
+      sys_load: sysLoad,
+      poll_interval_ms: pollIntervalMs
+    });
 });
 
 
@@ -74,7 +97,8 @@ processRouter.get('/', async (c) => {
 processRouter.get('/telemetry/bounds', async (c) => {
   try {
     const result = await db.execute({
-      sql: `SELECT MIN(timestamp) as min_time FROM telemetry_logs`
+      sql: `SELECT MIN(timestamp) as min_time FROM telemetry_logs`,
+      args: []
     });
     return c.json({ success: true, data: result.rows[0] });
   } catch (err) {

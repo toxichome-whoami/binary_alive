@@ -26,14 +26,25 @@ const WAVY_NO_DATA_PATH =
 const MAX_PTS = 60;
 type MetricKey = 'cpu' | 'active' | 'memory' | 'load' | 'restarts' | 'uptime';
 
-export const tsStore: Record<MetricKey, number[]> = {
-  cpu: Array(MAX_PTS).fill(0),
-  active: Array(MAX_PTS).fill(0),
-  memory: Array(MAX_PTS).fill(0),
-  load: Array(MAX_PTS).fill(0),
-  restarts: Array(MAX_PTS).fill(0),
-  uptime: Array(MAX_PTS).fill(100),
+const getInitialStore = (): Record<MetricKey, number[]> => {
+  try {
+    const saved = sessionStorage.getItem('binary_alive_tsStore');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.cpu && parsed.cpu.length === MAX_PTS) return parsed;
+    }
+  } catch {}
+  return {
+    cpu: Array(MAX_PTS).fill(0),
+    active: Array(MAX_PTS).fill(0),
+    memory: Array(MAX_PTS).fill(0),
+    load: Array(MAX_PTS).fill(0),
+    restarts: Array(MAX_PTS).fill(0),
+    uptime: Array(MAX_PTS).fill(100),
+  };
 };
+
+export const tsStore: Record<MetricKey, number[]> = getInitialStore();
 
 export function generateGraphPaths(key: MetricKey, width: number, bottomY: number, data: number[]) {
   
@@ -171,7 +182,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   const displayRestarts = restartsCount;
   const displayCpu = `${totalCpuPercent}%`;
   
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     tsStore.cpu.shift(); tsStore.cpu.push(totalCpuPercent);
@@ -215,7 +226,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   const [drawerSearch, setDrawerSearch] = useState('');
 
   // Memory & CPU parse utilities
-  const parseMemMB = (memStr: string | undefined): number => {
+  function parseMemMB(memStr: string | undefined): number {
     if (!memStr) return 0;
     const num = parseFloat(memStr);
     if (isNaN(num)) return 0;
@@ -223,7 +234,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
     return num;
   };
 
-  const parseCpuVal = (cpuVal: string | number | undefined): number => {
+  function parseCpuVal(cpuVal: string | number | undefined): number {
     if (cpuVal === undefined || cpuVal === null) return 0;
     const val = typeof cpuVal === 'number' ? cpuVal : parseFloat(String(cpuVal).replace('%', ''));
     return isNaN(val) ? 0 : val;
@@ -393,10 +404,10 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
     if (rect.width <= 0) return null;
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     
-    
+    const data = getGraphData(key);
     
     const idx = Math.round(pct * Math.max(data.length - 1, 0));
-    const timeStr = formatTimeFromPct(pct, idx);
+    const timeStr = formatTimeFromPct(pct);
       const val = data[idx] || 0;
 
     let baseMax = 1;

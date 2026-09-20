@@ -1611,18 +1611,18 @@ export const Dashboard: React.FC = () => {
             {/* Table Body */}
             <tbody role="rowgroup" className="divide-y divide-[#1e1e1e]">
               {filteredProcesses.length === 0 ? (
-                <tr role="row">
-                  <td
-                    role="cell"
-                    colSpan={12}
-                    className="px-4 py-12 text-center border-b border-[#1e1e1e] bg-[#0e0e0e]"
-                  >
-                    <p className="text-[14px] leading-relaxed text-[#6b6b6b] font-normal">
-                      No processes match your search or filter.
-                    </p>
-                  </td>
-                </tr>
-              ) : (
+                  <tr role="row">
+                    <td
+                      role="cell"
+                      colSpan={12}
+                      className="px-4 py-12 text-center border-b border-[#1e1e1e] bg-[#0e0e0e]"
+                    >
+                      <p className="text-[14px] leading-relaxed text-[#6b6b6b] font-normal">
+                        {isLoading ? 'Loading processes...' : 'No processes match your search or filter.'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
                 paginatedProcesses.map((p, rowIndex) => {
                   const isRunning = p.status === 'running';
                   const isChecked = selectedIds.includes(p.id);
@@ -1708,7 +1708,7 @@ export const Dashboard: React.FC = () => {
                       {visibleColumns.cpu && (
                         <td role="cell" className="flex items-center shrink-0 w-[84px] h-[40px] px-3 overflow-hidden">
                           <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
-                            {typeof p.cpu === 'number' ? (p.cpu > 0 ? `${p.cpu}%` : '0%') : p.cpu || '0%'}
+                            {p.cpu !== undefined && p.cpu !== null ? (String(p.cpu).endsWith('%') ? p.cpu : `${p.cpu}%`) : '0%'}
                           </span>
                         </td>
                       )}
