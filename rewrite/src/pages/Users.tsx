@@ -601,16 +601,15 @@ export const Users: React.FC = () => {
   };
 
   // Selection handlers
-  const isAllSelected =
-    filteredUsers.length > 0 && filteredUsers.every((u) => selectedIds.includes(u.id));
-  const isSomeSelected =
-    filteredUsers.some((u) => selectedIds.includes(u.id));
+  const selectableUsers = filteredUsers.filter((u) => u.role !== 'owner' && u.id !== currentUser?.id);
+  const isAllSelected = selectableUsers.length > 0 && selectableUsers.every((u) => selectedIds.includes(u.id));
+  const isSomeSelected = selectableUsers.some((u) => selectedIds.includes(u.id));
 
   const handleSelectAll = () => {
     if (isAllSelected) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredUsers.map((u) => u.id));
+      setSelectedIds(selectableUsers.map((u) => u.id));
     }
   };
 
@@ -656,6 +655,13 @@ export const Users: React.FC = () => {
     setEditPassword('');
     setEditPermissions(u.permissions || { ...DEFAULT_PERMISSIONS });
   };
+
+  const hasEditChanges = editingUser ? (
+    editUsername !== editingUser.username ||
+    editEmail !== (editingUser.email || '') ||
+    editPassword !== '' ||
+    JSON.stringify(editPermissions) !== JSON.stringify(editingUser.permissions || DEFAULT_PERMISSIONS)
+  ) : false;
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -805,41 +811,47 @@ export const Users: React.FC = () => {
     <div className="space-y-6 w-full max-w-[1600px] mx-auto pb-12 select-none font-sans">
       {/* 4 Clean Black Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full font-sans">
-        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Total accounts</span>
-            <UsersIcon className="w-4 h-4 text-[#555555]" />
+        <div className="flex items-stretch justify-between gap-5 rounded-[8px] border border-[#222222] bg-[#0f0f0f] hover:border-[#383838] transition-colors p-5 overflow-hidden shadow-sm">
+          <div className="flex min-w-0 flex-col justify-between">
+            <p className="truncate text-[13px] text-neutral-400">Total accounts</p>
+            <p className="mt-1.5 text-[27px] font-medium leading-none tracking-tight text-white tabular-nums">{stats.members}</p>
+            <p className="mt-2 h-[17px] overflow-hidden whitespace-nowrap text-[12.5px] font-medium leading-none text-neutral-500">active members</p>
           </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.members}</div>
-          </div>
-        </div>
-        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Active API keys</span>
-            <KeyRound className="w-4 h-4 text-[#555555]" />
-          </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.tokens}</div>
+          <div className="flex items-center justify-center shrink-0">
+             <UsersIcon className="w-6 h-6 text-neutral-500/50" />
           </div>
         </div>
-        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">2FA protection</span>
-            <ShieldCheck className="w-4 h-4 text-[#555555]" />
+
+        <div className="flex items-stretch justify-between gap-5 rounded-[8px] border border-[#222222] bg-[#0f0f0f] hover:border-[#383838] transition-colors p-5 overflow-hidden shadow-sm">
+          <div className="flex min-w-0 flex-col justify-between">
+            <p className="truncate text-[13px] text-neutral-400">Active API keys</p>
+            <p className="mt-1.5 text-[27px] font-medium leading-none tracking-tight text-white tabular-nums">{stats.tokens}</p>
+            <p className="mt-2 h-[17px] overflow-hidden whitespace-nowrap text-[12.5px] font-medium leading-none text-neutral-500">total generated</p>
           </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.twoFa}</div>
-            <span className="text-xs font-normal text-[#555555]">secured</span>
+          <div className="flex items-center justify-center shrink-0">
+             <KeyRound className="w-6 h-6 text-neutral-500/50" />
           </div>
         </div>
-        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Disabled accounts</span>
-            <Lock className="w-4 h-4 text-[#555555]" />
+
+        <div className="flex items-stretch justify-between gap-5 rounded-[8px] border border-[#222222] bg-[#0f0f0f] hover:border-[#383838] transition-colors p-5 overflow-hidden shadow-sm">
+          <div className="flex min-w-0 flex-col justify-between">
+            <p className="truncate text-[13px] text-neutral-400">2FA protection</p>
+            <p className="mt-1.5 text-[27px] font-medium leading-none tracking-tight text-white tabular-nums">{stats.twoFa}</p>
+            <p className="mt-2 h-[17px] overflow-hidden whitespace-nowrap text-[12.5px] font-medium leading-none text-[#2f80ed]">secured</p>
           </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <div className={`text-[28px] font-semibold tracking-tight tabular-nums leading-tight ${stats.locked > 0 ? 'text-[#ef4444]' : 'text-white'}`}>{stats.locked}</div>
+          <div className="flex items-center justify-center shrink-0">
+             <ShieldCheck className="w-6 h-6 text-neutral-500/50" />
+          </div>
+        </div>
+
+        <div className="flex items-stretch justify-between gap-5 rounded-[8px] border border-[#222222] bg-[#0f0f0f] hover:border-[#383838] transition-colors p-5 overflow-hidden shadow-sm">
+          <div className="flex min-w-0 flex-col justify-between">
+            <p className="truncate text-[13px] text-neutral-400">Disabled accounts</p>
+            <p className={`mt-1.5 text-[27px] font-medium leading-none tracking-tight tabular-nums ${stats.locked > 0 ? 'text-[#ef4444]' : 'text-white'}`}>{stats.locked}</p>
+            <p className="mt-2 h-[17px] overflow-hidden whitespace-nowrap text-[12.5px] font-medium leading-none text-neutral-500">locked</p>
+          </div>
+          <div className="flex items-center justify-center shrink-0">
+             <Lock className="w-6 h-6 text-neutral-500/50" />
           </div>
         </div>
       </div>
@@ -1491,10 +1503,11 @@ export const Users: React.FC = () => {
                           <button
                             type="button"
                             role="checkbox"
+                            disabled={isMaster || isSelf}
                             aria-checked={isChecked}
                             aria-label={`Select ${u.username}`}
                             onClick={() => handleSelectOne(u.id)}
-                            className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border-0 bg-[#141414] ring-1 ring-[#3a3a3a] hover:ring-[#555555] focus:outline-none focus:ring-2 focus:ring-[#2f80ed] transition-all cursor-pointer data-[checked]:bg-[#2f80ed] data-[checked]:ring-[#2f80ed]"
+                            className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border-0 bg-[#141414] ring-1 ring-[#3a3a3a] hover:ring-[#555555] focus:outline-none focus:ring-2 focus:ring-[#2f80ed] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed data-[checked]:bg-[#2f80ed] data-[checked]:ring-[#2f80ed]"
                             data-checked={isChecked ? '' : undefined}
                           >
                             {isChecked && (
@@ -1512,17 +1525,14 @@ export const Users: React.FC = () => {
                         >
                           {isLocked ? (
                             <span className="inline-flex items-center gap-1.5 text-[14px] font-normal text-[#ef4444] leading-none font-sans">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] shrink-0"></span>
                               Disabled
                             </span>
                           ) : onlineUsers[u.id] ? (
                             <span className="inline-flex items-center gap-1.5 text-[14px] font-normal text-[#30a46c] leading-none font-sans">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#30a46c] shrink-0"></span>
                               Online
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-[14px] font-normal text-[#8c8c8c] leading-none font-sans">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#555555] shrink-0"></span>
                               Offline
                             </span>
                           )}
@@ -1645,8 +1655,10 @@ export const Users: React.FC = () => {
                           />
                           <button
                             type="button"
+                            disabled={isMaster && !isOwner()}
+                            title={(isMaster && !isOwner()) ? "Only an owner can edit this account" : ""}
                             onClick={() => openEditModal(u)}
-                            className="inline-flex items-center justify-center h-7 px-3 rounded-md text-[14px] font-medium leading-none text-white hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer shrink-0 font-sans"
+                            className="inline-flex items-center justify-center h-7 px-3 rounded-md text-[14px] font-medium leading-none text-white hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shrink-0 font-sans"
                           >
                             Edit
                           </button>
@@ -1981,8 +1993,8 @@ export const Users: React.FC = () => {
               </button>
               <button
                 type="submit"
-                disabled={editLoading}
-                className="group relative flex shrink-0 items-center justify-center h-9 px-4 rounded-[8px] font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
+                disabled={editLoading || !hasEditChanges}
+                className="group relative flex shrink-0 items-center justify-center h-9 px-4 rounded-[8px] font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
               >
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black opacity-0 group-hover:opacity-15 transition-opacity duration-200" />

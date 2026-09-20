@@ -734,6 +734,11 @@ export const ApiKeys: React.FC = () => {
     setEditPermissions(t.permissions || { ...DEFAULT_PERMISSIONS });
   };
 
+  const hasEditChanges = editingToken ? (
+    editName !== editingToken.name ||
+    JSON.stringify(editPermissions) !== JSON.stringify(editingToken.permissions || DEFAULT_PERMISSIONS)
+  ) : false;
+
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingToken) return;
@@ -848,40 +853,47 @@ export const ApiKeys: React.FC = () => {
     <div className="space-y-6 w-full max-w-[1600px] mx-auto pb-12 select-none font-sans">
       {/* 4 Clean Black Metric Cards matching Users.tsx */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full font-sans">
-        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Total tokens</span>
-            <KeyRound className="w-4 h-4 text-[#555555]" />
+        <div className="flex items-stretch justify-between gap-5 rounded-[8px] border border-[#222222] bg-[#0f0f0f] hover:border-[#383838] transition-colors p-5 overflow-hidden shadow-sm">
+          <div className="flex min-w-0 flex-col justify-between">
+            <p className="truncate text-[13px] text-neutral-400">Total tokens</p>
+            <p className="mt-1.5 text-[27px] font-medium leading-none tracking-tight text-white tabular-nums">{stats.total}</p>
+            <p className="mt-2 h-[17px] overflow-hidden whitespace-nowrap text-[12.5px] font-medium leading-none text-neutral-500">all keys</p>
           </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.total}</div>
-          </div>
-        </div>
-        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Active keys</span>
-            <Activity className="w-4 h-4 text-[#555555]" />
-          </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <div className="text-[28px] font-semibold text-white tracking-tight tabular-nums leading-tight">{stats.active}</div>
+          <div className="flex items-center justify-center shrink-0">
+             <KeyRound className="w-6 h-6 text-neutral-500/50" />
           </div>
         </div>
-        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Disabled keys</span>
-            <Lock className="w-4 h-4 text-[#555555]" />
+
+        <div className="flex items-stretch justify-between gap-5 rounded-[8px] border border-[#222222] bg-[#0f0f0f] hover:border-[#383838] transition-colors p-5 overflow-hidden shadow-sm">
+          <div className="flex min-w-0 flex-col justify-between">
+            <p className="truncate text-[13px] text-neutral-400">Active keys</p>
+            <p className="mt-1.5 text-[27px] font-medium leading-none tracking-tight text-white tabular-nums">{stats.active}</p>
+            <p className="mt-2 h-[17px] overflow-hidden whitespace-nowrap text-[12.5px] font-medium leading-none text-[#2f80ed]">active</p>
           </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <div className={`text-[28px] font-semibold tracking-tight tabular-nums leading-tight ${stats.disabled > 0 ? 'text-[#ef4444]' : 'text-white'}`}>{stats.disabled}</div>
+          <div className="flex items-center justify-center shrink-0">
+             <Activity className="w-6 h-6 text-neutral-500/50" />
           </div>
         </div>
-        <div className="relative rounded-[8px] border border-[#222222] hover:border-[#383838] transition-colors bg-[#0f0f0f] p-5 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-medium text-[#8c8c8c]">Expiring soon</span>
-            <AlertTriangle className="w-4 h-4 text-[#555555]" />
+
+        <div className="flex items-stretch justify-between gap-5 rounded-[8px] border border-[#222222] bg-[#0f0f0f] hover:border-[#383838] transition-colors p-5 overflow-hidden shadow-sm">
+          <div className="flex min-w-0 flex-col justify-between">
+            <p className="truncate text-[13px] text-neutral-400">Disabled keys</p>
+            <p className={`mt-1.5 text-[27px] font-medium leading-none tracking-tight tabular-nums ${stats.disabled > 0 ? 'text-[#ef4444]' : 'text-white'}`}>{stats.disabled}</p>
+            <p className="mt-2 h-[17px] overflow-hidden whitespace-nowrap text-[12.5px] font-medium leading-none text-neutral-500">locked</p>
           </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <div className={`text-[28px] font-semibold tracking-tight tabular-nums leading-tight ${stats.expiring > 0 ? 'text-[#f59e0b]' : 'text-white'}`}>{stats.expiring}</div>
+          <div className="flex items-center justify-center shrink-0">
+             <Lock className="w-6 h-6 text-neutral-500/50" />
+          </div>
+        </div>
+
+        <div className="flex items-stretch justify-between gap-5 rounded-[8px] border border-[#222222] bg-[#0f0f0f] hover:border-[#383838] transition-colors p-5 overflow-hidden shadow-sm">
+          <div className="flex min-w-0 flex-col justify-between">
+            <p className="truncate text-[13px] text-neutral-400">Expiring soon</p>
+            <p className={`mt-1.5 text-[27px] font-medium leading-none tracking-tight tabular-nums ${stats.expiring > 0 ? 'text-[#f59e0b]' : 'text-white'}`}>{stats.expiring}</p>
+            <p className="mt-2 h-[17px] overflow-hidden whitespace-nowrap text-[12.5px] font-medium leading-none text-neutral-500">expiring</p>
+          </div>
+          <div className="flex items-center justify-center shrink-0">
+             <AlertTriangle className="w-6 h-6 text-neutral-500/50" />
           </div>
         </div>
       </div>

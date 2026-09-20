@@ -5,6 +5,7 @@ interface WsState {
   onlineUsers: Record<number, boolean>;
   setConnected: (connected: boolean) => void;
   setOnlineStatus: (userId: number, isOnline: boolean) => void;
+  setOnlineUsers: (users: Record<number, boolean>) => void;
 }
 
 export const useWsStore = create<WsState>((set) => ({
@@ -15,4 +16,5 @@ export const useWsStore = create<WsState>((set) => ({
     set((state) => ({
       onlineUsers: { ...state.onlineUsers, [userId]: isOnline },
     })),
+  setOnlineUsers: (users) => set({ onlineUsers: users }),
 }));

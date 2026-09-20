@@ -16,6 +16,8 @@ import { ApiKeys } from './pages/ApiKeys';
 import { Loader2 } from 'lucide-react';
 import { ToastContainer } from './components/ui/Toast';
 
+
+
 interface PermissionGuardProps {
   permission: keyof Permissions;
   children: React.ReactNode;
@@ -35,10 +37,13 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-base dark:bg-base-dark text-brand">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin" />
-          <span className="text-xs font-medium text-gray-500">Connecting to Binary Alive...</span>
+      <div className="min-h-screen flex items-center justify-center bg-[#0B0B0C]">
+        <div className="flex flex-col items-center gap-4">
+          <svg className="animate-spin h-8 w-8 text-[#2f80ed]" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span className="text-[13px] font-medium text-[#8c8c8c]">Connecting...</span>
         </div>
       </div>
     );

@@ -11,9 +11,15 @@ totpRouter.use('*', requireAuth());
 
 // Generate 2FA setup secret and barcode URL
 totpRouter.get('/setup', async (c) => {
-  const user = c.get('user');
+  const currentUser = c.get('user');
+  const user = await getUserById(currentUser.id);
+  
+  if (user && user.totp_secret) {
+    return c.json({ success: false, message: '2FA is already enabled' }, 400);
+  }
+
   const secret = TotpService.generateSecret();
-  const otpauth_url = TotpService.getOtpAuthUrl(user.username, secret);
+  const otpauth_url = TotpService.getOtpAuthUrl(user ? user.username : currentUser.username, secret);
 
   return c.json({
     success: true,

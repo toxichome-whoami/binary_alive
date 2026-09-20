@@ -11,6 +11,9 @@ export const Login: React.FC = () => {
 
   const [isFirstRun, setIsFirstRun] = useState<boolean>(false);
   const [isCheckingSetup, setIsCheckingSetup] = useState<boolean>(true);
+  const [show2fa, setShow2fa] = useState<boolean>(false);
+  const [twoFactorCode, setTwoFactorCode] = useState<string>('');
+  const [isOtpFocused, setIsOtpFocused] = useState<boolean>(false);
 
   const [username, setUsername] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -100,17 +103,24 @@ export const Login: React.FC = () => {
           }
         }
       } else {
-        const res = await authApi.login({ username: username.trim(), password, captcha: captchaInput });
+        const res = await authApi.login({ username: username.trim(), password, captcha: captchaInput, totp: show2fa ? twoFactorCode : undefined });
         if (res.success && res.user) {
           setUser(res.user);
           pushToast('success', `Welcome back, ${res.user.username}!`);
           navigate('/dashboard');
         } else if (res.requires_2fa) {
+          setShow2fa(true);
+          setTwoFactorCode('');
           pushToast('warn', 'Two-Factor Authentication required.');
-          // TODO: handle 2FA prompt
         }
       }
     } catch (err: any) {
+      if (err.data?.requires_2fa) {
+        setShow2fa(true);
+        setTwoFactorCode('');
+        pushToast('warn', 'Two-Factor Authentication required.');
+        return;
+      }
       pushToast('error', err.message || 'Authentication failed');
       if (captchaEnabled) {
         setCaptchaKey(Date.now());
@@ -139,17 +149,60 @@ export const Login: React.FC = () => {
         {/* Brand header */}
         <div className="text-left mb-6">
           <h1 className="text-[20px] font-semibold text-balance text-white leading-snug">
-            {isFirstRun ? 'Initialize Binary Alive' : 'Sign in to Binary Alive'}
+            {isFirstRun ? 'Initialize Binary Alive' : show2fa ? 'Two-Factor Authentication' : 'Sign in to Binary Alive'}
           </h1>
-          {isFirstRun && (
-            <p className="text-[13px] text-[#8c8c8c] mt-1.5 leading-normal">
-              Create the owner account to get started.
-            </p>
-          )}
+          <p className="text-[13px] text-[#8c8c8c] mt-1.5 leading-normal">
+            {isFirstRun ? 'Create the owner account to get started.' : show2fa ? 'Enter the 6-digit code from your authenticator app.' : ''}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          {show2fa && (
+            <div className="flex flex-col mb-6">
+              <label className="text-[14px] font-semibold mb-3 text-[#f2f2f2] tracking-tight text-center">Authentication Code</label>
+              <div className="relative inline-flex items-center justify-center gap-1.5 select-none self-center">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value.replace(/[^\d]/g, ''))}
+                  onFocus={() => setIsOtpFocused(true)}
+                  onBlur={() => setIsOtpFocused(false)}
+                  className="absolute inset-0 opacity-0 cursor-text z-20 w-full h-full text-[14px]"
+                  aria-label="6-digit authentication code"
+                />
+
+                {[0, 1, 2, 3, 4, 5].map((index) => {
+                  const digit = twoFactorCode[index] || '';
+                  const isCurrent = isOtpFocused && (twoFactorCode.length === index || (index === 5 && twoFactorCode.length === 6));
+                  return (
+                    <React.Fragment key={index}>
+                      {index === 3 && (
+                        <span className="text-[#555555] font-mono text-[16px] select-none mx-0.5">-</span>
+                      )}
+                      <div
+                        className={`w-[48px] h-[54px] rounded-[8px] flex items-center justify-center font-['JetBrains_Mono',monospace] text-[20px] font-semibold transition-all duration-150 select-none ${
+                          isCurrent
+                            ? 'border border-[#2f80ed] bg-[#0B0B0C] text-white ring-[1.5px] ring-[#2f80ed]/50 shadow-[0_0_10px_rgba(47,128,237,0.15)]'
+                            : digit
+                            ? 'border border-[#383838] bg-[#141414] text-white'
+                            : 'border border-[#262626] bg-[#0B0B0C] text-[#555555]'
+                        }`}
+                      >
+                        {digit}
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: show2fa ? 'none' : 'block' }} className="space-y-4">
+            <div>
             <label className="block text-[14px] font-medium text-white mb-2">
               {isFirstRun ? 'Owner Username' : 'Username or Email'}
             </label>
@@ -322,10 +375,11 @@ export const Login: React.FC = () => {
               </span>
             </div>
           )}
+          </div>
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || (show2fa && twoFactorCode.length !== 6)}
             className={`group relative flex w-full items-center justify-center h-10 px-4 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] ${isFirstRun ? 'mt-8' : 'mt-6'}`}
           >
             <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />

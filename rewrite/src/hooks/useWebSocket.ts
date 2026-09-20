@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useWsStore } from '../store/wsStore';
+import { useProcessStore } from '../store/processStore';
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws`;
 
@@ -9,6 +10,7 @@ export function useWebSocketInit() {
   const setUser = useAuthStore((s) => s.setUser);
   const setConnected = useWsStore((s) => s.setConnected);
   const setOnlineStatus = useWsStore((s) => s.setOnlineStatus);
+  const setOnlineUsers = useWsStore((s) => s.setOnlineUsers);
   const wsRef = useRef<WebSocket | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -47,8 +49,14 @@ export function useWebSocketInit() {
           else if (data.type === 'PERMISSIONS_UPDATED') {
             setUser({ ...user, permissions: data.permissions });
           }
+          else if (data.type === 'PROCESS_STATS') {
+            useProcessStore.getState().setStats(data.data, data.sys_load);
+          }
           else if (data.type === 'PRESENCE_CHANGE') {
             setOnlineStatus(data.userId, data.isOnline);
+          }
+          else if (data.type === 'PRESENCE_SYNC') {
+            setOnlineUsers(data.users);
           }
         } catch (err) {
           console.error('Failed to parse WS message', err);

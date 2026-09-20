@@ -33,8 +33,10 @@ export function broadcastUserStatusChange(userId: number, isOnline: boolean) {
   for (const [, sockets] of connectedUsers.entries()) {
     // For now, we broadcast to everyone connected (they are authenticated at least)
     for (const ws of sockets) {
-      if (ws.readyState === 1) { // 1 = OPEN
-        ws.send(payload);
+      console.log('WS readyState:', ws.readyState);
+            if (ws.readyState === 1) { // 1 = OPEN
+        console.log('Broadcasting PROCESS_STATS to owner/viewer');
+            ws.send(payload);
       }
     }
   }
@@ -45,7 +47,8 @@ export function notifyUserPermissionsUpdated(userId: number, newPermissions: any
   if (sockets) {
     const payload = JSON.stringify({ type: 'PERMISSIONS_UPDATED', permissions: newPermissions });
     for (const ws of sockets) {
-      if (ws.readyState === 1) ws.send(payload);
+      if (ws.readyState === 1) console.log('Broadcasting PROCESS_STATS to owner/viewer');
+            ws.send(payload);
     }
   }
 }
@@ -55,7 +58,71 @@ export function notifyUserDisabled(userId: number) {
   if (sockets) {
     const payload = JSON.stringify({ type: 'USER_DISABLED' });
     for (const ws of sockets) {
-      if (ws.readyState === 1) ws.send(payload);
+      if (ws.readyState === 1) console.log('Broadcasting PROCESS_STATS to owner/viewer');
+            ws.send(payload);
     }
   }
+}
+
+
+
+import { getUserById } from './db/users.js';
+import { getAllProcesses } from './db/processes.js';
+import { Monitor } from './lib/monitor.js';
+
+let isBroadcasting = false;
+
+export function startProcessStatsBroadcaster() {
+  if (isBroadcasting) return;
+  isBroadcasting = true;
+
+  setInterval(async () => {
+    try {
+      const processes = await getAllProcesses();
+      const sysLoad = Monitor.getSysLoad();
+      
+      const enriched = await Promise.all(
+        processes.map(async (proc) => {
+          const activePid = Monitor.isRunning(proc);
+          if (activePid) {
+            const metrics = await Monitor.getMetrics(activePid);
+            return {
+              ...proc,
+              status: 'running',
+              pid: activePid,
+              cpu: metrics.cpu,
+              mem: metrics.mem,
+              uptime: metrics.uptime,
+            };
+          }
+          return {
+            ...proc,
+            status: 'stopped',
+            pid: undefined,
+            cpu: undefined,
+            mem: undefined,
+            uptime: undefined,
+          };
+        })
+      );
+
+      const payload = JSON.stringify({
+        type: 'PROCESS_STATS',
+        data: enriched,
+        sys_load: sysLoad
+      });
+
+      for (const [userId, sockets] of connectedUsers.entries()) {
+        for (const ws of sockets) {
+          try {
+            ws.send(payload);
+          } catch (e) {
+            console.error('Failed to send WS payload', e);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error broadcasting process stats:', err);
+    }
+  }, 1000);
 }

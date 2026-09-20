@@ -1,5 +1,5 @@
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public data?: any) {
     super(message);
     this.name = 'ApiError';
   }
@@ -57,12 +57,12 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   if (res.status === 401) {
     const msg = (data && data.message) || 'Unauthorized';
-    throw new ApiError(401, msg);
+    throw new ApiError(401, msg, data);
   }
 
   if (!res.ok) {
     const message = (data && data.message) || res.statusText || 'An error occurred';
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, data);
   }
 
   return data as T;

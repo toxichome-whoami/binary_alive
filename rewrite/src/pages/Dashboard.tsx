@@ -1698,7 +1698,7 @@ export const Dashboard: React.FC = () => {
                         className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
                       >
                         {isRunning ? (
-                          <span className="text-[14px] font-normal text-white leading-none">Running</span>
+                          <span className="text-[14px] font-normal text-[#30a46c] leading-none">Running</span>
                         ) : p.status === 'crashed' ? (
                           <span className="text-[14px] font-normal text-[#e5484d] leading-none">Crashed</span>
                         ) : (

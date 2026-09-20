@@ -19,7 +19,7 @@ function unifiedApiPlugin(): Plugin {
         
         // Listen to the real server, only forward /api/ws to Hono's handler
         server.httpServer.on('upgrade', (req, socket, head) => {
-          if (req.url && req.url.startsWith('/api/ws')) {
+          if (req.url && (req.url.startsWith('/api/ws') || req.url.startsWith('/api/terminal/ws'))) {
             dummyServer.emit('upgrade', req, socket, head);
           }
         });
