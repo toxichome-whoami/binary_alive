@@ -7,9 +7,9 @@ export default {
     extend: {
       colors: {
         brand: {
-          DEFAULT: '#f6821f',
-          hover: '#e0731a',
-          muted: 'rgba(246, 130, 31, 0.15)',
+          DEFAULT: '#3b82f6',
+          hover: '#2563eb',
+          muted: 'rgba(59, 130, 246, 0.15)',
         },
         surface: {
           DEFAULT: '#ffffff',
