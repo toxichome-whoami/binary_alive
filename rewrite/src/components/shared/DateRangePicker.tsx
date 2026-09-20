@@ -422,11 +422,8 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
             {/* Footer Bar: Timezone + Apply button (14px) */}
             <div className="border-t border-[#222222] p-3 flex flex-wrap items-center justify-between gap-2 bg-[#0c0c0c]">
-              <div className="flex items-center gap-1.5 text-[14px] text-[#8c8c8c] hover:text-white transition-colors font-sans">
-                <span className="truncate max-w-[280px]">{userTimezone}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256" className="shrink-0 text-[#666666]">
-                  <path d="M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z" />
-                </svg>
+              <div className="flex items-center gap-1.5 text-[14px] text-[#8c8c8c] font-sans">
+                <span className="truncate max-w-[280px]">Local Time: {userTimezone}</span>
               </div>
               <button
                 type="button"
