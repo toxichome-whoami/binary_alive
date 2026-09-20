@@ -143,3 +143,13 @@ export function broadcastUsersRefresh(targetUserId?: number) {
     }
   }
 }
+
+export function broadcastAiHistoryUpdated() {
+  const payload = JSON.stringify({ type: 'AI_HISTORY_UPDATED' });
+  for (const [, sockets] of connectedUsers.entries()) {
+    for (const ws of sockets) {
+      if (ws.readyState === 1) ws.send(payload);
+    }
+  }
+}
+

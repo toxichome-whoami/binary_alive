@@ -61,6 +61,12 @@ export const Layout: React.FC = () => {
     if (isTerminal) setHasVisitedTerminal(true);
   }, [isTerminal]);
 
+  useEffect(() => {
+    const handleOpenAi = () => setIsAiPanelOpen(true);
+    window.addEventListener('open-ai-panel', handleOpenAi);
+    return () => window.removeEventListener('open-ai-panel', handleOpenAi);
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-[#0c0c0c] text-gray-100 font-sans transition-colors">
       <Sidebar

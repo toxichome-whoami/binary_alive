@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Home, Users, Key, Activity, FileText, Settings, Terminal, Bot } from 'lucide-react';
+import { Search, Home, Users, Key, Activity, FileText, Settings, Terminal, Bot, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 
 interface SearchItem {
@@ -28,7 +28,7 @@ export const GlobalSearchModal: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { hasPermission } = useAuthStore();
+  const { hasPermission, isOwner } = useAuthStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -54,9 +54,10 @@ export const GlobalSearchModal: React.FC = () => {
     }
   }, [isOpen]);
 
-  const availableItems = ALL_ITEMS.filter(
-    (item) => !item.permission || hasPermission(item.permission as any)
-  );
+  const availableItems = [
+    ...ALL_ITEMS.filter((item) => !item.permission || hasPermission(item.permission as any)),
+    ...(isOwner() ? [{ id: 'ai-history', label: 'AI History', path: '/ai-history', icon: Sparkles }] : []),
+  ];
 
   const filteredItems = availableItems.filter((item) =>
     item.label.toLowerCase().includes(query.toLowerCase())
@@ -70,7 +71,11 @@ export const GlobalSearchModal: React.FC = () => {
 
   const handleSelect = (path: string) => {
     setIsOpen(false);
-    navigate(path);
+    if (path === '/ai-assistant') {
+      window.dispatchEvent(new CustomEvent('open-ai-panel'));
+    } else {
+      navigate(path);
+    }
   };
 
   const handleModalKeyDown = (e: React.KeyboardEvent) => {
@@ -97,22 +102,23 @@ export const GlobalSearchModal: React.FC = () => {
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={() => setIsOpen(false)}
       />
-      <div className="relative w-full max-w-lg bg-[#0c0c0c] ring-1 ring-[#262626] rounded-xl shadow-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center px-4 py-3 border-b border-[#262626]">
-          <Search className="w-5 h-5 text-[#8c8c8c] mr-3 shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            className="flex-1 bg-transparent border-none outline-none text-white placeholder-[#8c8c8c]"
-            placeholder="Search for pages..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleModalKeyDown}
-          />
-          <kbd className="ml-2 font-sans text-[10px] font-semibold text-[#8c8c8c] bg-[#1a1a1a] px-2 py-1 rounded select-none">
-            ESC
-          </kbd>
-        </div>
+      <div className="relative w-full max-w-lg bg-[#0c0c0c] border border-[#262626] rounded-[10px] shadow-2xl p-1.5 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+        <div className="bg-[#0e0e0e] border border-[#222222] rounded-lg overflow-hidden flex flex-col">
+          <div className="flex items-center px-4 py-3 border-b border-[#222222]">
+            <Search className="w-5 h-5 text-[#8c8c8c] mr-3 shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              className="flex-1 bg-transparent border-none outline-none text-[14px] text-white placeholder-[#8c8c8c]"
+              placeholder="Search for pages..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleModalKeyDown}
+            />
+            <kbd className="ml-2 font-sans text-[10px] font-semibold text-[#8c8c8c] bg-[#1a1a1a] px-2 py-1 rounded border border-[#262626] select-none">
+              ESC
+            </kbd>
+          </div>
         
         <div className="max-h-[300px] overflow-y-auto p-2">
           {filteredItems.length === 0 ? (
@@ -138,6 +144,7 @@ export const GlobalSearchModal: React.FC = () => {
               );
             })
           )}
+        </div>
         </div>
       </div>
     </div>

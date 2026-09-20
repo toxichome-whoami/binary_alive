@@ -83,6 +83,14 @@ export async function initDatabase(): Promise<void> {
       expires_at  DATETIME,
       created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     );`,
+
+    `CREATE TABLE IF NOT EXISTS ai_history (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      message     TEXT NOT NULL,
+      response    TEXT NOT NULL,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    );`,
   ];
 
   for (const sql of schemaStatements) {

@@ -25,25 +25,15 @@ export function useWebSocketInit() {
     };
   }, []);
 
-  // Connect/disconnect based on login state (user.id, not the whole user object)
+  // Connect and re-connect when login state changes (user.id, not the whole user object)
   useEffect(() => {
-    if (!user) {
-      if (wsRef.current) {
-        wsRef.current.close(1000, 'Logged out');
-        wsRef.current = null;
-      }
-      setConnected(false);
-      return;
+    // If we already have a connection and the user changes (e.g. login/logout), we need to
+    // reconnect so the backend sees the new session cookie (or lack thereof).
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'User state changed');
+      wsRef.current = null;
     }
-
-    // Already connected — don't reconnect just because permissions changed
-    if (
-      wsRef.current &&
-      (wsRef.current.readyState === WebSocket.OPEN ||
-        wsRef.current.readyState === WebSocket.CONNECTING)
-    ) {
-      return;
-    }
+    setConnected(false);
 
     let reconnectAttempts = 0;
 
@@ -81,6 +71,8 @@ export function useWebSocketInit() {
             }
           } else if (data.type === 'PROCESS_STATS') {
             useProcessStore.getState().setStats(data.data, data.sys_load);
+          } else if (data.type === 'AI_HISTORY_UPDATED') {
+            window.dispatchEvent(new CustomEvent('ai-history-updated'));
           } else if (data.type === 'PRESENCE_CHANGE') {
             useWsStore.getState().setOnlineStatus(data.userId, data.isOnline);
           } else if (data.type === 'PRESENCE_SYNC') {

@@ -18,6 +18,7 @@ export interface LoginResponse {
 export interface SetupStatusResponse {
   setup_mode: boolean;
   captcha_enabled?: boolean;
+  maintenance_enabled?: boolean;
 }
 
 export const authApi = {

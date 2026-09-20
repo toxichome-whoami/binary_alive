@@ -12,6 +12,7 @@ import { Logs } from './pages/Logs';
 import { Settings } from './pages/Settings';
 import { Setup2FA } from './pages/Setup2FA';
 import { ApiKeys } from './pages/ApiKeys';
+import { AiHistory } from './pages/AiHistory';
 import { Loader2 } from 'lucide-react';
 import { ToastContainer } from './components/ui/Toast';
 
@@ -32,7 +33,6 @@ const PermissionGuard: React.FC<PermissionGuardProps> = ({ permission, children 
 
 const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
-  useWebSocketInit();
 
   if (isLoading) {
     return (
@@ -56,6 +56,8 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export const App: React.FC = () => {
+  useWebSocketInit();
+  
   return (
     <>
       <HashRouter>
@@ -105,6 +107,7 @@ export const App: React.FC = () => {
             }
           />
           <Route path="/2fa" element={<Setup2FA />} />
+          <Route path="/ai-history" element={<AiHistory />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

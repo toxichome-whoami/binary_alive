@@ -37,6 +37,8 @@ app.route('/api/terminal', terminalRouter);
 app.route('/api/settings', settingsRouter);
 app.route('/api/2fa', totpRouter);
 app.route('/api/internal', internalRouter);
+import { aiRouter } from './routes/ai.js';
+app.route('/api/ai', aiRouter);
 
 // Health check endpoint
 app.get('/api/health', (c) => {

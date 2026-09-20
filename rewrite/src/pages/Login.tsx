@@ -22,6 +22,7 @@ export const Login: React.FC = () => {
   const [rememberDevice, setRememberDevice] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [captchaEnabled, setCaptchaEnabled] = useState<boolean>(false);
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState<boolean>(false);
   const [captchaInput, setCaptchaInput] = useState<string>('');
   const [captchaKey, setCaptchaKey] = useState<number>(Date.now());
   const [isCaptchaFocused, setIsCaptchaFocused] = useState<boolean>(false);
@@ -50,6 +51,7 @@ export const Login: React.FC = () => {
         if (mounted) {
           if (res.setup_mode) setIsFirstRun(true);
           if (res.captcha_enabled) setCaptchaEnabled(true);
+          if (res.maintenance_enabled) setMaintenanceEnabled(true);
         }
       } catch (err) {
         console.error('Failed to fetch setup status', err);
@@ -60,6 +62,39 @@ export const Login: React.FC = () => {
     checkSetup();
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    const handleSettingsRefresh = (e: any) => {
+      if (e.detail?.key === 'enable_captcha') {
+        setCaptchaEnabled(e.detail.value === '1');
+      } else if (e.detail?.key === 'maintenance_mode') {
+        setMaintenanceEnabled(e.detail.value === '1');
+      }
+    };
+    
+    const handleUsersRefresh = async () => {
+      if (show2fa && username && password) {
+        try {
+          const res = await authApi.login({ username: username.trim(), password, captcha: captchaInput });
+          if (res.success && res.user) {
+            setUser(res.user);
+            pushToast('success', `Welcome back, ${res.user.username}! (Auto-logged in after 2FA removal)`);
+            navigate('/dashboard');
+          }
+        } catch (err) {
+          // Ignore, still requires 2FA or failed
+        }
+      }
+    };
+
+    window.addEventListener('settings-refresh', handleSettingsRefresh);
+    window.addEventListener('users-refresh', handleUsersRefresh);
+    
+    return () => {
+      window.removeEventListener('settings-refresh', handleSettingsRefresh);
+      window.removeEventListener('users-refresh', handleUsersRefresh);
+    };
+  }, [show2fa, username, password, captchaInput, navigate, pushToast, setUser]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -155,6 +190,20 @@ export const Login: React.FC = () => {
             {isFirstRun ? 'Create the owner account to get started.' : show2fa ? 'Enter the 6-digit code from your authenticator app.' : ''}
           </p>
         </div>
+
+        {maintenanceEnabled && (
+          <div className="mb-6 p-4 rounded-lg bg-[#ef4444]/10 border border-[#ef4444]/20 text-[#ef4444] text-[13px] flex items-start gap-3 leading-relaxed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <path d="M12 9v4"/>
+              <path d="M12 17h.01"/>
+            </svg>
+            <div>
+              <strong className="block font-semibold mb-0.5">Maintenance Mode Active</strong>
+              The system is currently undergoing maintenance. Only authorized administrators may log in.
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col">
           {show2fa && (

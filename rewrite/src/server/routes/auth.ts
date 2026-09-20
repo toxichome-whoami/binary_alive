@@ -30,9 +30,11 @@ export const authRouter = new Hono();
 authRouter.get('/setup', async (c) => {
   const count = await countUsers();
   const captchaSetting = await getSetting('enable_captcha', '0');
+  const maintenanceSetting = await getSetting('maintenance_mode', '0');
   return c.json({ 
     setup_mode: count === 0,
-    captcha_enabled: captchaSetting === '1'
+    captcha_enabled: captchaSetting === '1',
+    maintenance_enabled: maintenanceSetting === '1'
   });
 });
 
@@ -127,7 +129,13 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
 
   // Check account lockout
   if (user.locked_until && new Date(user.locked_until) > new Date()) {
-    return c.json({ success: false, message: 'Account is temporarily locked due to failed attempts.' }, 403);
+    const isPermanentlyDisabled = new Date(user.locked_until).getFullYear() === 2099;
+    return c.json({ 
+      success: false, 
+      message: isPermanentlyDisabled 
+        ? 'Your account has been disabled by an administrator.' 
+        : 'Your account is temporarily locked due to too many failed attempts.' 
+    }, 403);
   }
 
   // Verify password
@@ -136,6 +144,17 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
     await incrementFailedAttempts(user.username);
     broadcastUsersRefresh();
     await logLoginAttempt(user.username, false, ip, user.email || null);
+    
+    const updatedUser = await getUserByUsername(username);
+    if (updatedUser?.locked_until && new Date(updatedUser.locked_until) > new Date()) {
+      const isPermanentlyDisabled = new Date(updatedUser.locked_until).getFullYear() === 2099;
+      return c.json({ 
+        success: false, 
+        message: isPermanentlyDisabled 
+          ? 'Your account has been disabled by an administrator.' 
+          : 'Your account is temporarily locked due to too many failed attempts.' 
+      }, 403);
+    }
     return c.json({ success: false, message: 'Invalid username or password.' }, 401);
   }
 

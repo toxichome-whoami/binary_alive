@@ -11,6 +11,7 @@ import {
   Search,
   X,
   Key,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -89,6 +90,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           to: '/logs',
           permission: 'logs_view_audit',
         },
+        ...(user?.role === 'owner' ? [{
+          id: 'aiHistory',
+          label: 'AI History',
+          icon: Sparkles,
+          to: '/ai-history',
+        }] : []),
       ],
     },
     {

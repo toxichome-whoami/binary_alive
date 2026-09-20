@@ -3,6 +3,7 @@ import { cn } from '../../utils/cn';
 import { Send, Sparkles, X, Settings as SettingsIcon, ChevronLeft } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { PermissionTable } from '../shared/PermissionTable';
+import { aiApi } from '../../api/ai';
 import type { Permissions } from '../../types';
 
 interface AiAssistantDrawerProps {
@@ -13,8 +14,31 @@ interface AiAssistantDrawerProps {
 export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, onClose }) => {
   const [inputValue, setInputValue] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [chatHistory, setChatHistory] = useState<{role: 'user'|'bot', content: string}[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
   const { user, hasPermission } = useAuthStore();
   const canAccessAi = hasPermission('ai_access');
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim()) return;
+    const msg = inputValue.trim();
+    setInputValue('');
+    setChatHistory(prev => [...prev, { role: 'user', content: msg }]);
+    setIsTyping(true);
+
+    try {
+      const res = await aiApi.sendChatMessage(msg);
+      if (res.success) {
+        setChatHistory(prev => [...prev, { role: 'bot', content: res.data.response }]);
+      } else {
+        setChatHistory(prev => [...prev, { role: 'bot', content: 'Error: Could not get response.' }]);
+      }
+    } catch (err) {
+      setChatHistory(prev => [...prev, { role: 'bot', content: 'Error: Request failed.' }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   // Track the subset of permissions the user explicitly grants to the AI session
   const [aiPermissions, setAiPermissions] = useState<Permissions | null>(null);
@@ -104,18 +128,35 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
       ) : (
         <>
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-[#222222] w-[320px] md:w-[360px]">
-            <div className="flex flex-col items-center justify-center text-center mt-8 mb-6 space-y-2">
-              <div className="w-12 h-12 rounded-full bg-[#161718] border border-[#26282A] flex items-center justify-center shadow-sm mb-1">
-                <Sparkles className="w-6 h-6 text-[#A1A1A1]" />
+          <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-[#222222] w-[320px] md:w-[360px] flex flex-col gap-4">
+            {chatHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center mt-8 mb-6 space-y-2">
+                <div className="w-12 h-12 rounded-full bg-[#161718] border border-[#26282A] flex items-center justify-center shadow-sm mb-1">
+                  <Sparkles className="w-6 h-6 text-[#A1A1A1]" />
+                </div>
+                <h3 className="text-[16px] font-medium text-white tracking-tight">
+                  How can I assist you today?
+                </h3>
+                <p className="text-[13px] text-[#8c8c8c] max-w-[280px] leading-relaxed">
+                  Monitor processes, inspect audit logs, run shell commands, or manage API keys.
+                </p>
               </div>
-              <h3 className="text-[16px] font-medium text-white tracking-tight">
-                How can I assist you today?
-              </h3>
-              <p className="text-[13px] text-[#8c8c8c] max-w-[280px] leading-relaxed">
-                Monitor processes, inspect audit logs, run shell commands, or manage API keys.
-              </p>
-            </div>
+            ) : (
+              chatHistory.map((msg, i) => (
+                <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-full`}>
+                  <div className={`px-3 py-2 rounded-lg text-[13px] whitespace-pre-wrap leading-relaxed ${msg.role === 'user' ? 'bg-[#2f80ed] text-white' : 'bg-[#161718] border border-[#26282A] text-[#d4d4d4]'}`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))
+            )}
+            {isTyping && (
+              <div className="flex items-start">
+                <div className="px-3 py-2 rounded-lg bg-[#161718] border border-[#26282A] text-[#8c8c8c] text-[13px]">
+                  Typing...
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Input Area */}
@@ -129,13 +170,13 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
                 className="w-full bg-transparent border-none text-[14px] text-white placeholder-[#A1A1A1] px-4 py-3 outline-none"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && inputValue.trim()) {
-                    // Stub out sending
-                    setInputValue('');
+                    handleSendMessage();
                   }
                 }}
               />
               <button
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() || isTyping}
+                onClick={handleSendMessage}
                 className="absolute right-2 p-1.5 text-[#A1A1A1] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-[6px] hover:bg-[#26282A] transition-colors"
               >
                 <Send className="w-4 h-4" />

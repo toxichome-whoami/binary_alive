@@ -24,7 +24,7 @@ dotenv.config();
 
 export const app = new Hono();
 
-import { initWebSocket, connectedUsers, broadcastUserStatusChange, startProcessStatsBroadcaster } from './websocket.js';
+import { initWebSocket, connectedUsers, broadcastUserStatusChange, broadcastUsersRefresh, startProcessStatsBroadcaster } from './websocket.js';
 import { getCookie } from 'hono/cookie';
 import { getUserById } from './db/users.js';
 import { getSession } from './db/sessions.js';
@@ -37,27 +37,27 @@ app.get(
   wsParts.upgradeWebSocket((c) => {
     return {
       onOpen: async (_event, ws) => {
-        // We use cookie for auth
+        // We use cookie for auth, but allow anonymous connections for login page settings updates
         const sid = getCookie(c, 'session_id');
-        if (!sid) {
-          ws.close(1008, 'Unauthorized');
-          return;
-        }
-        
-        const session = await getSession(sid);
-        if (!session || new Date(session.expires_at) < new Date()) {
-          ws.close(1008, 'Unauthorized');
-          return;
-        }
-        
-        const user = await getUserById(session.user_id);
-        const isLocked = user?.locked_until ? new Date(user.locked_until) > new Date() : false;
-        if (!user || isLocked) {
-          ws.close(1008, 'Forbidden');
-          return;
+        let userId = -1;
+        let user = null;
+
+        if (sid) {
+          const session = await getSession(sid);
+          if (session && new Date(session.expires_at) > new Date()) {
+            const maybeUser = await getUserById(session.user_id);
+            const isLocked = maybeUser?.locked_until ? new Date(maybeUser.locked_until) > new Date() : false;
+            if (maybeUser && !isLocked) {
+              user = maybeUser;
+              userId = user.id;
+            }
+          }
         }
 
-        const userId = user.id;
+        if (userId === -1) {
+          userId = -Math.floor(Math.random() * 1000000000) - 1; // Negative ID for anonymous
+        }
+
         // @ts-ignore
         ws.userId = userId;
         // @ts-ignore
@@ -67,8 +67,11 @@ app.get(
         if (!userSockets) {
           userSockets = new Set();
           connectedUsers.set(userId, userSockets);
-          // Only broadcast if this is the first connection for this user
-          broadcastUserStatusChange(userId, true);
+          // Only broadcast online status if it's a real user
+          if (user) {
+            broadcastUserStatusChange(userId, true);
+            broadcastUsersRefresh();
+          }
         }
         userSockets.add(ws);
 
@@ -90,7 +93,9 @@ app.get(
             userSockets.delete(ws);
             if (userSockets.size === 0) {
               connectedUsers.delete(userId);
-              broadcastUserStatusChange(userId, false);
+              if (userId > 0) {
+                broadcastUserStatusChange(userId, false);
+              }
             }
           }
         }

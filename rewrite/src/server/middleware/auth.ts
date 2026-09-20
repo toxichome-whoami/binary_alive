@@ -34,7 +34,13 @@ export function authMiddleware(): MiddlewareHandler {
           const user = await getUserById(apiToken.user_id);
           if (user) {
             if (user.locked_until && new Date(user.locked_until) > new Date()) {
-              return c.json({ success: false, message: 'Account is disabled.' }, 403);
+              const isPermanentlyDisabled = new Date(user.locked_until).getFullYear() === 2099;
+              return c.json({ 
+                success: false, 
+                message: isPermanentlyDisabled 
+                  ? 'Your account has been disabled by an administrator.' 
+                  : 'Your account is temporarily locked due to too many failed attempts.' 
+              }, 403);
             }
             // Determine effective permissions: token permission AND user permission
             const effectivePermissions: Partial<Permissions> = {};
@@ -65,7 +71,13 @@ export function authMiddleware(): MiddlewareHandler {
         const user = await getUserById(session.user_id);
         if (user) {
           if (user.locked_until && new Date(user.locked_until) > new Date()) {
-            return c.json({ success: false, message: 'Account is disabled.' }, 403);
+            const isPermanentlyDisabled = new Date(user.locked_until).getFullYear() === 2099;
+            return c.json({ 
+              success: false, 
+              message: isPermanentlyDisabled 
+                ? 'Your account has been disabled by an administrator.' 
+                : 'Your account is temporarily locked due to too many failed attempts.' 
+            }, 403);
           }
           const timeout = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '60', 10);
           await touchSession(sessionId, timeout);
