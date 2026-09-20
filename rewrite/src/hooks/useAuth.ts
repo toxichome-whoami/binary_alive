@@ -31,8 +31,15 @@ export function useAuth() {
       checkAuth();
     }
 
+    const handleRefresh = () => {
+      checkAuth();
+    };
+
+    window.addEventListener('users-refresh', handleRefresh);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('users-refresh', handleRefresh);
     };
   }, [setUser, setLoading, isLoading]);
 

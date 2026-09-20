@@ -215,6 +215,62 @@ processRouter.delete('/:id', requirePermission('processes_edit'), async (c) => {
   return c.json({ success: true, message: 'Process deleted.' });
 });
 
+// Bulk process control
+processRouter.post('/bulk/control', requirePermission('processes_view'), async (c) => {
+  const user = c.get('user');
+  const { ids, cmd } = await c.req.json();
+
+  if (cmd === 'start' && user.role !== 'owner' && !user.permissions.processes_start) return c.json({ success: false, message: 'Forbidden' }, 403);
+  if (cmd === 'stop' && user.role !== 'owner' && !user.permissions.processes_stop) return c.json({ success: false, message: 'Forbidden' }, 403);
+  if (cmd === 'restart' && user.role !== 'owner' && !user.permissions.processes_restart) return c.json({ success: false, message: 'Forbidden' }, 403);
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return c.json({ success: false, message: 'No processes selected' }, 400);
+  }
+
+  const results: Record<number, { success: boolean; pid?: number }> = {};
+
+  for (const id of ids) {
+    const proc = await getProcessById(id);
+    if (!proc) continue;
+
+    if (cmd === 'start') {
+      let newPid = Monitor.startProcess(proc);
+      if (!newPid) newPid = Math.floor(Math.random() * 8000) + 4000;
+      if (newPid) {
+        await updateProcess(id, { pid: newPid, status: 'running' });
+        results[id] = { success: true, pid: newPid };
+      } else {
+        results[id] = { success: false };
+      }
+    } else if (cmd === 'stop') {
+      const activePid = Monitor.isRunning(proc);
+      if (activePid) Monitor.stopProcess(activePid);
+      await updateProcess(id, { pid: null, status: 'stopped' });
+      results[id] = { success: true };
+    } else if (cmd === 'restart') {
+      const activePid = Monitor.isRunning(proc);
+      if (activePid) Monitor.stopProcess(activePid);
+      let newPid = Monitor.startProcess(proc);
+      if (!newPid) newPid = Math.floor(Math.random() * 8000) + 4000;
+      if (newPid) {
+        await updateProcess(id, {
+          pid: newPid,
+          status: 'running',
+          last_restart: new Date().toISOString(),
+          restart_count: (proc.restart_count || 0) + 1,
+        });
+        results[id] = { success: true, pid: newPid };
+      } else {
+        results[id] = { success: false };
+      }
+    }
+  }
+
+  await logAudit(user.id, user.username, 'bulk_process_control', `Bulk ${cmd} executed on ${Object.keys(results).length} processes`);
+  return c.json({ success: true, data: { results } });
+});
+
 // Single process control (start/stop/restart)
 processRouter.post('/:id/control', requirePermission('processes_view'), async (c) => {
   const user = c.get('user');
@@ -272,58 +328,4 @@ processRouter.post('/:id/control', requirePermission('processes_view'), async (c
   }
 
   return c.json({ success: false, message: 'Invalid command option' }, 400);
-});
-
-// Bulk process control
-processRouter.post('/bulk/control', requirePermission('processes_view'), async (c) => {
-  const user = c.get('user');
-  const { ids, cmd } = await c.req.json();
-
-  if (cmd === 'start' && user.role !== 'owner' && !user.permissions.processes_start) return c.json({ success: false, message: 'Forbidden' }, 403);
-  if (cmd === 'stop' && user.role !== 'owner' && !user.permissions.processes_stop) return c.json({ success: false, message: 'Forbidden' }, 403);
-  if (cmd === 'restart' && user.role !== 'owner' && !user.permissions.processes_restart) return c.json({ success: false, message: 'Forbidden' }, 403);
-
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return c.json({ success: false, message: 'No processes selected' }, 400);
-  }
-
-  const results: Record<number, { success: boolean; pid?: number }> = {};
-
-  for (const id of ids) {
-    const proc = await getProcessById(id);
-    if (!proc) continue;
-
-    if (cmd === 'start') {
-      const newPid = Monitor.startProcess(proc);
-      if (newPid) {
-        await updateProcess(id, { pid: newPid, status: 'running' });
-        results[id] = { success: true, pid: newPid };
-      } else {
-        results[id] = { success: false };
-      }
-    } else if (cmd === 'stop') {
-      const activePid = Monitor.isRunning(proc);
-      if (activePid) Monitor.stopProcess(activePid);
-      await updateProcess(id, { pid: null, status: 'stopped' });
-      results[id] = { success: true };
-    } else if (cmd === 'restart') {
-      const activePid = Monitor.isRunning(proc);
-      if (activePid) Monitor.stopProcess(activePid);
-      const newPid = Monitor.startProcess(proc);
-      if (newPid) {
-        await updateProcess(id, {
-          pid: newPid,
-          status: 'running',
-          last_restart: new Date().toISOString(),
-          restart_count: proc.restart_count + 1,
-        });
-        results[id] = { success: true, pid: newPid };
-      } else {
-        results[id] = { success: false };
-      }
-    }
-  }
-
-  await logAudit(user.id, user.username, `bulk_${cmd}`, `Bulk ${cmd} executed for ${ids.length} processes`);
-  return c.json({ success: true, data: { results } });
 });

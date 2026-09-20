@@ -259,9 +259,20 @@ const ColumnResizer: React.FC<{
 
 export const Users: React.FC = () => {
   const navigate = useNavigate();
-  const { user: currentUser, isOwner } = useAuthStore();
+  const { user: currentUser, isOwner, hasPermission } = useAuthStore();
   const { onlineUsers } = useWsStore();
   const { push: pushToast } = useToastStore();
+
+  const disabledPermissions = useMemo(() => {
+    if (isOwner()) return {};
+    const disabled: Partial<Record<keyof Permissions, boolean>> = {};
+    for (const key of Object.keys(DEFAULT_PERMISSIONS)) {
+      if (!(currentUser?.permissions as any)?.[key]) {
+        disabled[key as keyof Permissions] = true;
+      }
+    }
+    return disabled;
+  }, [currentUser, isOwner]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [page, setPage] = useState<number>(1);
@@ -323,7 +334,36 @@ export const Users: React.FC = () => {
       return;
     }
     fetchUsers(page);
+
+    const handleRefresh = () => fetchUsers(page);
+    window.addEventListener('users-refresh', handleRefresh);
+    return () => window.removeEventListener('users-refresh', handleRefresh);
   }, [fetchUsers, page, currentUser, isOwner, navigate]);
+
+  // Sync editingUser state when the users list updates via WebSocket
+  useEffect(() => {
+    if (editingUser) {
+      const updatedUser = users.find((u) => u.id === editingUser.id);
+      if (updatedUser) {
+        const currentDbPerms = JSON.stringify(updatedUser.permissions || {});
+        const oldDbPerms = JSON.stringify(editingUser.permissions || {});
+        
+        if (currentDbPerms !== oldDbPerms) {
+          setEditingUser(updatedUser);
+          setEditPermissions(updatedUser.permissions || { ...DEFAULT_PERMISSIONS });
+        } else if (
+          updatedUser.username !== editingUser.username || 
+          updatedUser.email !== editingUser.email || 
+          updatedUser.locked_until !== editingUser.locked_until ||
+          updatedUser.has_2fa !== editingUser.has_2fa
+        ) {
+          setEditingUser(updatedUser);
+        }
+      } else {
+        setEditingUser(null); // User was deleted in background
+      }
+    }
+  }, [users]);
 
   // Derived stats
   const stats = useMemo(() => {
@@ -361,7 +401,7 @@ export const Users: React.FC = () => {
     permissions: 'Permissions',
     api_keys: 'API Keys',
     two_fa: '2FA Status',
-    logins: 'Logins',
+    logins: 'Failed Logins',
   };
 
   // Filters
@@ -806,6 +846,11 @@ export const Users: React.FC = () => {
     (visibleColumns.api_keys ? 1 : 0) +
     (visibleColumns.two_fa ? 1 : 0) +
     (visibleColumns.logins ? 1 : 0);
+
+  const selectedUsersList = useMemo(() => users.filter(u => selectedIds.includes(u.id)), [users, selectedIds]);
+  const canBulkDisable = selectedUsersList.some(u => !u.locked_until || new Date(u.locked_until) <= new Date());
+  const canBulkEnable = selectedUsersList.some(u => u.locked_until && new Date(u.locked_until) > new Date());
+
 
   return (
     <div className="space-y-6 w-full max-w-[1600px] mx-auto pb-12 select-none font-sans">
@@ -1274,24 +1319,37 @@ export const Users: React.FC = () => {
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-2.5 font-sans">
-                {isOwner() && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleBulkToggleStatus(true)}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
-                    >
-                      <Ban className="w-3.5 h-3.5 shrink-0" />
-                      <span>Disable</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleBulkToggleStatus(false)}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>Enable</span>
-                    </button>
+                {hasPermission('users_disable') && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkToggleStatus(true)}
+                        disabled={!canBulkDisable}
+                        className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium transition-colors font-sans ${
+                          canBulkDisable
+                            ? 'text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] cursor-pointer'
+                            : 'text-[#666666] bg-transparent border border-[#262626] opacity-50 cursor-not-allowed'
+                        }`}
+                      >
+                        <Ban className="w-3.5 h-3.5 shrink-0" />
+                        <span>Disable</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkToggleStatus(false)}
+                        disabled={!canBulkEnable}
+                        className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium transition-colors font-sans ${
+                          canBulkEnable
+                            ? 'text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] cursor-pointer'
+                            : 'text-[#666666] bg-transparent border border-[#262626] opacity-50 cursor-not-allowed'
+                        }`}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>Enable</span>
+                      </button>
+                    </>
+                  )}
+                  {hasPermission('users_delete') && (
                     <button
                       type="button"
                       onClick={() => setIsBulkDeleting(true)}
@@ -1304,8 +1362,7 @@ export const Users: React.FC = () => {
                         <span>Delete {selectedIds.length} member{selectedIds.length !== 1 ? 's' : ''}</span>
                       </span>
                     </button>
-                  </>
-                )}
+                  )}
               </div>
             </div>
           )}
@@ -1452,8 +1509,8 @@ export const Users: React.FC = () => {
 
                   {/* Failed Logins Column */}
                   {visibleColumns.logins && (
-                    <th className="flex items-center shrink-0 w-[100px] h-[40px] px-3">
-                      <span className="text-[14px] font-medium text-white leading-none font-sans">Logins</span>
+                    <th className="flex items-center shrink-0 w-[120px] h-[40px] px-3">
+                      <span className="text-[14px] font-medium text-white leading-none font-sans">Failed Logins</span>
                     </th>
                   )}
 
@@ -1633,7 +1690,7 @@ export const Users: React.FC = () => {
 
                         {/* Failed Logins cell */}
                         {visibleColumns.logins && (
-                          <td className="flex items-center shrink-0 w-[100px] h-[40px] px-3 font-sans text-[14px] text-[#888888] tabular-nums">
+                          <td className="flex items-center shrink-0 w-[120px] h-[40px] px-3 font-sans text-[14px] text-[#888888] tabular-nums">
                             {u.failed_attempts || 0}
                           </td>
                         )}
@@ -1761,14 +1818,14 @@ export const Users: React.FC = () => {
                 <span className="text-[14px] font-medium text-white block font-sans">Permissions</span>
                 <span className="text-[13px] text-[#8c8c8c] font-sans">Fine-grained access rights for this member</span>
               </div>
-              <PermissionTable value={newPermissions} onChange={setNewPermissions} />
+              <PermissionTable value={newPermissions} onChange={setNewPermissions} disabled={disabledPermissions} />
             </div>
           </div>
 
           {/* Pinned Bottom Footer Bar */}
           <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-between font-sans">
             <span className="text-[13px] text-[#8c8c8c] font-sans">
-              {countGrantedPermissions(newPermissions)} of 21 granted
+              {countGrantedPermissions(newPermissions)} of {Object.keys(DEFAULT_PERMISSIONS).length} granted
             </span>
             <div className="flex items-center gap-2 font-sans">
               <button
@@ -1870,15 +1927,7 @@ export const Users: React.FC = () => {
             </div>
 
             {/* Permissions */}
-            {editingUser?.role !== 'owner' ? (
-              <div className="pt-2 font-sans">
-                <div className="mb-2 font-sans">
-                  <span className="text-[14px] font-medium text-white block font-sans">Permissions</span>
-                  <span className="text-[13px] text-[#8c8c8c] font-sans">Adjust functional scopes for this member</span>
-                </div>
-                <PermissionTable value={editPermissions} onChange={setEditPermissions} />
-              </div>
-            ) : (
+            {editingUser?.role === 'owner' ? (
               <div className="p-3.5 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-amber-500 shrink-0" />
@@ -1888,15 +1937,33 @@ export const Users: React.FC = () => {
                   The primary system owner account automatically possesses all permissions across processes, terminal, users, and security settings.
                 </p>
               </div>
+            ) : editingUser?.id === currentUser?.id ? (
+              <div className="p-3.5 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#2f80ed] shrink-0" />
+                  <span className="text-[14px] font-medium text-[#2f80ed] font-sans">Your Profile</span>
+                </div>
+                <p className="text-[13px] text-[#8c8c8c] mt-1 leading-relaxed font-sans">
+                  You cannot modify your own permissions. Please ask another administrator to adjust your permissions if needed.
+                </p>
+              </div>
+            ) : (
+              <div className="pt-2 font-sans">
+                <div className="mb-2 font-sans">
+                  <span className="text-[14px] font-medium text-white block font-sans">Permissions</span>
+                  <span className="text-[13px] text-[#8c8c8c] font-sans">Adjust functional scopes for this member</span>
+                </div>
+                <PermissionTable value={editPermissions} onChange={setEditPermissions} disabled={disabledPermissions} />
+              </div>
             )}
 
             {/* Account Management & Security Actions */}
-            {(editingUser?.role !== 'owner' || editingUser?.has_2fa) && (
+            {( (editingUser?.role !== 'owner' && editingUser?.id !== currentUser?.id && (hasPermission('users_disable') || hasPermission('users_delete'))) || (editingUser?.has_2fa && hasPermission('users_reset_2fa')) ) && (
               <div className="pt-2 space-y-3 font-sans">
                 <span className="text-[14px] font-medium text-white block font-sans">Security & Account Control</span>
 
               {/* Account Status / Disable Account Action */}
-              {editingUser && editingUser.role !== 'owner' && isOwner() && (
+              {editingUser && editingUser.role !== 'owner' && editingUser.id !== currentUser?.id && hasPermission('users_disable') && (
                 editingUser?.locked_until && new Date(editingUser.locked_until) > new Date() ? (
                   <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                     <div>
@@ -1934,7 +2001,7 @@ export const Users: React.FC = () => {
               )}
 
               {/* Force Remove 2FA Action */}
-              {editingUser?.has_2fa && (
+              {editingUser?.has_2fa && hasPermission('users_reset_2fa') && (
                 <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                   <div>
                     <span className="text-[14px] font-medium text-white block font-sans">Two-Factor Authentication</span>
@@ -1955,7 +2022,7 @@ export const Users: React.FC = () => {
               )}
 
               {/* Delete Member Action (Only for non-owner, non-self) */}
-              {editingUser?.role !== 'owner' && editingUser?.id !== currentUser?.id && isOwner() && (
+              {editingUser?.role !== 'owner' && editingUser?.id !== currentUser?.id && hasPermission('users_delete') && (
                 <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                   <div>
                     <span className="text-[14px] font-medium text-white block font-sans">Delete Account</span>
@@ -1981,7 +2048,7 @@ export const Users: React.FC = () => {
         {/* Pinned Bottom Footer Bar */}
           <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-between font-sans">
             <span className="text-[13px] text-[#8c8c8c] font-sans">
-              {editingUser?.role === 'owner' ? 'All scopes enabled' : `${countGrantedPermissions(editPermissions)} of 21 granted`}
+              {editingUser?.role === 'owner' ? 'All scopes enabled' : `${countGrantedPermissions(editPermissions)} of ${Object.keys(DEFAULT_PERMISSIONS).length} granted`}
             </span>
             <div className="flex items-center gap-2 font-sans">
               <button

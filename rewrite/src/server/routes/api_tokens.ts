@@ -11,7 +11,32 @@ import {
 } from '../db/api_tokens.js';
 import { generateApiToken } from '../lib/crypto.js';
 import { logAudit } from '../db/logs.js';
+import { broadcastUsersRefresh } from '../websocket.js';
+import { getUserById } from '../db/users.js';
 
+function enforcePermissionConstraints(perms: any): any {
+  const p = { ...perms };
+  if (!p.users_view) {
+    p.users_create = false; p.users_edit = false; p.users_disable = false; p.users_delete = false; p.users_reset_2fa = false;
+  }
+  if (!p.api_keys_view) {
+    p.api_keys_create = false; p.api_keys_edit = false; p.api_keys_disable = false; p.api_keys_delete = false;
+  }
+  if (!p.processes_view) {
+    p.processes_start = false; p.processes_stop = false; p.processes_restart = false;
+    p.processes_create = false; p.processes_edit = false; p.processes_delete = false;
+  }
+  if (!p.settings_view) {
+    p.settings_edit = false; p.settings_security = false;
+  }
+  if (!p.terminal_access) {
+    p.terminal_unrestricted = false;
+  }
+  if (!p.ai_access) {
+    p.ai_data_read = false; p.ai_data_write = false;
+  }
+  return p;
+}
 
 export const apiTokensRouter = new Hono();
 
@@ -23,8 +48,21 @@ apiTokensRouter.get('/', requirePermission('api_keys_view'), async (c) => {
   const user = c.get('user');
   const tokens = await listApiTokensForUser(user.id);
   
-  // Omit the token hash for security
-  const safeTokens = tokens.map(({ token_hash, ...rest }) => rest);
+  // Calculate effective permissions (omit the token hash for security)
+  const safeTokens = tokens.map((token: any) => {
+    const { token_hash, ...rest } = token;
+    
+    // For the current user, effective permissions are restricted by their own
+    if (user.role !== 'owner') {
+       const effectivePerms: any = {};
+       for (const key of Object.keys(rest.permissions)) {
+         effectivePerms[key] = !!rest.permissions[key] && !!(user.permissions as any)[key];
+       }
+       rest.permissions = effectivePerms;
+    }
+    
+    return rest;
+  });
   
   return c.json({ success: true, data: safeTokens });
 });
@@ -37,7 +75,23 @@ apiTokensRouter.get('/all', requirePermission('api_keys_view'), async (c) => {
   }
   
   const tokens = await listAllApiTokens();
-  const safeTokens = tokens.map(({ token_hash, ...rest }) => rest);
+  
+  const safeTokens = await Promise.all(tokens.map(async (token: any) => {
+    const { token_hash, ...rest } = token;
+    
+    if (rest.role !== 'owner') {
+      const tokenOwner = await getUserById(rest.user_id);
+      if (tokenOwner && tokenOwner.role !== 'owner') {
+         const effectivePerms: any = {};
+         for (const key of Object.keys(rest.permissions)) {
+           effectivePerms[key] = !!rest.permissions[key] && !!(tokenOwner.permissions as any)[key];
+         }
+         rest.permissions = effectivePerms;
+      }
+    }
+    
+    return rest;
+  }));
   
   return c.json({ success: true, data: safeTokens });
 });
@@ -62,6 +116,7 @@ apiTokensRouter.post('/', requirePermission('api_keys_create'), async (c) => {
         effectivePermissions[key] = !!permissions[key] && !!(user.permissions as any)[key];
       }
     }
+    effectivePermissions = enforcePermissionConstraints(effectivePermissions);
   }
   
   const { raw, hash } = generateApiToken();
@@ -74,6 +129,7 @@ apiTokensRouter.post('/', requirePermission('api_keys_create'), async (c) => {
   );
   
   await logAudit(user.id, user.username, 'create_api_token', `Created token: ${name}`);
+  broadcastUsersRefresh();
   
   return c.json({
     success: true,
@@ -110,13 +166,16 @@ apiTokensRouter.put('/:id', requirePermission('api_keys_edit'), async (c) => {
       if (user.role === 'owner') {
         effectivePermissions[key] = !!body.permissions[key];
       } else {
-        effectivePermissions[key] = !!body.permissions[key];
         if (!(user.permissions as any)[key]) {
-           effectivePermissions[key] = false;
+           // User cannot modify this permission, preserve the existing value
+           const existingPerms = typeof targetToken.permissions === 'string' ? JSON.parse(targetToken.permissions) : (targetToken.permissions || {});
+           effectivePermissions[key] = !!existingPerms[key];
+        } else {
+           effectivePermissions[key] = !!body.permissions[key];
         }
       }
     }
-    updates.permissions = JSON.stringify(effectivePermissions);
+    updates.permissions = JSON.stringify(enforcePermissionConstraints(effectivePermissions));
   }
   
   if (Object.keys(updates).length > 0) {
@@ -141,6 +200,7 @@ apiTokensRouter.post('/:id/disable', requirePermission('api_keys_disable'), asyn
   
   await disableApiToken(targetId);
   await logAudit(user.id, user.username, 'disable_api_token', `Disabled token: ${targetToken.name}`);
+  broadcastUsersRefresh();
   
   return c.json({ success: true, message: `API Key "${targetToken.name}" has been disabled.` });
 });
@@ -159,6 +219,7 @@ apiTokensRouter.post('/:id/enable', requirePermission('api_keys_disable'), async
   
   await enableApiToken(targetId);
   await logAudit(user.id, user.username, 'enable_api_token', `Enabled token: ${targetToken.name}`);
+  broadcastUsersRefresh();
   
   return c.json({ success: true, message: `API Key "${targetToken.name}" has been enabled.` });
 });
@@ -177,6 +238,7 @@ apiTokensRouter.delete('/:id', requirePermission('api_keys_delete'), async (c) =
   
   await deleteApiToken(targetId);
   await logAudit(user.id, user.username, 'delete_api_token', `Revoked token: ${targetToken.name}`);
+  broadcastUsersRefresh();
   
   return c.json({ success: true, message: 'Token revoked' });
 });

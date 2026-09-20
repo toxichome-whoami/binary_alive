@@ -22,8 +22,14 @@ export const Setup2FA: React.FC = () => {
   const [disableLoading, setDisableLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    setIs2faEnabled(false);
     loadSetup();
+
+    const handleRefresh = () => {
+      loadSetup();
+    };
+    
+    window.addEventListener('users-refresh', handleRefresh);
+    return () => window.removeEventListener('users-refresh', handleRefresh);
   }, []);
 
   const loadSetup = async () => {
@@ -32,6 +38,7 @@ export const Setup2FA: React.FC = () => {
       if (res.success && res.data) {
         setSecret(res.data.secret);
         setOtpauthUrl(res.data.otpauth_url);
+        setIs2faEnabled(false);
       }
     } catch {
       setIs2faEnabled(true);

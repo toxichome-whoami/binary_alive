@@ -7,29 +7,53 @@ const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${win
 
 export function useWebSocketInit() {
   const user = useAuthStore((s) => s.user);
-  const setUser = useAuthStore((s) => s.setUser);
   const setConnected = useWsStore((s) => s.setConnected);
-  const setOnlineStatus = useWsStore((s) => s.setOnlineStatus);
-  const setOnlineUsers = useWsStore((s) => s.setOnlineUsers);
   const wsRef = useRef<WebSocket | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close(1000, 'Unmount');
+        wsRef.current = null;
+      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      setConnected(false);
+    };
+  }, []);
+
+  // Connect/disconnect based on login state (user.id, not the whole user object)
   useEffect(() => {
     if (!user) {
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close(1000, 'Logged out');
         wsRef.current = null;
       }
       setConnected(false);
       return;
     }
 
+    // Already connected — don't reconnect just because permissions changed
+    if (
+      wsRef.current &&
+      (wsRef.current.readyState === WebSocket.OPEN ||
+        wsRef.current.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
+
     let reconnectAttempts = 0;
 
     const connect = () => {
-      if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) return;
-      
+      if (
+        wsRef.current?.readyState === WebSocket.OPEN ||
+        wsRef.current?.readyState === WebSocket.CONNECTING
+      )
+        return;
+
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
@@ -41,22 +65,27 @@ export function useWebSocketInit() {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
+
           if (data.type === 'USER_DISABLED') {
-            setUser(null); // Force immediate logout
+            // Read fresh from store — never stale
+            useAuthStore.getState().setUser(null);
             window.location.href = '/login';
-          } 
-          else if (data.type === 'PERMISSIONS_UPDATED') {
-            setUser({ ...user, permissions: data.permissions });
-          }
-          else if (data.type === 'PROCESS_STATS') {
+          } else if (data.type === 'USERS_REFRESH') {
+            window.dispatchEvent(new CustomEvent('users-refresh'));
+          } else if (data.type === 'PERMISSIONS_UPDATED') {
+            // Read fresh from store — never stale closure
+            const fresh = useAuthStore.getState().user;
+            if (fresh) {
+              useAuthStore.getState().setUser({ ...fresh, permissions: data.permissions });
+              // Also refresh the users table so permission counts update for the admin
+              window.dispatchEvent(new CustomEvent('users-refresh'));
+            }
+          } else if (data.type === 'PROCESS_STATS') {
             useProcessStore.getState().setStats(data.data, data.sys_load);
-          }
-          else if (data.type === 'PRESENCE_CHANGE') {
-            setOnlineStatus(data.userId, data.isOnline);
-          }
-          else if (data.type === 'PRESENCE_SYNC') {
-            setOnlineUsers(data.users);
+          } else if (data.type === 'PRESENCE_CHANGE') {
+            useWsStore.getState().setOnlineStatus(data.userId, data.isOnline);
+          } else if (data.type === 'PRESENCE_SYNC') {
+            useWsStore.getState().setOnlineUsers(data.users);
           }
         } catch (err) {
           console.error('Failed to parse WS message', err);
@@ -66,8 +95,8 @@ export function useWebSocketInit() {
       ws.onclose = (event) => {
         setConnected(false);
         wsRef.current = null;
-        
-        // Don't auto-reconnect if it was a normal closure (e.g. background suspend) or auth failure (1008)
+
+        // Don't auto-reconnect on clean close or auth failure
         if (event.code !== 1000 && event.code !== 1008) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
           reconnectAttempts++;
@@ -80,16 +109,13 @@ export function useWebSocketInit() {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        // Suspend logic: disconnect after 30 seconds of being in the background
         timeoutRef.current = setTimeout(() => {
           if (wsRef.current) {
             wsRef.current.close(1000, 'Background suspend');
           }
         }, 30000);
       } else {
-        // Clear suspend timer if we focus back before 30 seconds
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        // Instantly reconnect if we were disconnected
         if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
           connect();
         }
@@ -99,14 +125,9 @@ export function useWebSocketInit() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close(1000, 'Unmount');
-        wsRef.current = null;
-      }
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      setConnected(false);
     };
-  }, [user]); // user object change handles login/logout boundary
+    // Only re-run when user logs in/out — NOT on every user object change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 }

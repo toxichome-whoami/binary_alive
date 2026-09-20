@@ -100,7 +100,57 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
 
   const handleToggle = (key: keyof Permissions) => {
     if (readOnly || disabled[key]) return;
-    onChange?.({ ...value, [key]: !value[key] });
+    
+    const nextVal = !value[key];
+    const newValue = { ...value, [key]: nextVal };
+
+    // Parent-child logic enforcement
+    const parentMap: Record<string, keyof Permissions> = {
+      users_create: 'users_view',
+      users_edit: 'users_view',
+      users_disable: 'users_view',
+      users_delete: 'users_view',
+      users_reset_2fa: 'users_view',
+
+      api_keys_create: 'api_keys_view',
+      api_keys_edit: 'api_keys_view',
+      api_keys_disable: 'api_keys_view',
+      api_keys_delete: 'api_keys_view',
+
+      processes_start: 'processes_view',
+      processes_stop: 'processes_view',
+      processes_restart: 'processes_view',
+      processes_create: 'processes_view',
+      processes_edit: 'processes_view',
+      processes_delete: 'processes_view',
+
+      settings_edit: 'settings_view',
+      settings_security: 'settings_view',
+
+      terminal_unrestricted: 'terminal_access',
+
+      ai_data_read: 'ai_access',
+      ai_data_write: 'ai_access',
+    };
+
+    // If toggling ON a child, force parent ON
+    if (nextVal === true && parentMap[key]) {
+      const parent = parentMap[key];
+      if (!disabled[parent]) {
+        newValue[parent] = true;
+      }
+    }
+
+    // If toggling OFF a parent, force all its children OFF
+    if (nextVal === false) {
+      for (const [childKey, parentKey] of Object.entries(parentMap)) {
+        if (parentKey === key) {
+          newValue[childKey as keyof Permissions] = false;
+        }
+      }
+    }
+
+    onChange?.(newValue);
   };
 
   const handleToggleGroup = (items: { key: string }[]) => {

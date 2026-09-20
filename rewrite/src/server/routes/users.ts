@@ -14,7 +14,31 @@ import { logAudit } from '../db/logs.js';
 import { hashPassword } from '../lib/crypto.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import type { Permissions } from '../types/index.js';
-import { notifyUserPermissionsUpdated, notifyUserDisabled } from '../websocket.js';
+import { notifyUserPermissionsUpdated, notifyUserDisabled, broadcastUsersRefresh } from '../websocket.js';
+
+function enforcePermissionConstraints(perms: any): any {
+  const p = { ...perms };
+  if (!p.users_view) {
+    p.users_create = false; p.users_edit = false; p.users_disable = false; p.users_delete = false; p.users_reset_2fa = false;
+  }
+  if (!p.api_keys_view) {
+    p.api_keys_create = false; p.api_keys_edit = false; p.api_keys_disable = false; p.api_keys_delete = false;
+  }
+  if (!p.processes_view) {
+    p.processes_start = false; p.processes_stop = false; p.processes_restart = false;
+    p.processes_create = false; p.processes_edit = false; p.processes_delete = false;
+  }
+  if (!p.settings_view) {
+    p.settings_edit = false; p.settings_security = false;
+  }
+  if (!p.terminal_access) {
+    p.terminal_unrestricted = false;
+  }
+  if (!p.ai_access) {
+    p.ai_data_read = false; p.ai_data_write = false;
+  }
+  return p;
+}
 
 export const userRouter = new Hono();
 
@@ -46,10 +70,20 @@ userRouter.post('/', requireAuth(), requirePermission('users_create'), async (c)
     return c.json({ success: false, message: 'Username and password required' }, 400);
   }
 
+  // Privilege escalation check
+  if (currentUser.role !== 'owner') {
+    for (const [key, val] of Object.entries(permissions)) {
+      if (val && !(currentUser.permissions as any)[key]) {
+        return c.json({ success: false, message: `You cannot grant the '${key}' permission because you do not have it.` }, 403);
+      }
+    }
+  }
+
   const hash = await hashPassword(password);
   try {
     const id = await createUser(username, hash, 'member', JSON.stringify(permissions), email);
     await logAudit(currentUser.id, currentUser.username, 'create_user', `Created user: ${username}`);
+    broadcastUsersRefresh();
     return c.json({ success: true, data: { id } });
   } catch (err: any) {
     return c.json({ success: false, message: 'Username already exists.' }, 400);
@@ -88,7 +122,22 @@ userRouter.put('/:id', requireAuth(), requirePermission('users_edit'), async (c)
     updates.passwordHash = await hashPassword(body.password);
   }
   if (body.permissions && !isMaster) {
-    updates.permissions = JSON.stringify(body.permissions);
+    if (targetId !== currentUser.id) {
+      if (currentUser.role !== 'owner') {
+        const existingPerms = typeof target.permissions === 'string' ? JSON.parse(target.permissions) : (target.permissions || {});
+        const effectivePerms: any = {};
+        for (const [key, val] of Object.entries(body.permissions)) {
+          if (!(currentUser.permissions as any)[key]) {
+             effectivePerms[key] = !!existingPerms[key];
+          } else {
+             effectivePerms[key] = !!val;
+          }
+        }
+        updates.permissions = JSON.stringify(enforcePermissionConstraints(effectivePerms));
+      } else {
+        updates.permissions = JSON.stringify(enforcePermissionConstraints(body.permissions));
+      }
+    }
   }
   if (body.is_disabled !== undefined) {
     if (isMaster && body.is_disabled) {
@@ -115,9 +164,13 @@ userRouter.put('/:id', requireAuth(), requirePermission('users_edit'), async (c)
 
     if (updates.permissions) {
       notifyUserPermissionsUpdated(targetId, body.permissions);
+      broadcastUsersRefresh();
     }
-    if (body.is_disabled) {
-      notifyUserDisabled(targetId);
+    if (body.is_disabled !== undefined) {
+      if (body.is_disabled) {
+        notifyUserDisabled(targetId);
+      }
+      broadcastUsersRefresh();
     }
   }
 
@@ -145,6 +198,7 @@ userRouter.post('/:id/disable', requireAuth(), requirePermission('users_disable'
   await deleteUserSessions(targetId);
   await logAudit(currentUser.id, currentUser.username, 'disable_user', `Disabled account: ${target.username}`);
   notifyUserDisabled(targetId);
+      broadcastUsersRefresh();
   return c.json({ success: true, message: `Account "${target.username}" has been disabled.` });
 });
 
@@ -160,6 +214,7 @@ userRouter.post('/:id/enable', requireAuth(), requirePermission('users_disable')
 
   await enableUser(targetId);
   await logAudit(currentUser.id, currentUser.username, 'enable_user', `Enabled account: ${target.username}`);
+  broadcastUsersRefresh();
   return c.json({ success: true, message: `Account "${target.username}" has been enabled.` });
 });
 
@@ -184,6 +239,7 @@ userRouter.delete('/:id', requireAuth(), requirePermission('users_delete'), asyn
   await deleteUser(targetId);
   await logAudit(currentUser.id, currentUser.username, 'delete_user', `Deleted user: ${target.username}`);
   notifyUserDisabled(targetId);
+      broadcastUsersRefresh();
   return c.json({ success: true, message: 'User deleted.' });
 });
 
@@ -199,6 +255,7 @@ userRouter.delete('/:id/2fa', requireAuth(), requirePermission('users_reset_2fa'
 
   await setTotpSecret(targetId, null);
   await logAudit(currentUser.id, currentUser.username, 'disable_2fa', `Admin removed 2FA for ${target.username}`);
+  broadcastUsersRefresh();
 
   return c.json({ success: true, message: '2FA disabled for user.' });
 });

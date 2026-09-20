@@ -21,8 +21,8 @@ export async function getUserById(id: number): Promise<User | null> {
 
 export async function getUserByUsername(username: string): Promise<User | null> {
   const result = await db.execute({
-    sql: 'SELECT * FROM users WHERE username = ?',
-    args: [username],
+    sql: 'SELECT * FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)',
+    args: [username, username],
   });
   return parseUserRow(result.rows[0]);
 }

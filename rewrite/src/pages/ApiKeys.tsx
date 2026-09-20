@@ -258,7 +258,7 @@ export const ApiKeys: React.FC = () => {
   const userIdFilter = searchParams.get('user');
   const navigate = useNavigate();
 
-  const { user: currentUser, isOwner } = useAuthStore();
+  const { user: currentUser, isOwner, hasPermission } = useAuthStore();
   const { push: pushToast } = useToastStore();
 
   const [tokens, setTokens] = useState<ApiToken[]>([]);
@@ -508,6 +508,10 @@ export const ApiKeys: React.FC = () => {
       return;
     }
     fetchTokens();
+
+    const handleRefresh = () => fetchTokens();
+    window.addEventListener('users-refresh', handleRefresh);
+    return () => window.removeEventListener('users-refresh', handleRefresh);
   }, [fetchTokens, currentUser, isOwner, navigate]);
 
   const countGrantedPermissions = (perms?: Permissions) => {
@@ -734,6 +738,25 @@ export const ApiKeys: React.FC = () => {
     setEditPermissions(t.permissions || { ...DEFAULT_PERMISSIONS });
   };
 
+  useEffect(() => {
+    if (editingToken) {
+      const updatedToken = tokens.find((t) => t.id === editingToken.id);
+      if (updatedToken) {
+        const currentDbPerms = JSON.stringify(updatedToken.permissions || {});
+        const oldDbPerms = JSON.stringify(editingToken.permissions || {});
+        
+        if (currentDbPerms !== oldDbPerms) {
+          setEditingToken(updatedToken);
+          setEditPermissions(updatedToken.permissions || { ...DEFAULT_PERMISSIONS });
+        } else if (updatedToken.name !== editingToken.name) {
+          setEditingToken(updatedToken);
+        }
+      } else {
+        setEditingToken(null);
+      }
+    }
+  }, [tokens]);
+
   const hasEditChanges = editingToken ? (
     editName !== editingToken.name ||
     JSON.stringify(editPermissions) !== JSON.stringify(editingToken.permissions || DEFAULT_PERMISSIONS)
@@ -848,6 +871,10 @@ export const ApiKeys: React.FC = () => {
     (visibleColumns.created_at ? 1 : 0) +
     (visibleColumns.expires_at ? 1 : 0) +
     2; // Spacer + Actions
+
+  const selectedTokensList = useMemo(() => tokens.filter(t => selectedIds.includes(t.id)), [tokens, selectedIds]);
+  const canBulkDisable = selectedTokensList.some(t => !t.is_disabled);
+  const canBulkEnable = selectedTokensList.some(t => t.is_disabled);
 
   return (
     <div className="space-y-6 w-full max-w-[1600px] mx-auto pb-12 select-none font-sans">
@@ -1304,12 +1331,17 @@ export const ApiKeys: React.FC = () => {
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-2.5 font-sans">
-                {(currentUser?.permissions?.api_keys_disable || isOwner()) && (
+                {hasPermission('api_keys_disable') && (
                   <>
                     <button
                       type="button"
                       onClick={() => handleBulkToggleStatus(true)}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
+                      disabled={!canBulkDisable}
+                      className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium transition-colors font-sans ${
+                        canBulkDisable
+                          ? 'text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] cursor-pointer'
+                          : 'text-[#666666] bg-transparent border border-[#262626] opacity-50 cursor-not-allowed'
+                      }`}
                     >
                       <Ban className="w-3.5 h-3.5 shrink-0" />
                       <span>Disable</span>
@@ -1317,14 +1349,19 @@ export const ApiKeys: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleBulkToggleStatus(false)}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] transition-colors cursor-pointer font-sans"
+                      disabled={!canBulkEnable}
+                      className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[14px] font-medium transition-colors font-sans ${
+                        canBulkEnable
+                          ? 'text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1a1a1a] border border-[#262626] hover:border-[#383838] cursor-pointer'
+                          : 'text-[#666666] bg-transparent border border-[#262626] opacity-50 cursor-not-allowed'
+                      }`}
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       <span>Enable</span>
                     </button>
                   </>
                 )}
-                {(currentUser?.permissions?.api_keys_delete || isOwner()) && (
+                {hasPermission('api_keys_delete') && (
                   <button
                     type="button"
                     onClick={() => setIsBulkDeleting(true)}
@@ -1811,7 +1848,7 @@ export const ApiKeys: React.FC = () => {
           {/* Pinned Bottom Footer Bar */}
           <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-between font-sans">
             <span className="text-[13px] text-[#8c8c8c] font-sans">
-              {countGrantedPermissions(newPermissions)} of 21 granted
+              {countGrantedPermissions(newPermissions)} of {Object.keys(DEFAULT_PERMISSIONS).length} granted
             </span>
             <div className="flex items-center gap-2 font-sans">
               <button
@@ -1914,7 +1951,7 @@ export const ApiKeys: React.FC = () => {
               <span className="text-[14px] font-medium text-white block font-sans">Security & Key Control</span>
 
               {/* Disable / Enable Action */}
-              {editingToken && (currentUser?.permissions?.api_keys_disable || isOwner()) && (
+              {editingToken && hasPermission('api_keys_disable') && (
                 editingToken.is_disabled ? (
                   <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                     <div>
@@ -1952,7 +1989,7 @@ export const ApiKeys: React.FC = () => {
               )}
 
               {/* Revoke API Key Action */}
-              {(currentUser?.permissions?.api_keys_delete || isOwner()) && (
+              {hasPermission('api_keys_delete') && (
                 <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#141414] border border-[#262626] font-sans">
                   <div>
                     <span className="text-[14px] font-medium text-white block font-sans">Revoke API Key</span>
@@ -1977,7 +2014,7 @@ export const ApiKeys: React.FC = () => {
           {/* Pinned Bottom Footer Bar */}
           <div className="shrink-0 px-4 py-3 bg-[#0e0e0e] flex items-center justify-between font-sans">
             <span className="text-[13px] text-[#8c8c8c] font-sans">
-              {countGrantedPermissions(editPermissions)} of 21 granted
+              {countGrantedPermissions(editPermissions)} of {Object.keys(DEFAULT_PERMISSIONS).length} granted
             </span>
             <div className="flex items-center gap-2 font-sans">
               <button

@@ -45,11 +45,8 @@ export const processesApi = {
     }),
 
   bulkControl: (ids: number[], cmd: 'start' | 'stop' | 'restart') =>
-    apiFetch<ApiResponse<{ results: Record<number, { success: boolean; pid?: number }> }>>(
-      '/processes/bulk/control',
-      {
-        method: 'POST',
-        body: JSON.stringify({ ids, cmd }),
-      }
-    ),
+    apiFetch<ApiResponse<{ results: Record<number, { success: boolean; pid?: number }> }>>('/processes/bulk/control', {
+      method: 'POST',
+      body: JSON.stringify({ ids, cmd }),
+    }),
 };

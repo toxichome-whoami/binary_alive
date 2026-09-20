@@ -20,6 +20,7 @@ import { TotpService } from '../lib/totp.js';
 import { CaptchaService } from '../lib/captcha.js';
 import { requireAuth } from '../middleware/auth.js';
 import { loginRateLimiter } from '../middleware/rateLimit.js';
+import { broadcastUsersRefresh } from '../websocket.js';
 import crypto from 'crypto';
 import os from 'os';
 
@@ -123,8 +124,9 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
   // Verify password
   const match = await verifyPassword(password, user.password_hash);
   if (!match) {
-    await incrementFailedAttempts(username);
-    await logLoginAttempt(username, false, ip, user.email || null);
+    await incrementFailedAttempts(user.username);
+    broadcastUsersRefresh();
+    await logLoginAttempt(user.username, false, ip, user.email || null);
     return c.json({ success: false, message: 'Invalid username or password.' }, 401);
   }
 
@@ -132,7 +134,9 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
   if (user.totp_secret) {
     const secret = decryptData(user.totp_secret);
     if (!totpCode || !TotpService.verifyCode(secret, totpCode)) {
-      await logLoginAttempt(username, false, ip, user.email || null);
+      await incrementFailedAttempts(user.username);
+      broadcastUsersRefresh();
+      await logLoginAttempt(user.username, false, ip, user.email || null);
       return c.json(
         {
           success: false,
@@ -145,8 +149,13 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
   }
 
   // Login success
-  await resetFailedAttempts(username);
-  await logLoginAttempt(username, true, ip, user.email || null);
+  if (user.failed_attempts > 0) {
+    await resetFailedAttempts(user.username);
+    broadcastUsersRefresh();
+  } else {
+    await resetFailedAttempts(user.username);
+  }
+  await logLoginAttempt(user.username, true, ip, user.email || null);
   await logAudit(user.id, user.username, 'login_success', '', ip, user.email || null);
 
   const timeout = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '60', 10);
@@ -172,14 +181,17 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
   });
 
   return c.json({
-    success: true,
-    user: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      hostname: os.hostname(),
-    },
-  });
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+        has_2fa: !!user.totp_secret,
+        hostname: os.hostname(),
+      },
+    });
 });
 
 // Logout
@@ -210,7 +222,10 @@ authRouter.get('/me', requireAuth(), async (c) => {
       user: {
         id: user.id,
         username: user.username,
+        email: user.email,
         role: user.role,
+        permissions: user.permissions,
+        has_2fa: !!user.totp_secret,
         hostname: os.hostname(),
       },
     },

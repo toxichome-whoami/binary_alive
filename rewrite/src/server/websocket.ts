@@ -47,8 +47,7 @@ export function notifyUserPermissionsUpdated(userId: number, newPermissions: any
   if (sockets) {
     const payload = JSON.stringify({ type: 'PERMISSIONS_UPDATED', permissions: newPermissions });
     for (const ws of sockets) {
-      if (ws.readyState === 1) console.log('Broadcasting PROCESS_STATS to owner/viewer');
-            ws.send(payload);
+      if (ws.readyState === 1) ws.send(payload);
     }
   }
 }
@@ -58,8 +57,7 @@ export function notifyUserDisabled(userId: number) {
   if (sockets) {
     const payload = JSON.stringify({ type: 'USER_DISABLED' });
     for (const ws of sockets) {
-      if (ws.readyState === 1) console.log('Broadcasting PROCESS_STATS to owner/viewer');
-            ws.send(payload);
+      if (ws.readyState === 1) ws.send(payload);
     }
   }
 }
@@ -125,4 +123,13 @@ export function startProcessStatsBroadcaster() {
       console.error('Error broadcasting process stats:', err);
     }
   }, 1000);
+}
+
+export function broadcastUsersRefresh() {
+  const payload = JSON.stringify({ type: 'USERS_REFRESH' });
+  for (const [, sockets] of connectedUsers.entries()) {
+    for (const ws of sockets) {
+      if (ws.readyState === 1) ws.send(payload);
+    }
+  }
 }

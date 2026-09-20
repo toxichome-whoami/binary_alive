@@ -4,6 +4,7 @@ import { logAudit } from '../db/logs.js';
 import { TotpService } from '../lib/totp.js';
 import { encryptData, verifyPassword } from '../lib/crypto.js';
 import { requireAuth } from '../middleware/auth.js';
+import { broadcastUsersRefresh } from '../websocket.js';
 
 export const totpRouter = new Hono();
 
@@ -47,6 +48,7 @@ totpRouter.post('/enable', async (c) => {
   const encrypted = encryptData(secret);
   await setTotpSecret(user.id, encrypted);
   await logAudit(user.id, user.username, 'enable_2fa', 'Two-Factor Authentication enabled');
+  broadcastUsersRefresh();
 
   return c.json({ success: true, message: '2FA enabled successfully!' });
 });
@@ -68,6 +70,7 @@ totpRouter.post('/disable', async (c) => {
 
   await setTotpSecret(user.id, null);
   await logAudit(user.id, user.username, 'disable_2fa', 'Two-Factor Authentication disabled');
+  broadcastUsersRefresh();
 
   return c.json({ success: true, message: '2FA disabled.' });
 });
