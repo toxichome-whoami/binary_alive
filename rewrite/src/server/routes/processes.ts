@@ -21,7 +21,7 @@ const CACHE_TTL_MS = 500;
 
 processRouter.get('/', async (c) => {
   const now = Date.now();
-  const pollIntervalMs = parseInt(process.env.DASHBOARD_POLL_INTERVAL || '1000', 10);
+  const pollIntervalMs = parseInt(process.env.POLL_INTERVAL || '1000', 10);
 
   if (statusCache && now - statusCache.timestamp < CACHE_TTL_MS) {
     return c.json({

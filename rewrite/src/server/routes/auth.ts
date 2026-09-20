@@ -149,7 +149,8 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
   await logLoginAttempt(username, true, ip, user.email || null);
   await logAudit(user.id, user.username, 'login_success', '', ip, user.email || null);
 
-  const sessionId = await createSession(user.id);
+  const timeout = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '60', 10);
+  const sessionId = await createSession(user.id, timeout);
   const csrfToken = generateCsrfToken();
 
   // Set cookies
@@ -158,7 +159,7 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Strict',
-    maxAge: 15 * 60,
+    maxAge: timeout * 60,
   });
 
   // CSRF cookie is non-HttpOnly so client JavaScript can read and pass it
@@ -167,7 +168,7 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
     httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Strict',
-    maxAge: 15 * 60,
+    maxAge: timeout * 60,
   });
 
   return c.json({

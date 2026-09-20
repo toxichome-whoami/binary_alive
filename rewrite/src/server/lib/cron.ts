@@ -57,10 +57,10 @@ export async function logTelemetryData(): Promise<void> {
     let restarts = 0;
 
     for (const p of processes) {
+      restarts += p.restart_count || 0;
       const activePid = Monitor.isRunning(p);
       if (activePid) {
         activeProcs++;
-        restarts += p.restart_count || 0;
         const metrics = await Monitor.getMetrics(activePid);
         
         const cpuVal = typeof metrics.cpu === 'number' ? metrics.cpu : parseFloat(String(metrics.cpu).replace('%', ''));

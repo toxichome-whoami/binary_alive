@@ -232,7 +232,7 @@ export const Dashboard: React.FC = () => {
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
   const liveEditingProcess = useMemo(() => {
     if (!editingProcess) return null;
-    return processes.find((p) => p.id === editingProcess.id) || editingProcess;
+    const found = processes.find((p) => p.id === editingProcess.id); return found ? { ...found, status: editingProcess.status } : editingProcess;
   }, [editingProcess, processes]);
   const [showDisplayOptions, setShowDisplayOptions] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -478,6 +478,24 @@ export const Dashboard: React.FC = () => {
 
   // Delete dialog
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const isDirty = useMemo(() => {
+    if (!editingProcess) {
+      return formData.name.trim() !== '' || formData.command.trim() !== '';
+    }
+    return (
+      formData.name !== editingProcess.name ||
+      formData.group_name !== (editingProcess.group_name || 'Default') ||
+      formData.command !== editingProcess.command ||
+      formData.working_dir !== (editingProcess.working_dir || '') ||
+      formData.log_file !== (editingProcess.log_file || '')
+    );
+  }, [formData, editingProcess]);
+
+  const selectedProcesses = useMemo(() => processes.filter(p => selectedIds.includes(p.id)), [processes, selectedIds]);
+  const allSelectedRunning = useMemo(() => selectedProcesses.length > 0 && selectedProcesses.every(p => p.status === 'running'), [selectedProcesses]);
+  const allSelectedStopped = useMemo(() => selectedProcesses.length > 0 && selectedProcesses.every(p => p.status !== 'running'), [selectedProcesses]);
+
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -699,8 +717,18 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleControl = async (id: number, cmd: 'start' | 'stop' | 'restart') => {
+    
     const key = `${id}-${cmd}`;
     setActionLoadingMap((prev) => ({ ...prev, [key]: true }));
+
+    // Optimistic UI FIX
+    setEditingProcess(prev => {
+      if (prev && prev.id === id) {
+        return { ...prev, status: (cmd === 'start' || cmd === 'restart') ? 'running' : 'stopped' };
+      }
+      return prev;
+    });
+
 
     try {
       const res = await processesApi.control(id, cmd);
@@ -1316,26 +1344,29 @@ export const Dashboard: React.FC = () => {
               </div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <button
-                  type="button"
-                  onClick={() => handleBulkControl('start')}
-                  className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[14px] font-medium text-[#d4d4d4] hover:text-white bg-transparent ring-1 ring-[#262626] hover:ring-[#383838] hover:bg-[#161616] transition-colors cursor-pointer"
-                >
+                    type="button"
+                    disabled={allSelectedRunning}
+                    onClick={() => handleBulkControl('start')}
+                    className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[14px] font-medium text-[#d4d4d4] hover:text-white bg-transparent ring-1 ring-[#262626] hover:ring-[#383838] hover:bg-[#161616] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[#d4d4d4]"
+                  >
                   <PlayIcon className="w-4 h-4 shrink-0 text-[#8c8c8c]" />
                   <span>Start</span>
                 </button>
                 <button
-                  type="button"
-                  onClick={() => handleBulkControl('restart')}
-                  className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[14px] font-medium text-[#d4d4d4] hover:text-white bg-transparent ring-1 ring-[#262626] hover:ring-[#383838] hover:bg-[#161616] transition-colors cursor-pointer"
-                >
+                    type="button"
+                    disabled={allSelectedStopped}
+                    onClick={() => handleBulkControl('restart')}
+                    className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[14px] font-medium text-[#d4d4d4] hover:text-white bg-transparent ring-1 ring-[#262626] hover:ring-[#383838] hover:bg-[#161616] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[#d4d4d4]"
+                  >
                   <RestartIcon className="w-4 h-4 shrink-0 text-[#8c8c8c]" />
                   <span>Restart</span>
                 </button>
                 <button
-                  type="button"
-                  onClick={() => handleBulkControl('stop')}
-                  className="group inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[14px] font-medium text-[#d4d4d4] hover:text-[#ef4444] bg-transparent ring-1 ring-[#262626] hover:ring-[#ef4444]/40 hover:bg-[#161616] transition-colors cursor-pointer"
-                >
+                    type="button"
+                    disabled={allSelectedStopped}
+                    onClick={() => handleBulkControl('stop')}
+                    className="group inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[14px] font-medium text-[#d4d4d4] hover:text-[#ef4444] bg-transparent ring-1 ring-[#262626] hover:ring-[#ef4444]/40 hover:bg-[#161616] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[#d4d4d4] disabled:hover:ring-[#262626]"
+                  >
                   <StopIcon className="w-4 h-4 shrink-0 text-[#8c8c8c] group-hover:text-[#ef4444] transition-colors" />
                   <span>Stop</span>
                 </button>
@@ -1881,7 +1912,7 @@ export const Dashboard: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  disabled={!!actionLoadingMap[`${liveEditingProcess.id}-restart`]}
+                  disabled={liveEditingProcess.status !== 'running' || !!actionLoadingMap[`${liveEditingProcess.id}-restart`]}
                   onClick={() => handleControl(liveEditingProcess.id, 'restart')}
                   className="h-8 px-3 rounded-lg text-[13px] font-medium text-[#cccccc] hover:text-white bg-transparent hover:bg-[#1c1c1c] border border-[#262626] hover:border-[#383838] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:border-[#262626] disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1.5"
                 >
@@ -2033,7 +2064,7 @@ export const Dashboard: React.FC = () => {
               </button>
               <button
                 type="submit"
-                disabled={formLoading}
+                disabled={formLoading || !isDirty}
                 className="group relative flex shrink-0 items-center justify-center h-9 px-5 rounded-lg font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb]"
               >
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />

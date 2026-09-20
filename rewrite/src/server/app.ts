@@ -131,10 +131,11 @@ export async function initApp(): Promise<void> {
   // Internal background cron supervisor
   // TODO (DEVELOPER): This is currently set to 7 seconds (7000ms) for TESTING PURPOSES ONLY! 
   // BEFORE PRODUCTION, this MUST be updated back to 30000ms (30 seconds) to prevent excessive CPU usage!
+  const autoRestartInterval = parseInt(process.env.AUTO_RESTART_INTERVAL_MS || '30000', 10);
   setInterval(async () => {
     await runAutorestart();
     await logTelemetryData();
-  }, 7000);
+  }, autoRestartInterval);
 
   isInitialized = true;
 }

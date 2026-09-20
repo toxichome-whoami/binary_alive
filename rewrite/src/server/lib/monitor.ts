@@ -8,7 +8,7 @@ import os from 'os';
 import type { ProcessRecord } from '../types/index.js';
 
 export class Monitor {
-  private static metricsCache = new Map<number, { data: { cpu: string; mem: string; uptime: string }, timestamp: number }>();
+  private static metricsCache = new Map<number, { cpu: string; mem: string; startTimeMs: number; timestamp: number }>();
   public static isRunning(proc: ProcessRecord): number | false {
     if (proc.pid) {
       try {
@@ -60,9 +60,21 @@ export class Monitor {
     if (!pid || pid <= 0) {
       return { cpu: '0', mem: '0 MB', uptime: '00:00:00' };
     }
+    const formatUptime = (ms: number) => {
+      const totalSeconds = Math.floor(ms / 1000);
+      const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+      const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+      const s = (totalSeconds % 60).toString().padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    };
+
     const cached = this.metricsCache.get(pid);
     if (cached && Date.now() - cached.timestamp < 2500) {
-      return cached.data;
+      return {
+        cpu: cached.cpu,
+        mem: cached.mem,
+        uptime: formatUptime(Date.now() - cached.startTimeMs)
+      };
     }
 
     try {
@@ -89,15 +101,10 @@ export class Monitor {
       
       // Calculate uptime formatted as HH:mm:ss
       const uptimeMs = Math.max(0, stats.elapsed || 0);
-      const totalSeconds = Math.floor(uptimeMs / 1000);
-      const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-      const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-      const s = (totalSeconds % 60).toString().padStart(2, '0');
-      const uptime = `${h}:${m}:${s}`;
-
-      const result = { cpu, mem: memMb, uptime };
-      this.metricsCache.set(pid, { data: result, timestamp: Date.now() });
-      return result;
+      
+      const startTimeMs = Date.now() - uptimeMs;
+      this.metricsCache.set(pid, { cpu, mem: memMb, startTimeMs, timestamp: Date.now() });
+      return { cpu, mem: memMb, uptime: formatUptime(uptimeMs) };
     } catch {
       // ignore
     }

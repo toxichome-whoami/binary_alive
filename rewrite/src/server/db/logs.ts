@@ -29,12 +29,30 @@ export async function logLoginAttempt(
 
 export async function getAuditLogs(
   page = 1,
-  limit = 20
+  limit = 20,
+  search = '',
+  sortField = 'timestamp',
+  sortDirection = 'desc'
 ): Promise<{ data: AuditLogRecord[]; total: number; total_pages: number }> {
   const offset = (page - 1) * limit;
-  const countRes = await db.execute(
-    "SELECT COUNT(*) as cnt FROM audit_logs WHERE action NOT IN ('terminal_command', 'login_success', 'logout')"
-  );
+  
+  let baseWhere = "a.action NOT IN ('terminal_command', 'login_success', 'logout')";
+  const args: any[] = [];
+  
+  if (search && search.trim()) {
+    baseWhere += " AND (LOWER(a.username) LIKE ? OR LOWER(a.email) LIKE ? OR LOWER(a.action) LIKE ? OR LOWER(a.details) LIKE ? OR a.ip_address LIKE ?)";
+    const q = `%${search.trim().toLowerCase()}%`;
+    args.push(q, q, q, q, q);
+  }
+  
+  const allowedSorts = ['timestamp', 'username', 'email', 'action', 'ip_address'];
+  const safeSortField = allowedSorts.includes(sortField) ? sortField : 'timestamp';
+  const safeSortDir = sortDirection.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+  const countRes = await db.execute({
+    sql: `SELECT COUNT(*) as cnt FROM audit_logs a WHERE ${baseWhere}`,
+    args
+  });
   const total = Number(countRes.rows[0]?.cnt || 0);
 
   const result = await db.execute({
@@ -42,9 +60,9 @@ export async function getAuditLogs(
                  COALESCE(NULLIF(a.email, ''), u.email) as email 
           FROM audit_logs a
           LEFT JOIN users u ON (a.user_id = u.id OR (a.user_id IS NULL AND a.username = u.username))
-          WHERE a.action NOT IN ('terminal_command', 'login_success', 'logout') 
-          ORDER BY a.timestamp DESC LIMIT ? OFFSET ?`,
-    args: [limit, offset],
+          WHERE ${baseWhere} 
+          ORDER BY a.${safeSortField} ${safeSortDir} LIMIT ? OFFSET ?`,
+    args: [...args, limit, offset],
   });
 
   return {
@@ -56,19 +74,38 @@ export async function getAuditLogs(
 
 export async function getLoginLogs(
   page = 1,
-  limit = 20
+  limit = 20,
+  search = '',
+  sortField = 'timestamp',
+  sortDirection = 'desc'
 ): Promise<{ data: LoginAttemptRecord[]; total: number; total_pages: number }> {
   const offset = (page - 1) * limit;
-  const countRes = await db.execute('SELECT COUNT(*) as cnt FROM login_attempts');
+  let baseWhere = "1=1";
+  const args: any[] = [];
+  
+  if (search && search.trim()) {
+    baseWhere += " AND (LOWER(a.username) LIKE ? OR LOWER(a.email) LIKE ? OR a.ip_address LIKE ?)";
+    const q = `%${search.trim().toLowerCase()}%`;
+    args.push(q, q, q);
+  }
+
+  const allowedSorts = ['timestamp', 'username', 'email', 'ip_address', 'is_successful'];
+  const safeSortField = allowedSorts.includes(sortField) ? sortField : 'timestamp';
+  const safeSortDir = sortDirection.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+  const countRes = await db.execute({
+    sql: `SELECT COUNT(*) as cnt FROM login_attempts a WHERE ${baseWhere}`,
+    args
+  });
   const total = Number(countRes.rows[0]?.cnt || 0);
 
   const result = await db.execute({
-    sql: `SELECT l.id, l.username, l.ip_address, l.is_successful, l.timestamp,
-                 COALESCE(NULLIF(l.email, ''), u.email) as email
-          FROM login_attempts l
-          LEFT JOIN users u ON (l.username = u.username)
-          ORDER BY l.timestamp DESC LIMIT ? OFFSET ?`,
-    args: [limit, offset],
+    sql: `SELECT a.*, COALESCE(NULLIF(a.email, ''), u.email) as email 
+          FROM login_attempts a
+          LEFT JOIN users u ON (a.username = u.username)
+          WHERE ${baseWhere}
+          ORDER BY a.${safeSortField} ${safeSortDir} LIMIT ? OFFSET ?`,
+    args: [...args, limit, offset],
   });
 
   return {
@@ -80,10 +117,29 @@ export async function getLoginLogs(
 
 export async function getTerminalLogs(
   page = 1,
-  limit = 20
+  limit = 20,
+  search = '',
+  sortField = 'timestamp',
+  sortDirection = 'desc'
 ): Promise<{ data: AuditLogRecord[]; total: number; total_pages: number }> {
   const offset = (page - 1) * limit;
-  const countRes = await db.execute("SELECT COUNT(*) as cnt FROM audit_logs WHERE action = 'terminal_command'");
+  let baseWhere = "a.action = 'terminal_command'";
+  const args: any[] = [];
+
+  if (search && search.trim()) {
+    baseWhere += " AND (LOWER(a.username) LIKE ? OR LOWER(a.email) LIKE ? OR LOWER(a.details) LIKE ? OR a.ip_address LIKE ?)";
+    const q = `%${search.trim().toLowerCase()}%`;
+    args.push(q, q, q, q);
+  }
+
+  const allowedSorts = ['timestamp', 'username', 'email', 'ip_address'];
+  const safeSortField = allowedSorts.includes(sortField) ? sortField : 'timestamp';
+  const safeSortDir = sortDirection.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+  const countRes = await db.execute({
+    sql: `SELECT COUNT(*) as cnt FROM audit_logs a WHERE ${baseWhere}`,
+    args
+  });
   const total = Number(countRes.rows[0]?.cnt || 0);
 
   const result = await db.execute({
@@ -91,9 +147,9 @@ export async function getTerminalLogs(
                  COALESCE(NULLIF(a.email, ''), u.email) as email 
           FROM audit_logs a
           LEFT JOIN users u ON (a.user_id = u.id OR (a.user_id IS NULL AND a.username = u.username))
-          WHERE a.action = 'terminal_command' 
-          ORDER BY a.timestamp DESC LIMIT ? OFFSET ?`,
-    args: [limit, offset],
+          WHERE ${baseWhere} 
+          ORDER BY a.${safeSortField} ${safeSortDir} LIMIT ? OFFSET ?`,
+    args: [...args, limit, offset],
   });
 
   return {

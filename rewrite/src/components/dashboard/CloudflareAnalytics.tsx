@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { processesApi } from '../../api/processes';
 import { DATE_PRESETS } from '../shared/DateRangePicker';
 import {
-      RefreshCw,
+      RefreshCw, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import type { Process } from '../../types';
 import { SlideOver } from '../ui/SlideOver';
@@ -26,12 +26,17 @@ const WAVY_NO_DATA_PATH =
 const MAX_PTS = 60;
 type MetricKey = 'cpu' | 'active' | 'memory' | 'load' | 'restarts' | 'uptime';
 
+let isFirstTick = true;
+
 const getInitialStore = (): Record<MetricKey, number[]> => {
   try {
     const saved = sessionStorage.getItem('binary_alive_tsStore');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed && parsed.cpu && parsed.cpu.length === MAX_PTS) return parsed;
+      if (parsed && parsed.cpu && parsed.cpu.length === MAX_PTS) {
+        isFirstTick = false; // We have valid history, don't overwrite it with a flat line!
+        return parsed;
+      }
     }
   } catch {}
   return {
@@ -114,7 +119,7 @@ export const NoDataWavyChart: React.FC<NoDataWavyChartProps> = ({
       <path
         d={WAVY_NO_DATA_PATH}
         fill="none"
-        stroke="#5C5C5C"
+        stroke="#5C5C5C" className="transition-all duration-500 ease-in-out"
         strokeOpacity="0.45"
         strokeWidth="1.2"
         vectorEffect="non-scaling-stroke"
@@ -132,6 +137,44 @@ export const NoDataWavyChart: React.FC<NoDataWavyChartProps> = ({
     </span>
   </div>
 );
+
+
+function TrendIndicator({ data, metricKey }: { data: number[], metricKey: MetricKey }) {
+  if (data.length < 2) return null;
+  const current = data[data.length - 1];
+  const previous = data[0]; 
+  const diff = current - previous;
+  
+  if (diff === 0) {
+    return (
+      <span className="text-xs font-medium flex items-center gap-0.5 font-sans" style={{ color: '#8c8c8c' }}>
+        <span>0.0%</span>
+      </span>
+    );
+  }
+
+  const pct = previous === 0 ? (diff > 0 ? 100 : -100) : (diff / previous) * 100;
+
+  const isPositive = diff > 0;
+  const inverted = ['cpu', 'load', 'restarts', 'memory'].includes(metricKey);
+  const isGood = inverted ? !isPositive : isPositive;
+  
+  // Follow the Logs charts design: Text only, ArrowUpRight/ArrowDownRight, no background pills.
+  // Colors: Green (#30a46c) for good, Red (#e5484d) for bad, or Orange (#f59e0b) if it's like mutations
+  const color = isGood ? '#30a46c' : '#e5484d';
+  const displayPct = pct > 999 ? '>999%' : pct < -999 ? '<-999%' : `${Math.abs(pct).toFixed(1)}%`;
+  
+  return (
+    <span className="text-xs font-medium flex items-center gap-0.5 font-sans" style={{ color }}>
+      {isPositive ? (
+        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+      ) : (
+        <ArrowDownRight className="w-3.5 h-3.5 shrink-0" />
+      )}
+      <span>{displayPct}</span>
+    </span>
+  );
+}
 
 export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   runningCount,
@@ -185,14 +228,30 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    tsStore.cpu.shift(); tsStore.cpu.push(totalCpuPercent);
-    tsStore.active.shift(); tsStore.active.push(runningCount);
-    tsStore.memory.shift(); tsStore.memory.push(totalMemoryMB);
-    tsStore.load.shift(); tsStore.load.push(parseFloat(String(displaySysLoad)) || 0);
-    tsStore.restarts.shift(); tsStore.restarts.push(restartsCount);
-    tsStore.uptime.shift(); tsStore.uptime.push(100);
+    if (isLoading) return;
+    
+    if (isFirstTick) {
+      tsStore.cpu.fill(totalCpuPercent);
+      tsStore.active.fill(runningCount);
+      tsStore.memory.fill(totalMemoryMB);
+      tsStore.load.fill(parseFloat(String(displaySysLoad)) || 0);
+      tsStore.restarts.fill(restartsCount);
+      tsStore.uptime.fill(100);
+      isFirstTick = false;
+    } else {
+      tsStore.cpu.shift(); tsStore.cpu.push(totalCpuPercent);
+      tsStore.active.shift(); tsStore.active.push(runningCount);
+      tsStore.memory.shift(); tsStore.memory.push(totalMemoryMB);
+      tsStore.load.shift(); tsStore.load.push(parseFloat(String(displaySysLoad)) || 0);
+      tsStore.restarts.shift(); tsStore.restarts.push(restartsCount);
+      tsStore.uptime.shift(); tsStore.uptime.push(100);
+    }
+    
+    // Also save to sessionStorage so it perfectly survives page navigations
+    sessionStorage.setItem('binary_alive_tsStore', JSON.stringify(tsStore));
+    
     setTick(t => t + 1);
-  }, [processes]);
+  }, [processes, isLoading]);
 
   // Right-side SlideOver Telemetry Drawer State
     const [selectedMetric, setSelectedMetric] = useState<
@@ -271,15 +330,10 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
       case 'active':
         return list.sort((a, b) => {
           if (a.status === 'running' && b.status !== 'running') return -1;
-          if (a.status !== 'running' && b.status === 'running') return 1;
-          return (a.pid || 0) - (b.pid || 0);
+          if (a.status !== 'running' && b.status === 'running') return 1;return (a.pid || 0) - (b.pid || 0);
         });
       case 'load':
-        return list.sort((a, b) => {
-          const loadA = parseCpuVal(a.cpu) + parseMemMB(a.mem) / 20;
-          const loadB = parseCpuVal(b.cpu) + parseMemMB(b.mem) / 20;
-          return loadB - loadA;
-        });
+          return list.sort((a, b) => parseCpuVal(b.cpu) - parseCpuVal(a.cpu));
       case 'uptime':
         return list.sort((a, b) => {
           if (a.status === 'running' && b.status !== 'running') return -1;
@@ -341,16 +395,35 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
 
   // Helper to format timestamp from horizontal percentage
   const formatTimeFromPct = (pct: number) => {
-    const now = new Date();
-    const pointTime = new Date(now.getTime() - (1 - pct) * 24 * 60 * 60 * 1000);
-    const day = pointTime.getDate();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
-    const month = months[pointTime.getMonth()];
-    const hh = String(pointTime.getHours()).padStart(2, '0');
-    const mm = String(pointTime.getMinutes()).padStart(2, '0');
-    const ss = String(pointTime.getSeconds()).padStart(2, '0');
-    return `${day} ${month}, ${hh}:${mm}:${ss}`;
-  };
+      let pointTime: Date;
+
+      if (historicalData.length > 0) {
+        const index = Math.min(
+          Math.floor(pct * historicalData.length),
+          historicalData.length - 1
+        );
+        const rawTs = historicalData[index].timestamp;
+        if (rawTs) {
+            const tsStr = rawTs.includes('Z') || rawTs.includes('+') ? rawTs : rawTs.replace(' ', 'T') + 'Z';
+            pointTime = new Date(tsStr);
+        } else {
+            const now = new Date();
+            pointTime = new Date(now.getTime() - (1 - pct) * 24 * 60 * 60 * 1000);
+        }
+      } else {
+        const now = new Date();
+        pointTime = new Date(now.getTime() - (1 - pct) * 60 * 1000);
+      }
+
+      const day = pointTime.getDate();
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+      const month = months[pointTime.getMonth()];
+      const hh = String(pointTime.getHours()).padStart(2, '0');
+      const mm = String(pointTime.getMinutes()).padStart(2, '0');
+      const ss = String(pointTime.getSeconds()).padStart(2, '0');
+      
+      return `${day} ${month}, ${hh}:${mm}:${ss}`;
+    };
 
   // Normalized Hover State Interface for smooth, non-distorted tracking
   interface CardHoverData {
@@ -441,6 +514,36 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   const handleRestartsMouseMove = (e: React.MouseEvent<HTMLDivElement>) => setRestartsHover(getHoverData(e, 'restarts'));
   const handleUptimeMouseMove = (e: React.MouseEvent<HTMLDivElement>) => setUptimeHover(getHoverData(e, 'uptime'));
 
+
+  // Helper for dynamic Y-axis labels
+  const getYAxisLabels = (metric: string) => {
+    const data = getGraphData(metric as any);
+    let baseMax = 1;
+    if (metric === 'cpu') baseMax = 100;
+    if (metric === 'memory') baseMax = 1024;
+    if (metric === 'active') baseMax = 10;
+    if (metric === 'load') baseMax = 4;
+    if (metric === 'restarts') baseMax = 5;
+    if (metric === 'uptime') baseMax = 100;
+
+    let maxVal = Math.max(...data, baseMax);
+    
+    // Format helpers
+    const format = (v: number) => {
+      if (metric === 'cpu' || metric === 'uptime') return `${Math.round(v)}%`;
+      if (metric === 'memory') return `${Math.round(v)}M`;
+      if (metric === 'load') return v.toFixed(1);
+      return Math.round(v).toString();
+    };
+
+    return [
+      format(maxVal),
+      format(maxVal * 0.75),
+      format(maxVal * 0.25),
+      format(0)
+    ];
+  };
+
 return (
     <section className="w-full flex flex-col gap-3 select-none">
       {/* Header */}
@@ -512,7 +615,8 @@ return (
                 {displayCpu}
               </span>
               
-            </div>
+            <TrendIndicator data={getGraphData("cpu")} metricKey="cpu" />
+              </div>
           </div>
 
           {/* Chart row */}
@@ -537,12 +641,12 @@ return (
                 <path
                   d={generateGraphPaths('cpu', 1000, 116, getGraphData('cpu')).area}
                   fill="url(#cpu-gradient-area)"
-                  stroke="none"
+                  stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
                   d={generateGraphPaths('cpu', 1000, 116, getGraphData('cpu')).line}
                   fill="none"
-                  stroke="#2f80ed"
+                  stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
                   strokeLinejoin="round"
                   strokeLinecap="round"
@@ -583,12 +687,11 @@ return (
             </div>
 
             {/* Y-Axis Labels: dynamically sized to text space */}
-            <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
-              <span>25%</span>
-              <span>15%</span>
-              <span>5%</span>
-              <span>0%</span>
-            </div>
+              <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
+                {getYAxisLabels('cpu').map((lbl, i) => (
+                  <span key={i}>{lbl}</span>
+                ))}
+              </div>
 
             <span className="absolute bottom-1 right-1 pointer-events-none opacity-40">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" className="text-[#555555]">
@@ -626,7 +729,8 @@ return (
                 {displayRunning}
               </span>
               
-            </div>
+            <TrendIndicator data={getGraphData("active")} metricKey="active" />
+              </div>
           </div>
 
           <div className="chart-graph-container relative w-full h-[155px] mt-auto select-none flex items-stretch pl-4 pr-3 overflow-hidden">
@@ -650,12 +754,12 @@ return (
                 <path
                   d={generateGraphPaths('active', 1000, 116, getGraphData('active')).area}
                   fill="url(#active-gradient-area)"
-                  stroke="none"
+                  stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
                   d={generateGraphPaths('active', 1000, 116, getGraphData('active')).line}
                   fill="none"
-                  stroke="#2f80ed"
+                  stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="2"
                   strokeLinejoin="round"
                   strokeLinecap="round"
@@ -696,12 +800,11 @@ return (
             </div>
 
             {/* Y-Axis Labels: dynamically sized to text space */}
-            <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
-              <span>8</span>
-              <span>6</span>
-              <span>4</span>
-              <span>0</span>
-            </div>
+              <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
+                {getYAxisLabels('active').map((lbl, i) => (
+                  <span key={i}>{lbl}</span>
+                ))}
+              </div>
 
             <span className="absolute bottom-1 right-1 pointer-events-none opacity-40">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" className="text-[#555555]">
@@ -742,7 +845,8 @@ return (
                 {displayMemory}
               </span>
               
-            </div>
+            <TrendIndicator data={getGraphData("memory")} metricKey="memory" />
+              </div>
           </div>
 
           <div className="chart-graph-container relative w-full h-[155px] mt-auto select-none flex items-stretch pl-4 pr-3 overflow-hidden">
@@ -766,12 +870,12 @@ return (
                 <path
                   d={generateGraphPaths('memory', 1000, 116, getGraphData('memory')).area}
                   fill="url(#mem-usage-grad)"
-                  stroke="none"
+                  stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
                   d={generateGraphPaths('memory', 1000, 116, getGraphData('memory')).line}
                   fill="none"
-                  stroke="#2f80ed"
+                  stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
                   strokeLinejoin="round"
                   strokeLinecap="round"
@@ -812,12 +916,11 @@ return (
             </div>
 
             {/* Y-Axis Labels: dynamically sized to text space */}
-            <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
-              <span>512M</span>
-              <span>384M</span>
-              <span>256M</span>
-              <span>0</span>
-            </div>
+              <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
+                {getYAxisLabels('memory').map((lbl, i) => (
+                  <span key={i}>{lbl}</span>
+                ))}
+              </div>
 
             <span className="absolute bottom-1 right-1 pointer-events-none opacity-40">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" className="text-[#555555]">
@@ -855,7 +958,8 @@ return (
                 {displaySysLoad}
               </span>
               
-            </div>
+            <TrendIndicator data={getGraphData("load")} metricKey="load" />
+              </div>
           </div>
 
           <div className="chart-graph-container relative w-full h-[155px] mt-auto select-none flex items-stretch pl-4 pr-3 overflow-hidden">
@@ -879,12 +983,12 @@ return (
                 <path
                   d={generateGraphPaths('load', 1000, 116, getGraphData('load')).area}
                   fill="url(#sys-load-grad)"
-                  stroke="none"
+                  stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
                   d={generateGraphPaths('load', 1000, 116, getGraphData('load')).line}
                   fill="none"
-                  stroke="#2f80ed"
+                  stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
                   strokeLinejoin="round"
                   strokeLinecap="round"
@@ -925,12 +1029,11 @@ return (
             </div>
 
             {/* Y-Axis Labels: dynamically sized to text space */}
-            <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
-              <span>1.0</span>
-              <span>0.5</span>
-              <span>0.2</span>
-              <span>0.0</span>
-            </div>
+              <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
+                {getYAxisLabels('load').map((lbl, i) => (
+                  <span key={i}>{lbl}</span>
+                ))}
+              </div>
 
             <span className="absolute bottom-1 right-1 pointer-events-none opacity-40">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" className="text-[#555555]">
@@ -968,7 +1071,8 @@ return (
                 {displayRestarts}
               </span>
               
-            </div>
+            <TrendIndicator data={getGraphData("restarts")} metricKey="restarts" />
+              </div>
           </div>
 
           <div className="chart-graph-container relative w-full h-[155px] mt-auto select-none flex items-stretch pl-4 pr-3 overflow-hidden">
@@ -992,12 +1096,12 @@ return (
                 <path
                   d={generateGraphPaths('restarts', 1000, 116, getGraphData('restarts')).area}
                   fill="url(#restarts-grad)"
-                  stroke="none"
+                  stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
                   d={generateGraphPaths('restarts', 1000, 116, getGraphData('restarts')).line}
                   fill="none"
-                  stroke="#2f80ed"
+                  stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
                   strokeLinejoin="round"
                   strokeLinecap="round"
@@ -1038,12 +1142,11 @@ return (
             </div>
 
             {/* Y-Axis Labels: dynamically sized to text space */}
-            <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
-              <span>3</span>
-              <span>2</span>
-              <span>1</span>
-              <span>0</span>
-            </div>
+              <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
+                {getYAxisLabels('restarts').map((lbl, i) => (
+                  <span key={i}>{lbl}</span>
+                ))}
+              </div>
 
             <span className="absolute bottom-1 right-1 pointer-events-none opacity-40">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" className="text-[#555555]">
@@ -1081,7 +1184,8 @@ return (
                 100%
               </span>
               
-            </div>
+            <TrendIndicator data={getGraphData("uptime")} metricKey="uptime" />
+              </div>
           </div>
 
           <div className="chart-graph-container relative w-full h-[155px] mt-auto select-none flex items-stretch pl-4 pr-3 overflow-hidden">
@@ -1105,12 +1209,12 @@ return (
                 <path
                   d={generateGraphPaths('uptime', 1000, 116, getGraphData('uptime')).area}
                   fill="url(#uptime-grad)"
-                  stroke="none"
+                  stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
                   d={generateGraphPaths('uptime', 1000, 116, getGraphData('uptime')).line}
                   fill="none"
-                  stroke="#2f80ed"
+                  stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
                   strokeLinejoin="round"
                   strokeLinecap="round"
@@ -1151,12 +1255,11 @@ return (
             </div>
 
             {/* Y-Axis Labels: dynamically sized to text space */}
-            <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
-              <span>100%</span>
-              <span>99.9%</span>
-              <span>99.5%</span>
-              <span>99.0%</span>
-            </div>
+              <div className="chart-y-axis relative shrink-0 pl-2.5 text-[11px] text-[#8c8c8c] text-right font-normal pointer-events-none select-none tabular-nums flex flex-col justify-between pt-[10px] pb-[10px]">
+                {getYAxisLabels('uptime').map((lbl, i) => (
+                  <span key={i}>{lbl}</span>
+                ))}
+              </div>
 
             <span className="absolute bottom-1 right-1 pointer-events-none opacity-40">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" className="text-[#555555]">
@@ -1331,41 +1434,41 @@ return (
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <div className="text-[13px] text-[#8c8c8c]">
-                    {selectedMetric === 'cpu' ? 'Peak' : selectedMetric === 'active' ? 'Running' : selectedMetric === 'memory' ? 'Top process' : selectedMetric === 'load' ? '5m average' : selectedMetric === 'restarts' ? 'Unstable' : 'Incidents'}
+                    {selectedMetric === 'cpu' ? 'Top process' : selectedMetric === 'active' ? 'Running' : selectedMetric === 'memory' ? 'Top process' : selectedMetric === 'load' ? 'System Load' : selectedMetric === 'restarts' ? 'Unstable' : 'Incidents'}
                   </div>
                   <div className="text-[14px] font-medium text-white mt-0.5 tabular-nums">
-                    {selectedMetric === 'cpu' && '24.8%'}
+                    {selectedMetric === 'cpu' && (filteredProcesses[0] ? parseCpuVal(filteredProcesses[0].cpu).toFixed(1) + '%' : '0%')}
                     {selectedMetric === 'active' && `${displayRunning}`}
-                    {selectedMetric === 'memory' && (filteredProcesses[0]?.mem || '124.6 MB')}
-                    {selectedMetric === 'load' && (parseFloat(String(displaySysLoad)) * 0.85).toFixed(2)}
+                    {selectedMetric === 'memory' && (filteredProcesses[0]?.mem || '0 MB')}
+                    {selectedMetric === 'load' && (parseFloat(String(displaySysLoad))).toFixed(2)}
                     {selectedMetric === 'restarts' && `${activeProcessesList.filter(p => (p.restart_count || 0) > 0).length}`}
                     {selectedMetric === 'uptime' && '0'}
                   </div>
                 </div>
                 <div>
                   <div className="text-[13px] text-[#8c8c8c]">
-                    {selectedMetric === 'cpu' ? 'Processes' : selectedMetric === 'active' ? 'Stopped' : selectedMetric === 'memory' ? 'Average' : selectedMetric === 'load' ? '15m average' : selectedMetric === 'restarts' ? 'Auto-restart' : 'Longest'}
+                    {selectedMetric === 'cpu' ? 'Processes' : selectedMetric === 'active' ? 'Stopped' : selectedMetric === 'memory' ? 'Avg / Process' : selectedMetric === 'load' ? '' : selectedMetric === 'restarts' ? 'Auto-restart' : 'Longest'}
                   </div>
                   <div className="text-[14px] font-medium text-white mt-0.5 tabular-nums">
                     {selectedMetric === 'cpu' && `${displayRunning}`}
                     {selectedMetric === 'active' && `${displayStopped}`}
                     {selectedMetric === 'memory' && `${(totalMemoryMB / (displayRunning || 1)).toFixed(0)} MB`}
-                    {selectedMetric === 'load' && (parseFloat(String(displaySysLoad)) * 0.72).toFixed(2)}
+                    {selectedMetric === 'load' && '--'}
                     {selectedMetric === 'restarts' && `${activeProcessesList.filter(p => p.auto_restart).length}`}
                     {selectedMetric === 'uptime' && (activeProcessesList.find(p => p.status === 'running')?.uptime || '0s')}
                   </div>
                 </div>
                 <div>
                   <div className="text-[13px] text-[#8c8c8c]">
-                    {selectedMetric === 'cpu' ? 'Target' : selectedMetric === 'active' ? 'Total' : selectedMetric === 'memory' ? 'Available' : selectedMetric === 'load' ? 'Status' : selectedMetric === 'restarts' ? 'Clean rate' : 'SLA'}
+                    {selectedMetric === 'cpu' ? 'Peak usage' : selectedMetric === 'active' ? 'Total' : selectedMetric === 'memory' ? 'Peak usage' : selectedMetric === 'load' ? 'Status' : selectedMetric === 'restarts' ? 'Clean rate' : 'SLA'}
                   </div>
                   <div className="text-[14px] font-medium text-white mt-0.5">
-                    {selectedMetric === 'cpu' && '< 80%'}
+                    {selectedMetric === 'cpu' && `${Math.max(...getGraphData('cpu'), 0).toFixed(1)}%`}
                     {selectedMetric === 'active' && `${totalCount || activeProcessesList.length}`}
-                    {selectedMetric === 'memory' && '1.51 GB'}
-                    {selectedMetric === 'load' && 'Normal'}
-                    {selectedMetric === 'restarts' && '98.5%'}
-                    {selectedMetric === 'uptime' && '99.9%'}
+                    {selectedMetric === 'memory' && `${Math.max(...getGraphData('memory'), 0).toFixed(1)} MB`}
+                    {selectedMetric === 'load' && (parseFloat(String(displaySysLoad)) < 4 ? 'Healthy' : 'High')}
+                    {selectedMetric === 'restarts' && (restartsCount === 0 ? '100%' : 'Needs Review')}
+                    {selectedMetric === 'uptime' && (activeProcessesList.every(p => p.status === 'running') ? '100%' : 'Degraded')}
                   </div>
                 </div>
               </div>
@@ -1417,7 +1520,7 @@ return (
                   {selectedMetric === 'cpu' && 'Usage'}
                   {selectedMetric === 'active' && 'Status'}
                   {selectedMetric === 'memory' && 'Memory'}
-                  {selectedMetric === 'load' && 'Load'}
+                  {selectedMetric === 'load' && 'CPU Impact'}
                   {selectedMetric === 'restarts' && 'Restarts'}
                   {selectedMetric === 'uptime' && 'Uptime'}
                 </span>
@@ -1434,9 +1537,7 @@ return (
                     const cpuVal = parseCpuVal(p.cpu);
                     const restarts = p.restart_count || 0;
                     const isRunning = p.status === 'running';
-                    const procLoad = isRunning
-                      ? Math.max(0.01, (cpuVal / 50) + (parseMemMB(p.mem) / 1500)).toFixed(2)
-                      : '0.00';
+                    
 
                     return (
                       <div
@@ -1489,7 +1590,7 @@ return (
 
                           {selectedMetric === 'load' && (
                             <span className="text-[13px] font-normal text-[#8c8c8c] font-sans tabular-nums">
-                              {procLoad}
+                              {cpuVal.toFixed(1)}%
                             </span>
                           )}
 

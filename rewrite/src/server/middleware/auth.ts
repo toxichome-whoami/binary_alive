@@ -67,7 +67,8 @@ export function authMiddleware(): MiddlewareHandler {
           if (user.locked_until && new Date(user.locked_until) > new Date()) {
             return c.json({ success: false, message: 'Account is disabled.' }, 403);
           }
-          await touchSession(sessionId);
+          const timeout = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '60', 10);
+          await touchSession(sessionId, timeout);
           c.set('user', user);
           c.set('isApiAuth', false);
           return next();

@@ -819,9 +819,9 @@ export const Logs: React.FC = () => {
       ? totalLoginItems
       : totalTermItems;
 
-  const paginatedAuditLogs = filteredAuditLogs;
-  const paginatedLoginLogs = filteredLoginLogs;
-  const paginatedTermLogs = filteredTermLogs;
+  const paginatedAuditLogs = auditLogs;
+  const paginatedLoginLogs = loginLogs;
+  const paginatedTermLogs = termLogs;
 
   // Telemetry metrics
   const metrics = useMemo(() => {
