@@ -235,7 +235,7 @@ export const Settings: React.FC = () => {
                     type="text"
                     value={aiConfig.provider}
                     onChange={(e) => setAiConfig((prev) => ({ ...prev, provider: e.target.value }))}
-                    disabled={!canEditMaintenance}
+                    disabled={!canEditAi}
                     placeholder="e.g. Google Gemini, OpenAI, Anthropic"
                     className="h-9 px-3 rounded-[6px] bg-[#161718] border border-[#26282A] text-[13px] text-[#F2F3F3] placeholder-[#6E6E6E] outline-none focus:border-[#444] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   />
@@ -250,7 +250,7 @@ export const Settings: React.FC = () => {
                     type="text"
                     value={aiConfig.model}
                     onChange={(e) => setAiConfig((prev) => ({ ...prev, model: e.target.value }))}
-                    disabled={!canEditMaintenance}
+                    disabled={!canEditAi}
                     placeholder="e.g. gemini-1.5-pro or gpt-4o"
                     className="h-9 px-3 rounded-[6px] bg-[#161718] border border-[#26282A] text-[13px] text-[#F2F3F3] placeholder-[#6E6E6E] outline-none focus:border-[#444] disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-mono"
                   />
@@ -265,7 +265,7 @@ export const Settings: React.FC = () => {
                     type="text"
                     value={aiConfig.base_url}
                     onChange={(e) => setAiConfig((prev) => ({ ...prev, base_url: e.target.value }))}
-                    disabled={!canEditMaintenance}
+                    disabled={!canEditAi}
                     placeholder="https://generativelanguage.googleapis.com/v1beta/openai"
                     className="h-9 px-3 rounded-[6px] bg-[#161718] border border-[#26282A] text-[13px] text-[#F2F3F3] placeholder-[#6E6E6E] outline-none focus:border-[#444] disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-mono"
                   />
@@ -283,7 +283,7 @@ export const Settings: React.FC = () => {
                     type="password"
                     value={aiConfig.api_key}
                     onChange={(e) => setAiConfig((prev) => ({ ...prev, api_key: e.target.value }))}
-                    disabled={!canEditMaintenance}
+                    disabled={!canEditAi}
                     placeholder={aiConfig.has_key ? '••••••••••••••••' : 'Enter API key...'}
                     className="h-9 px-3 rounded-[6px] bg-[#161718] border border-[#26282A] text-[13px] text-[#F2F3F3] placeholder-[#6E6E6E] outline-none focus:border-[#444] disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-mono"
                   />
@@ -297,7 +297,7 @@ export const Settings: React.FC = () => {
               </span>
               <button
                 type="submit"
-                disabled={!canEditMaintenance || isSavingAi}
+                disabled={!canEditAi || isSavingAi}
                 className="group relative flex shrink-0 items-center justify-center h-8 px-3.5 rounded-[6px] font-medium text-white shadow-xs outline-none cursor-pointer disabled:opacity-50 overflow-hidden ring-1 ring-[#1d4ed8] bg-[#2563eb] font-sans"
               >
                 <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-[#3b82f6] to-[#2563eb] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" />

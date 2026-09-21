@@ -19,15 +19,22 @@ import { ToastContainer } from './components/ui/Toast';
 
 
 interface PermissionGuardProps {
-  permission: keyof Permissions;
+  permission?: keyof Permissions;
+  requireOwner?: boolean;
   children: React.ReactNode;
 }
 
-const PermissionGuard: React.FC<PermissionGuardProps> = ({ permission, children }) => {
-  const { hasPermission } = useAuthStore();
-  if (!hasPermission(permission)) {
+const PermissionGuard: React.FC<PermissionGuardProps> = ({ permission, requireOwner, children }) => {
+  const { hasPermission, isOwner } = useAuthStore();
+  
+  if (requireOwner && !isOwner()) {
     return <Navigate to="/dashboard" replace />;
   }
+  
+  if (permission && !hasPermission(permission)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
   return <>{children}</>;
 };
 
@@ -89,7 +96,14 @@ export const App: React.FC = () => {
               </PermissionGuard>
             }
           />
-          <Route path="/api-keys" element={<ApiKeys />} />
+          <Route
+            path="/api-keys"
+            element={
+              <PermissionGuard permission="api_keys_view">
+                <ApiKeys />
+              </PermissionGuard>
+            }
+          />
           <Route
             path="/logs"
             element={
@@ -107,7 +121,14 @@ export const App: React.FC = () => {
             }
           />
           <Route path="/2fa" element={<Setup2FA />} />
-          <Route path="/ai-history" element={<AiHistory />} />
+          <Route
+            path="/ai-history"
+            element={
+              <PermissionGuard requireOwner>
+                <AiHistory />
+              </PermissionGuard>
+            }
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

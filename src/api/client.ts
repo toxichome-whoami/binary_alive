@@ -27,10 +27,17 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     let csrfToken = getCookie('csrf_token');
     if (!csrfToken) {
       if (!csrfPromise) {
-        csrfPromise = fetch(`${BASE}/auth/csrf`, { credentials: 'include' });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        csrfPromise = fetch(`${BASE}/auth/csrf`, { 
+          credentials: 'include',
+          signal: controller.signal
+        }).finally(() => {
+          clearTimeout(timeoutId);
+          csrfPromise = null;
+        }).catch(() => null);
       }
       await csrfPromise;
-      csrfPromise = null;
       csrfToken = getCookie('csrf_token');
     }
     if (csrfToken) {

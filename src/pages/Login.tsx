@@ -88,11 +88,9 @@ export const Login: React.FC = () => {
     };
 
     window.addEventListener('settings-refresh', handleSettingsRefresh);
-    window.addEventListener('users-refresh', handleUsersRefresh);
     
     return () => {
       window.removeEventListener('settings-refresh', handleSettingsRefresh);
-      window.removeEventListener('users-refresh', handleUsersRefresh);
     };
   }, [show2fa, username, password, captchaInput, navigate, pushToast, setUser]);
 

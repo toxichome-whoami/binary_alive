@@ -86,19 +86,20 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
 
   // Track the subset of permissions the user explicitly grants to the AI session
   const [aiPermissions, setAiPermissions] = useState<Permissions | null>(null);
+  const [lastUserId, setLastUserId] = useState<number | null>(null);
 
   // Initialize the AI permissions based on what the user actually has
   useEffect(() => {
-    if (user && !aiPermissions) {
-      if (user.role === 'owner') {
-        // Owner has everything by default
-        setAiPermissions({ ...user.permissions }); 
-      } else {
-        // Non-owner gets exactly their current permissions
+    if (user) {
+      if (user.id !== lastUserId || !aiPermissions) {
+        setLastUserId(user.id);
         setAiPermissions({ ...user.permissions });
       }
+    } else {
+      setAiPermissions(null);
+      setLastUserId(null);
     }
-  }, [user, aiPermissions]);
+  }, [user, aiPermissions, lastUserId]);
 
   if (!canAccessAi) return null;
 
