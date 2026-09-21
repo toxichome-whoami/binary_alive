@@ -33,13 +33,8 @@ export function authMiddleware(): MiddlewareHandler {
         const hash = hashApiToken(token);
         const apiToken = await getApiTokenByHash(hash);
         if (apiToken) {
-          // Check if disabled
-          if (apiToken.is_disabled) {
-            return c.json({ success: false, message: 'API Key is disabled.' }, 403);
-          }
-          // Check expiry
-          if (apiToken.expires_at && new Date(apiToken.expires_at) < new Date()) {
-            return c.json({ success: false, message: 'API Token has expired' }, 401);
+          if (apiToken.is_disabled || (apiToken.expires_at && new Date(apiToken.expires_at) < new Date())) {
+            return c.json({ success: false, message: 'Unauthorized - Invalid or expired token' }, 401);
           }
           const user = await getUserById(apiToken.user_id);
           if (user) {

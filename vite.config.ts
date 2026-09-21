@@ -17,10 +17,13 @@ function unifiedApiPlugin(): Plugin {
         const dummyServer = new EventEmitter() as any;
         getInjectWebSocket()(dummyServer);
         
-        // Listen to the real server, only forward /api/ws to Hono's handler
+        // Listen to the real server, only forward valid ws endpoints
         server.httpServer.on('upgrade', (req, socket, head) => {
-          if (req.url && (req.url.startsWith('/api/ws') || req.url.startsWith('/api/terminal/ws'))) {
-            dummyServer.emit('upgrade', req, socket, head);
+          if (req.url) {
+            const path = req.url.split('?')[0];
+            if (path === '/api/ws' || path === '/api/terminal/ws') {
+              dummyServer.emit('upgrade', req, socket, head);
+            }
           }
         });
       }
