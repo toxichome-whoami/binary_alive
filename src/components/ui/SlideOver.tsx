@@ -46,7 +46,11 @@ export const SlideOver: React.FC<SlideOverProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden select-none font-sans">
+    <div 
+      className="fixed inset-0 z-50 overflow-hidden select-none font-sans"
+      role="dialog"
+      aria-modal="true"
+    >
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
         onClick={onClose}

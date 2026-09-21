@@ -35,14 +35,18 @@ startProcessStatsBroadcaster();
 app.get(
   '/api/ws',
   wsParts.upgradeWebSocket((c) => {
+    let resolvedUserId: number | null = null;
+    let resolvedRawWs: any = null;
+
     return {
       onOpen: async (_event, ws) => {
         // We use cookie for auth, but allow anonymous connections for login page settings updates
+        const clientUserId = c.req.query('client_user_id');
         const sid = getCookie(c, 'session_id');
         let userId = -1;
         let user = null;
 
-        if (sid) {
+        if (sid && clientUserId !== 'none') {
           const session = await getSession(sid);
           if (session && new Date(session.expires_at) > new Date()) {
             const maybeUser = await getUserById(session.user_id);
@@ -58,10 +62,9 @@ app.get(
           userId = -Math.floor(Math.random() * 1000000000) - 1; // Negative ID for anonymous
         }
 
-        // @ts-ignore
-        ws.userId = userId;
-        // @ts-ignore
-        ws.user = user;
+        const rawWs = ws.raw || ws;
+        resolvedUserId = userId;
+        resolvedRawWs = rawWs;
 
         let userSockets = connectedUsers.get(userId);
         if (!userSockets) {
@@ -73,28 +76,26 @@ app.get(
             broadcastUsersRefresh();
           }
         }
-        userSockets.add(ws);
+        userSockets.add(rawWs);
 
         // Send initial presence state to the newly connected user
         const onlineUserMap: Record<number, boolean> = {};
         for (const uid of connectedUsers.keys()) {
           onlineUserMap[uid] = true;
         }
-        if (ws.readyState === 1) {
-          ws.send(JSON.stringify({ type: 'PRESENCE_SYNC', users: onlineUserMap }));
+        if (rawWs.readyState === 1) {
+          rawWs.send(JSON.stringify({ type: 'PRESENCE_SYNC', users: onlineUserMap }));
         }
       },
-      onClose: (_event, ws) => {
-        // @ts-ignore
-        const userId = ws.userId;
-        if (userId) {
-          const userSockets = connectedUsers.get(userId);
+      onClose: () => {
+        if (resolvedUserId && resolvedRawWs) {
+          const userSockets = connectedUsers.get(resolvedUserId);
           if (userSockets) {
-            userSockets.delete(ws);
+            userSockets.delete(resolvedRawWs);
             if (userSockets.size === 0) {
-              connectedUsers.delete(userId);
-              if (userId > 0) {
-                broadcastUserStatusChange(userId, false);
+              connectedUsers.delete(resolvedUserId);
+              if (resolvedUserId > 0) {
+                broadcastUserStatusChange(resolvedUserId, false);
               }
             }
           }
@@ -127,8 +128,10 @@ app.route('/api/ai', aiRouter);
 
 
 app.get('/api/terminal/ws', wsParts.upgradeWebSocket((c) => {
+  let resolvedRawWs: any = null;
   return {
     onOpen: async (_event, ws) => {
+      resolvedRawWs = ws.raw || ws;
       const sid = getCookie(c, 'session_id');
       if (!sid) return ws.close(1008, 'Unauthorized');
       
@@ -151,7 +154,7 @@ app.get('/api/terminal/ws', wsParts.upgradeWebSocket((c) => {
       handleTerminalConnection(ws, user);
     },
     onMessage: (event, ws) => {
-      const ptyProcess = ptyMap.get(ws.raw || ws);
+      const ptyProcess = ptyMap.get(resolvedRawWs || ws.raw || ws);
       if (ptyProcess) {
         try {
           const parsed = JSON.parse(event.data.toString());
@@ -166,7 +169,7 @@ app.get('/api/terminal/ws', wsParts.upgradeWebSocket((c) => {
       }
     },
     onClose: (event, ws) => {
-      killTerminal(ws.raw || ws);
+      killTerminal(resolvedRawWs || ws.raw || ws);
     }
   };
 }));

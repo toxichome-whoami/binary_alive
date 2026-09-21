@@ -44,7 +44,8 @@ export function useWebSocketInit() {
       )
         return;
 
-      const ws = new WebSocket(WS_URL);
+      const wsUrl = user?.id ? `${WS_URL}?client_user_id=${user.id}` : `${WS_URL}?client_user_id=none`;
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -93,14 +94,16 @@ export function useWebSocketInit() {
       };
 
       ws.onclose = (event) => {
-        setConnected(false);
-        wsRef.current = null;
+        if (wsRef.current === ws) {
+          setConnected(false);
+          wsRef.current = null;
 
-        // Don't auto-reconnect on clean close or auth failure
-        if (event.code !== 1000 && event.code !== 1008) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-          reconnectAttempts++;
-          reconnectTimeoutRef.current = setTimeout(connect, delay);
+          // Don't auto-reconnect on clean close or auth failure
+          if (event.code !== 1000 && event.code !== 1008) {
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+            reconnectAttempts++;
+            reconnectTimeoutRef.current = setTimeout(connect, delay);
+          }
         }
       };
     };
@@ -126,6 +129,12 @@ export function useWebSocketInit() {
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) {
+        wsRef.current.close(1000, 'Unmount');
+        wsRef.current = null;
+      }
     };
     // Only re-run when user logs in/out — NOT on every user object change
     // eslint-disable-next-line react-hooks/exhaustive-deps

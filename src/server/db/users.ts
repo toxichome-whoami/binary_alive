@@ -12,7 +12,7 @@ function parseUserRow(row: any): User | null {
     ...row,
     permissions: perms,
     api_keys_count: row.api_keys_count ? Number(row.api_keys_count) : 0,
-    has_2fa: !!row.totp_secret,
+    has_2fa: !!row.totp_secret || !!row.has_totp,
   } as User;
 }
 
@@ -45,6 +45,7 @@ export async function listUsers(page = 1, limit = 20): Promise<{ data: User[]; t
   const result = await db.execute({
     sql: `
       SELECT u.id, u.username, u.email, u.role, u.permissions, u.created_at, u.failed_attempts, u.locked_until,
+             u.totp_secret IS NOT NULL as has_totp,
              COUNT(t.id) as api_keys_count
       FROM users u
       LEFT JOIN api_tokens t ON u.id = t.user_id

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { totpApi } from '../api/totp';
 import { useToastStore } from '../store/toastStore';
 import { useAuthStore } from '../store/authStore';
@@ -21,6 +21,7 @@ export const Setup2FA: React.FC = () => {
   // Disable dialog state
   const [isDisableOpen, setIsDisableOpen] = useState<boolean>(false);
   const [passwordConfirm, setPasswordConfirm] = useState<string>('');
+  const [disable2faCode, setDisable2faCode] = useState<string>('');
   const [disableLoading, setDisableLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -53,11 +54,24 @@ export const Setup2FA: React.FC = () => {
     }
   };
 
-  const handleCopySecret = () => {
+  const copyTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  const handleCopySecret = async () => {
     if (secret) {
-      navigator.clipboard.writeText(secret);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(secret);
+        setCopied(true);
+        if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        pushToast('error', 'Failed to copy secret');
+      }
     }
   };
 
@@ -84,16 +98,17 @@ export const Setup2FA: React.FC = () => {
 
   const handleDisable2FA = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!passwordConfirm) return;
+    if (!passwordConfirm || !disable2faCode) return;
     setDisableLoading(true);
 
     try {
-      const res = await totpApi.disable(passwordConfirm);
+      const res = await totpApi.disable(passwordConfirm, disable2faCode);
       if (res.success) {
         pushToast('success', 'Two-Factor Authentication disabled');
         setIs2faEnabled(false);
         setIsDisableOpen(false);
         setPasswordConfirm('');
+        setDisable2faCode('');
         loadSetup();
       } else {
         pushToast('error', res.message || 'Incorrect password');
@@ -284,7 +299,7 @@ export const Setup2FA: React.FC = () => {
       >
         <form onSubmit={handleDisable2FA} className="flex flex-col gap-4">
           <p className="text-[14px] text-[#a1a1a1] leading-relaxed">
-            To disable Two-Factor Authentication, please re-enter your current account password to verify your identity.
+            To disable Two-Factor Authentication, please enter your current account password and a 6-digit 2FA code to verify your identity.
           </p>
 
           <div className="flex flex-col gap-1.5">
@@ -298,6 +313,21 @@ export const Setup2FA: React.FC = () => {
               onChange={(e) => setPasswordConfirm(e.target.value)}
               placeholder="••••••••••••"
               className="h-9 px-3 text-[14px] rounded-lg border border-[#262626] focus:border-[#2f80ed] hover:border-[#383838] bg-[#141414] text-white w-full outline-none transition-colors font-sans"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[14px] font-medium text-white">
+              Current 2FA Code
+            </label>
+            <input
+              type="text"
+              required
+              maxLength={6}
+              value={disable2faCode}
+              onChange={(e) => setDisable2faCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="123456"
+              className="h-9 px-3 text-[14px] font-['JetBrains_Mono',monospace] rounded-lg border border-[#262626] focus:border-[#2f80ed] hover:border-[#383838] bg-[#141414] text-white w-full outline-none transition-colors"
             />
           </div>
 

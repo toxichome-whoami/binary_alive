@@ -312,8 +312,8 @@ export const Users: React.FC = () => {
   const [disableTarget, setDisableTarget] = useState<{ user: User; disable: boolean } | null>(null);
   const [dialogLoading, setDialogLoading] = useState(false);
 
-  const fetchUsers = useCallback(async (targetPage = page) => {
-    setIsLoading(true);
+  const fetchUsers = useCallback(async (targetPage = page, isBackground = false) => {
+    if (!isBackground) setIsLoading(true);
     try {
       const res = await usersApi.list(targetPage, 15);
       if (res.success && res.data) {
@@ -324,7 +324,7 @@ export const Users: React.FC = () => {
     } catch (err: any) {
       pushToast('error', err.message || 'Failed to load user records');
     } finally {
-      setIsLoading(false);
+      if (!isBackground) setIsLoading(false);
     }
   }, [page, pushToast]);
 
@@ -337,7 +337,7 @@ export const Users: React.FC = () => {
     }
     fetchUsers(page);
 
-    const handleRefresh = () => fetchUsers(page);
+    const handleRefresh = () => fetchUsers(page, true);
     window.addEventListener('users-refresh', handleRefresh);
     return () => window.removeEventListener('users-refresh', handleRefresh);
   }, [fetchUsers, page, hasViewAccess, navigate]);
@@ -350,15 +350,32 @@ export const Users: React.FC = () => {
         const currentDbPerms = JSON.stringify(updatedUser.permissions || {});
         const oldDbPerms = JSON.stringify(editingUser.permissions || {});
         
+        let shouldUpdate = false;
+        
         if (currentDbPerms !== oldDbPerms) {
-          setEditingUser(updatedUser);
           setEditPermissions(updatedUser.permissions || { ...DEFAULT_PERMISSIONS });
-        } else if (
-          updatedUser.username !== editingUser.username || 
-          updatedUser.email !== editingUser.email || 
-          updatedUser.locked_until !== editingUser.locked_until ||
-          updatedUser.has_2fa !== editingUser.has_2fa
-        ) {
+          shouldUpdate = true;
+        }
+        
+        if (updatedUser.username !== editingUser.username) {
+          setEditUsername(updatedUser.username);
+          shouldUpdate = true;
+        }
+
+        if (updatedUser.email !== editingUser.email) {
+          setEditEmail(updatedUser.email || '');
+          shouldUpdate = true;
+        }
+
+        if (updatedUser.locked_until !== editingUser.locked_until) {
+          shouldUpdate = true;
+        }
+
+        if (updatedUser.has_2fa !== editingUser.has_2fa) {
+          shouldUpdate = true;
+        }
+
+        if (shouldUpdate) {
           setEditingUser(updatedUser);
         }
       } else {

@@ -15,9 +15,9 @@ export const totpApi = {
       body: JSON.stringify({ secret, code }),
     }),
 
-  disable: (password: string) =>
+  disable: (password: string, token: string) =>
     apiFetch<ApiResponse>('/2fa/disable', {
       method: 'POST',
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, token }),
     }),
 };

@@ -16,9 +16,11 @@ export function useAuth() {
         } else if (isMounted) {
           setUser(null);
         }
-      } catch {
+      } catch (err: any) {
         if (isMounted) {
-          setUser(null);
+          if (err?.status === 401 || err?.status === 403) {
+            setUser(null);
+          }
         }
       } finally {
         if (isMounted) {

@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../components/shared/ConfirmDialog';
 import { CloudflareAnalytics } from '../components/dashboard/CloudflareAnalytics';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 
+
 const PlayIcon: React.FC<{ className?: string }> = ({ className = "w-[15px] h-[15px]" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
     <path d="M7 4.77a1.5 1.5 0 0 1 2.27-1.29l10.5 6.23a1.5 1.5 0 0 1 0 2.58l-10.5 6.23A1.5 1.5 0 0 1 7 17.23V4.77Z" />
@@ -637,33 +638,51 @@ export const Dashboard: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 1024 * 1024) {
+      pushToast('error', 'File size exceeds 1MB limit');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
       const items: any[] = Array.isArray(parsed) ? parsed : [parsed];
-      let count = 0;
+      
+      const isValid = items.every(item => 
+        item && typeof item === 'object' && 
+        typeof item.name === 'string' && item.name.trim() !== '' &&
+        typeof item.command === 'string' && item.command.trim() !== ''
+      );
 
-      for (const item of items) {
-        if (item.name && item.command) {
-          await processesApi.create({
-            name: item.name,
-            group_name: item.group_name || 'Default',
-            command: item.command,
-            working_dir: item.working_dir || '',
-            log_file: item.log_file || '',
-          });
-          count++;
-        }
+      if (!isValid) {
+        pushToast('error', 'Invalid JSON schema: Missing required "name" or "command" fields');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
       }
 
-      if (count > 0) {
-        pushToast('success', `Successfully imported ${count} processes`);
+      const results = await Promise.allSettled(
+        items.map(item => processesApi.create({
+          name: item.name,
+          group_name: item.group_name || 'Default',
+          command: item.command,
+          working_dir: item.working_dir || '',
+          log_file: item.log_file || '',
+        }))
+      );
+
+      const successful = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
+      const failed = items.length - successful;
+
+      if (successful > 0) {
+        pushToast('success', `Successfully imported ${successful} processes`);
         refresh();
-      } else {
-        pushToast('error', 'No valid process configurations found in JSON file');
+      }
+      if (failed > 0) {
+        pushToast('error', `Failed to import ${failed} processes`);
       }
     } catch (err: any) {
-      pushToast('error', 'Failed to import JSON: ' + (err.message || 'Invalid format'));
+      pushToast('error', 'Failed to parse JSON file');
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -686,7 +705,9 @@ export const Dashboard: React.FC = () => {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'binary-alive-processes.json';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
     pushToast('info', `Exported ${exportData.length} process configurations`);
   };
@@ -776,6 +797,46 @@ export const Dashboard: React.FC = () => {
     setIsSlideOverOpen(true);
   };
 
+  useEffect(() => {
+    if (editingProcess) {
+      const updatedProcess = processes.find((p) => p.id === editingProcess.id);
+      if (updatedProcess) {
+        let shouldUpdate = false;
+        
+        if (updatedProcess.name !== editingProcess.name) {
+          setFormData((prev) => ({ ...prev, name: updatedProcess.name }));
+          shouldUpdate = true;
+        }
+        if ((updatedProcess.group_name || 'Default') !== (editingProcess.group_name || 'Default')) {
+          setFormData((prev) => ({ ...prev, group_name: updatedProcess.group_name || 'Default' }));
+          shouldUpdate = true;
+        }
+        if (updatedProcess.command !== editingProcess.command) {
+          setFormData((prev) => ({ ...prev, command: updatedProcess.command }));
+          shouldUpdate = true;
+        }
+        if ((updatedProcess.working_dir || '') !== (editingProcess.working_dir || '')) {
+          setFormData((prev) => ({ ...prev, working_dir: updatedProcess.working_dir || '' }));
+          shouldUpdate = true;
+        }
+        if ((updatedProcess.log_file || '') !== (editingProcess.log_file || '')) {
+          setFormData((prev) => ({ ...prev, log_file: updatedProcess.log_file || '' }));
+          shouldUpdate = true;
+        }
+        if (updatedProcess.auto_restart !== editingProcess.auto_restart) {
+          shouldUpdate = true;
+        }
+
+        if (shouldUpdate) {
+          setEditingProcess(updatedProcess);
+        }
+      } else {
+        setEditingProcess(null);
+        setIsSlideOverOpen(false);
+      }
+    }
+  }, [processes]);
+
   const handleSaveProcess = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -808,15 +869,23 @@ export const Dashboard: React.FC = () => {
       if (selectedIds.length === 0) return;
       setDeleteLoading(true);
       try {
-        for (const id of selectedIds) {
-          await processesApi.delete(id);
+        const results = await Promise.allSettled(
+          selectedIds.map(id => processesApi.delete(id))
+        );
+        const successful = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
+        const failed = selectedIds.length - successful;
+
+        if (successful > 0) {
+          pushToast('success', `${successful} process(es) deleted`);
+          setSelectedIds([]);
+          setIsBulkDeleting(false);
+          refresh();
         }
-        pushToast('success', `${selectedIds.length} processes deleted`);
-        setSelectedIds([]);
-        setIsBulkDeleting(false);
-        refresh();
+        if (failed > 0) {
+          pushToast('error', `Failed to delete ${failed} process(es)`);
+        }
       } catch (err: any) {
-        pushToast('error', err.message || 'Failed to delete processes');
+        pushToast('error', 'Failed to delete processes');
       } finally {
         setDeleteLoading(false);
       }

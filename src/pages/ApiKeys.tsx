@@ -739,11 +739,24 @@ export const ApiKeys: React.FC = () => {
     }
   };
 
-  const handleCopyToken = () => {
+  const copyTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  const handleCopyToken = async () => {
     if (generatedToken) {
-      navigator.clipboard.writeText(generatedToken);
-      setTokenCopied(true);
-      setTimeout(() => setTokenCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(generatedToken);
+        setTokenCopied(true);
+        if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = setTimeout(() => setTokenCopied(false), 2000);
+      } catch (err: any) {
+        pushToast('error', 'Failed to copy to clipboard. Please copy manually.');
+      }
     }
   };
 
@@ -760,10 +773,23 @@ export const ApiKeys: React.FC = () => {
         const currentDbPerms = JSON.stringify(updatedToken.permissions || {});
         const oldDbPerms = JSON.stringify(editingToken.permissions || {});
         
+        let shouldUpdate = false;
+        
         if (currentDbPerms !== oldDbPerms) {
-          setEditingToken(updatedToken);
           setEditPermissions(updatedToken.permissions || { ...DEFAULT_PERMISSIONS });
-        } else if (updatedToken.name !== editingToken.name) {
+          shouldUpdate = true;
+        } 
+        
+        if (updatedToken.name !== editingToken.name) {
+          setEditName(updatedToken.name);
+          shouldUpdate = true;
+        }
+
+        if (updatedToken.is_disabled !== editingToken.is_disabled) {
+          shouldUpdate = true;
+        }
+
+        if (shouldUpdate) {
           setEditingToken(updatedToken);
         }
       } else {

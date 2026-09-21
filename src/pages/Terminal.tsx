@@ -67,9 +67,11 @@ export const Terminal: React.FC = () => {
           const parsed = JSON.parse(event.data);
           if (parsed.type === 'data') {
             term.write(parsed.data);
+          } else if (parsed.type === 'error') {
+            term.write(`\r\n\x1b[31m[Error] ${parsed.message}\x1b[0m\r\n`);
           }
         } catch (e) {
-          term.write(event.data);
+          // Drop invalid raw text to prevent escape sequence injection
         }
       };
 

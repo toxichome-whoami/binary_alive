@@ -460,11 +460,24 @@ export const Logs: React.FC = () => {
     return null;
   }, [selectedLog, currentUser]);
 
-  const handleCopyField = (val: string, fieldName: string) => {
-    navigator.clipboard.writeText(val);
-    setCopiedField(fieldName);
-    pushToast('success', `${fieldName} copied`);
-    setTimeout(() => setCopiedField(null), 1500);
+  const copyTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  const handleCopyField = async (val: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(val);
+      setCopiedField(fieldName);
+      pushToast('success', `${fieldName} copied`);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedField(null), 1500);
+    } catch (err) {
+      pushToast('error', `Failed to copy ${fieldName}`);
+    }
   };
 
   // VS Code Dark+ JSON Syntax Highlighter
@@ -996,15 +1009,20 @@ export const Logs: React.FC = () => {
   };
 
   // Copy JSON payload
-  const handleCopyJson = (log: AuditLog | LoginAttemptLog) => {
+  const handleCopyJson = async (log: AuditLog | LoginAttemptLog) => {
     const dataToCopy = {
       ...log,
       ...(selectedLogEmail ? { email: selectedLogEmail } : {}),
     };
-    navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
-    setCopiedId(log.id);
-    pushToast('success', 'Event payload copied to clipboard');
-    setTimeout(() => setCopiedId(null), 2000);
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
+      setCopiedId(log.id);
+      pushToast('success', 'Event payload copied to clipboard');
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      pushToast('error', 'Failed to copy payload');
+    }
   };
 
   // Export logs to JSON file
@@ -1025,7 +1043,9 @@ export const Logs: React.FC = () => {
       const a = document.createElement('a');
       a.href = url;
       a.download = `binary_alive_${activeTab}_logs_${format(new Date(), 'yyyyMMdd_HHmm')}.json`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
     pushToast('success', `Exported ${dataToExport.length} ${activeTab} log events`);
