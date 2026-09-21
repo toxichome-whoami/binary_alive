@@ -121,8 +121,8 @@ export const Terminal: React.FC = () => {
   }
 
   return (
-    <div className="w-full flex-1 flex flex-col mx-auto bg-[#0B0B0C] border border-[#222222] rounded-lg overflow-hidden shadow-sm select-none">
-      <div className="h-10 px-4 bg-black border-b border-[#222222] flex items-center justify-between shrink-0">
+    <div className="w-full flex-1 flex flex-col mx-auto bg-[#0B0B0C] border border-[#222222] rounded-lg overflow-hidden shadow-sm">
+      <div className="h-10 px-4 bg-black border-b border-[#222222] flex items-center justify-between shrink-0 select-none">
         <div className="flex items-center gap-2">
           <TerminalIcon className="w-4 h-4 text-[#8c8c8c]" />
           <span className="text-[14px] font-medium text-white tracking-tight">Interactive Terminal</span>

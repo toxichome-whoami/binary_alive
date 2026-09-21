@@ -121,12 +121,18 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
   return (
     <aside 
       className={cn(
-        "shrink-0 bg-[#0B0B0C] flex flex-col h-screen sticky top-0 transition-[width,border-color] duration-200 z-30 overflow-hidden",
-        isOpen ? "w-[320px] md:w-[360px] border-l border-[#222222]" : "w-0 border-l-transparent border-l-0"
+        "bg-[#0B0B0C] flex flex-col z-40 overflow-hidden",
+        // Desktop: Push content
+        "md:sticky md:top-0 md:h-screen md:shrink-0 md:transition-[width,border-color] md:duration-200",
+        // Mobile: Fixed sliding overlay
+        "max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:transition-transform max-md:duration-200",
+        isOpen 
+          ? "md:w-[360px] md:border-l md:border-[#222222] max-md:w-[100vw] max-md:translate-x-0 max-md:shadow-2xl" 
+          : "md:w-0 md:border-l-transparent md:border-l-0 max-md:w-[100vw] max-md:translate-x-full"
       )}
     >
       {/* Header */}
-      <div className="h-[58px] border-b border-[#222222] flex items-center justify-between px-4 shrink-0 w-[320px] md:w-[360px]">
+      <div className="h-[58px] border-b border-[#222222] flex items-center justify-between px-4 shrink-0 w-full">
         {isSettingsOpen || isHistoryOpen ? (
           <div className="flex items-center gap-2">
             <button
@@ -184,7 +190,7 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
 
       {isSettingsOpen ? (
         /* Settings Area */
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#222222] w-[320px] md:w-[360px]">
+        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#222222] w-full">
           <div className="mb-4">
             <p className="text-[13px] text-[#A1A1A1] leading-relaxed">
               Limit what this AI can access and perform on your behalf.
@@ -200,7 +206,7 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
         </div>
       ) : isHistoryOpen ? (
         /* History Area */
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#222222] w-[320px] md:w-[360px] flex flex-col gap-4">
+        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#222222] w-full flex flex-col gap-4">
           {isLoadingHistory ? (
             <div className="text-center text-[#8c8c8c] text-[13px] mt-4">Loading history...</div>
           ) : myHistory.length === 0 ? (
@@ -231,7 +237,7 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
       ) : (
         <>
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-[#222222] w-[320px] md:w-[360px] flex flex-col gap-4">
+          <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-[#222222] w-full flex flex-col gap-4">
             {chatHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center mt-8 mb-6 space-y-2">
                 <div className="w-12 h-12 rounded-full bg-[#161718] border border-[#26282A] flex items-center justify-center shadow-sm mb-1">
@@ -268,7 +274,7 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
           </div>
 
           {/* Input Area */}
-          <div className="p-4 bg-[#0B0B0C] border-t border-[#26282A] shrink-0 w-[320px] md:w-[360px]">
+          <div className="p-4 bg-[#0B0B0C] border-t border-[#26282A] shrink-0 w-full">
             <div className="relative flex items-center bg-[#161718] border border-[#26282A] rounded-[8px] focus-within:border-[#383838] focus-within:ring-1 focus-within:ring-[#383838] transition-all">
               <textarea
                 ref={textareaRef}

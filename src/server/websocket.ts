@@ -29,17 +29,18 @@ export function broadcastUserStatusChange(userId: number, isOnline: boolean) {
   const payload = JSON.stringify({ type: 'PRESENCE_CHANGE', userId, isOnline });
   // Broadcast to all admins who have users_view permission
   // Wait, we can't easily check permissions of connected users unless we attach user objects to the WS.
-  
-  for (const [, sockets] of connectedUsers.entries()) {
-    // For now, we broadcast to everyone connected (they are authenticated at least)
-    for (const ws of sockets) {
-      console.log('WS readyState:', ws.readyState);
-            if (ws.readyState === 1) { // 1 = OPEN
-        console.log('Broadcasting PROCESS_STATS to owner/viewer');
+    for (const [, sockets] of connectedUsers.entries()) {
+      // For now, we broadcast to everyone connected (they are authenticated at least)
+      for (const ws of sockets) {
+        if (ws.readyState === 1) { // 1 = OPEN
+          try {
             ws.send(payload);
+          } catch (e) {
+            console.error('Failed to send presence change broadcast', e);
+          }
+        }
       }
     }
-  }
 }
 
 export function notifyUserPermissionsUpdated(userId: number, newPermissions: any) {
@@ -128,10 +129,12 @@ export function startProcessStatsBroadcaster() {
         for (const ws of sockets) {
           // @ts-ignore
           const user = ws.user;
+          console.log('Checking ws for user', userId, 'user object exists:', !!user);
           if (!user) continue;
           const canView = user.role === 'owner' || (user.permissions && user.permissions.processes_view);
           if (canView && ws.readyState === 1) {
             try {
+              console.log('Sending PROCESS_STATS payload');
               ws.send(payload);
             } catch (e) {}
           }

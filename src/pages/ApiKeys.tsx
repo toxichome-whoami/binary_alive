@@ -1427,10 +1427,10 @@ export const ApiKeys: React.FC = () => {
             <table
               role="table"
               aria-label="API Keys"
-              className="w-full min-w-[900px] text-left border-collapse font-sans"
+              className="w-full min-w-0 text-left border-collapse font-sans"
             >
               {/* Sticky 40px Header */}
-              <thead className="sticky top-0 z-10 font-sans">
+              <thead className="sticky top-0 z-10 font-sans max-md:hidden">
                 <tr className="flex w-full items-center border-b border-[#222222] bg-[#141414] h-[40px] min-h-[40px] max-h-[40px]">
                   {/* Checkbox */}
                   <th className="flex items-center justify-center shrink-0 w-[44px] min-w-[44px] h-[40px] rounded-tl-lg">
@@ -1636,12 +1636,13 @@ export const ApiKeys: React.FC = () => {
                     return (
                       <tr
                         key={t.id}
-                        className={`group/row flex w-full items-center h-[40px] min-h-[40px] max-h-[40px] border-b border-[#1e1e1e] transition-colors font-sans ${
+                        className={`group/row flex max-md:flex-col w-full md:items-center max-md:p-4 max-md:gap-3 h-auto md:h-[40px] md:min-h-[40px] md:max-h-[40px] border-b border-[#1e1e1e] transition-colors font-sans ${
                           isChecked ? 'bg-[#181818]' : 'bg-[#0e0e0e] hover:bg-[#161616]'
                         }`}
                       >
                         {/* Checkbox cell */}
-                        <td className="flex items-center justify-center shrink-0 w-[44px] min-w-[44px] h-[40px]">
+                        <td className="flex items-center justify-between md:justify-center shrink-0 max-md:w-full max-md:h-auto max-md:py-1 w-[44px] min-w-[44px] h-[40px]">
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none">Select</span>
                           <button
                             type="button"
                             role="checkbox"
@@ -1662,8 +1663,9 @@ export const ApiKeys: React.FC = () => {
                         {/* Status cell (clean text matching Users.tsx) */}
                         <td
                           style={{ width: `${columnWidths.status}px` }}
-                          className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                          className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans overflow-hidden"
                         >
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none">Status</span>
                           {t.is_disabled ? (
                             <span className="text-[14px] font-normal text-[#ef4444] leading-none font-sans">Disabled</span>
                           ) : isExpired ? (
@@ -1676,9 +1678,10 @@ export const ApiKeys: React.FC = () => {
                         {/* Key Identifier cell */}
                         <td
                           style={{ width: `${columnWidths.name}px` }}
-                          className="flex items-center shrink-0 h-[40px] px-3 text-[14px] font-medium text-white truncate font-sans overflow-hidden"
+                          className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 text-[14px] font-medium text-white truncate font-sans overflow-hidden"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Name</span>
+                          <div className="flex items-center gap-2 min-w-0 max-md:justify-end">
                             <Key className="w-3.5 h-3.5 text-[#8c8c8c] shrink-0" />
                             <span className="truncate font-sans">{t.name}</span>
                           </div>
@@ -1688,8 +1691,9 @@ export const ApiKeys: React.FC = () => {
                         {visibleColumns.user && (
                           <td
                             style={{ width: `${columnWidths.user}px` }}
-                            className="flex items-center shrink-0 h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate overflow-hidden"
+                            className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate overflow-hidden"
                           >
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Member</span>
                             {t.username ? (
                               <div className="flex items-center gap-1.5 truncate">
                                 <span>{t.username}</span>
@@ -1707,8 +1711,9 @@ export const ApiKeys: React.FC = () => {
                         {visibleColumns.email && (
                           <td
                             style={{ width: `${columnWidths.email}px` }}
-                            className="flex items-center shrink-0 h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate overflow-hidden"
+                            className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate overflow-hidden"
                           >
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Email</span>
                             {t.email ? (
                               <span className="truncate">{t.email}</span>
                             ) : (
@@ -1721,8 +1726,9 @@ export const ApiKeys: React.FC = () => {
                         {visibleColumns.scopes && (
                           <td
                             style={{ width: `${columnWidths.scopes}px` }}
-                            className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                            className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans overflow-hidden"
                           >
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Scopes</span>
                             {grantedPerms === Object.keys(DEFAULT_PERMISSIONS).length ? (
                               <span className="text-[14px] font-normal text-white font-sans" title={`All ${Object.keys(DEFAULT_PERMISSIONS).length} permissions granted`}>
                                 Full access
@@ -1743,8 +1749,9 @@ export const ApiKeys: React.FC = () => {
                         {visibleColumns.last_used && (
                           <td
                             style={{ width: `${columnWidths.last_used}px` }}
-                            className="flex items-center shrink-0 h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans truncate overflow-hidden"
+                            className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans truncate overflow-hidden"
                           >
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Last Used</span>
                             {t.last_used ? new Date(t.last_used).toLocaleString() : 'Never used'}
                           </td>
                         )}
@@ -1753,31 +1760,33 @@ export const ApiKeys: React.FC = () => {
                         {visibleColumns.created_at && (
                           <td
                             style={{ width: `${columnWidths.created_at}px` }}
-                            className="flex items-center shrink-0 h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans tabular-nums overflow-hidden"
+                            className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans tabular-nums overflow-hidden"
                           >
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Created</span>
                             {new Date(t.created_at).toLocaleDateString()}
                           </td>
                         )}
 
                         {/* Expiration cell */}
                         {visibleColumns.expires_at && (
-                          <td className="flex items-center shrink-0 w-[130px] h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans tabular-nums">
-                            {t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'Never'}
+                          <td className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 w-[130px] h-[40px] px-3 text-[14px] text-[#8c8c8c] font-sans tabular-nums">
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Expires</span>
+                            <span>{t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'Never'}</span>
                           </td>
                         )}
 
                         {/* Flexible Spacer to keep data packed left */}
-                        <td className="flex-1 h-[40px]" />
+                        <td className="flex-1 h-[40px] max-md:hidden" />
 
                         {/* Sticky Action Cell — Exact Cloudflare Edit Button */}
                         <td
-                          className={`flex items-center justify-end shrink-0 w-[80px] h-[40px] px-3 sticky right-0 transition-colors z-[1] ${
+                          className={`flex items-center justify-end max-md:justify-end shrink-0 max-md:w-full max-md:h-auto max-md:py-2 max-md:mt-1 max-md:border-t max-md:border-[#1e1e1e] w-[80px] h-[40px] px-3 sticky right-0 transition-colors z-[1] ${
                             isChecked ? 'bg-[#181818]' : 'bg-[#0e0e0e] group-hover/row:bg-[#161616]'
                           }`}
                         >
                           <span
                             aria-hidden="true"
-                            className={`pointer-events-none absolute inset-y-0 -left-4 w-4 bg-gradient-to-r from-transparent ${
+                            className={`max-md:hidden pointer-events-none absolute inset-y-0 -left-4 w-4 bg-gradient-to-r from-transparent ${
                               isChecked ? 'to-[#181818]' : 'to-[#0e0e0e] group-hover/row:to-[#161616]'
                             }`}
                           />

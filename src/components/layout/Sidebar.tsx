@@ -61,9 +61,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
   onToggleCollapse,
 }) => {
+  const navRef = useRef<HTMLElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, hasPermission } = useAuthStore();
+
+  // Add swipe left to dismiss on mobile
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isSwiping = false;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+      isSwiping = true;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isSwiping) return;
+      const touchEndX = e.changedTouches[0].screenX;
+      const touchEndY = e.changedTouches[0].screenY;
+      const deltaX = touchStartX - touchEndX; // Swiping LEFT
+      const deltaY = Math.abs(touchEndY - touchStartY);
+
+      if (deltaX > 80 && deltaX > deltaY * 2) {
+        isSwiping = false;
+        onClose();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      isSwiping = false;
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isOpen, onClose]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);

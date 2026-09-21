@@ -43,6 +43,49 @@ export const SlideOver: React.FC<SlideOverProps> = ({
     };
   }, [isOpen, onClose]);
 
+  // Handle Swipe right to dismiss
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isSwiping = false;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+      isSwiping = true;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isSwiping) return;
+      const touchEndX = e.changedTouches[0].screenX;
+      const touchEndY = e.changedTouches[0].screenY;
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = Math.abs(touchEndY - touchStartY);
+
+      // If they swipe right significantly more than they swipe vertically
+      if (deltaX > 80 && deltaX > deltaY * 2) {
+        isSwiping = false; // Prevent multiple triggers
+        onClose();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      isSwiping = false;
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (

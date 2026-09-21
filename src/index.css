@@ -34,10 +34,17 @@
     @apply selection:bg-brand selection:text-white;
   }
 
-  button, input, optgroup, select, textarea {
+  button, input, optgroup, select, textarea, a[href] {
     font-family: inherit;
     font-feature-settings: inherit;
     letter-spacing: inherit;
+    touch-action: manipulation;
+  }
+  
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 }
 

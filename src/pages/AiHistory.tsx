@@ -167,8 +167,8 @@ export const AiHistory: React.FC = () => {
       className: 'px-4',
       cell: (log) => (
         <div className="w-full pt-[9px] pb-2 flex flex-col justify-start h-full">
-          <div className="text-[14px] text-[#a0a0a0] leading-relaxed whitespace-pre-wrap break-words max-h-[22px] group-hover/row:max-h-[300px] group-hover/row:overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#333] [&::-webkit-scrollbar-thumb]:rounded-full transition-[max-height] duration-[400ms] ease-in-out overflow-hidden">
-            <div className="line-clamp-1 group-hover/row:line-clamp-none">
+          <div className="text-[14px] text-[#a0a0a0] leading-relaxed whitespace-pre-wrap break-words max-md:max-h-none max-md:overflow-visible md:max-h-[22px] group-hover/row:max-h-[300px] group-hover/row:overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#333] [&::-webkit-scrollbar-thumb]:rounded-full transition-[max-height] duration-[400ms] ease-in-out overflow-hidden">
+            <div className="max-md:line-clamp-none line-clamp-1 group-hover/row:line-clamp-none">
               {log.message}
             </div>
           </div>
@@ -183,8 +183,8 @@ export const AiHistory: React.FC = () => {
       className: 'px-4',
       cell: (log) => (
         <div className="w-full pt-[9px] pb-2 flex flex-col justify-start h-full">
-          <div className="text-[14px] text-white leading-relaxed markdown-body selection:bg-[#2f80ed] selection:text-white max-h-[22px] group-hover/row:max-h-[400px] group-hover/row:overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#333] [&::-webkit-scrollbar-thumb]:rounded-full transition-[max-height] duration-[400ms] ease-in-out overflow-hidden">
-            <div className="line-clamp-1 group-hover/row:line-clamp-none">
+          <div className="text-[14px] text-white leading-relaxed markdown-body selection:bg-[#2f80ed] selection:text-white max-md:max-h-none max-md:overflow-visible md:max-h-[22px] group-hover/row:max-h-[400px] group-hover/row:overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#333] [&::-webkit-scrollbar-thumb]:rounded-full transition-[max-height] duration-[400ms] ease-in-out overflow-hidden">
+            <div className="max-md:line-clamp-none line-clamp-1 group-hover/row:line-clamp-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrl}>
                 {(log.response || '').slice(0, 20000)}
               </ReactMarkdown>

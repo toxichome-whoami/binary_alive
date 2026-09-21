@@ -121,7 +121,7 @@ export const Setup2FA: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-[960px] mx-auto space-y-5 select-none">
+    <div className="w-full max-w-[960px] mx-auto space-y-5">
       {/* Page Header — Technical Minimalism */}
       <div className="flex flex-col gap-0.5">
         <h1 className="text-[20px] font-semibold text-white tracking-tight">Two-Factor Authentication</h1>

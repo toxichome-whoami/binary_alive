@@ -13,6 +13,7 @@ import { Settings } from './pages/Settings';
 import { Setup2FA } from './pages/Setup2FA';
 import { ApiKeys } from './pages/ApiKeys';
 import { AiHistory } from './pages/AiHistory';
+import { Terminal } from './pages/Terminal';
 import { Loader2 } from 'lucide-react';
 import { ToastContainer } from './components/ui/Toast';
 
@@ -84,7 +85,7 @@ export const App: React.FC = () => {
             path="/terminal"
             element={
               <PermissionGuard permission="terminal_access">
-                <></>
+                <Terminal />
               </PermissionGuard>
             }
           />

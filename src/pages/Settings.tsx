@@ -153,7 +153,7 @@ export const Settings: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto space-y-8 select-none font-sans">
+    <div className="w-full max-w-[1200px] mx-auto space-y-8 font-sans">
       {/* Page Header */}
       <div className="space-y-1">
         <h1 className="text-[20px] font-semibold text-[#F2F3F3] tracking-[-0.01em] leading-tight">
@@ -176,7 +176,7 @@ export const Settings: React.FC = () => {
               Lock down the application to non-admin users. When enabled, all active sessions for regular members will be temporarily suspended and new logins will be blocked.
             </p>
           </div>
-          <div className="px-5 py-3 border-t border-[#26282A] bg-[#161718] flex items-center justify-between rounded-b-[8px]">
+          <div className="px-5 py-3 border-t border-[#26282A] bg-[#161718] flex flex-wrap gap-3 items-center justify-between rounded-b-[8px]">
             <span className="text-[13px] text-[#A1A1A1]">
               The application is currently <strong className="text-[#F2F3F3] font-medium">{settings.maintenance_mode ? 'offline' : 'online'}</strong>.
             </span>
@@ -199,7 +199,7 @@ export const Settings: React.FC = () => {
               Require users to complete a CAPTCHA challenge during login to prevent automated credential stuffing and brute-force attacks.
             </p>
           </div>
-          <div className="px-5 py-3 border-t border-[#26282A] bg-[#161718] flex items-center justify-between rounded-b-[8px]">
+          <div className="px-5 py-3 border-t border-[#26282A] bg-[#161718] flex flex-wrap gap-3 items-center justify-between rounded-b-[8px]">
             <span className="text-[13px] text-[#A1A1A1]">
               Login protection is <strong className="text-[#F2F3F3] font-medium">{settings.enable_captcha ? 'active' : 'disabled'}</strong>.
             </span>
@@ -291,7 +291,7 @@ export const Settings: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-5 py-3 border-t border-[#26282A] bg-[#161718] flex items-center justify-between rounded-b-[8px]">
+            <div className="px-5 py-3 border-t border-[#26282A] bg-[#161718] flex flex-wrap gap-3 items-center justify-between rounded-b-[8px]">
               <span className="text-[13px] text-[#A1A1A1]">
                 Active provider: <strong className="text-[#F2F3F3] font-medium">{aiConfig.provider || 'None configured'}</strong>
               </span>

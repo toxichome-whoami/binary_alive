@@ -63,6 +63,7 @@ app.get(
         }
 
         const rawWs = ws.raw || ws;
+        (rawWs as any).user = user; // Required by startProcessStatsBroadcaster for permission checks
         resolvedUserId = userId;
         resolvedRawWs = rawWs;
 
@@ -88,13 +89,18 @@ app.get(
         }
       },
       onClose: () => {
+        console.log('WS onClose fired! resolvedUserId:', resolvedUserId);
         if (resolvedUserId && resolvedRawWs) {
           const userSockets = connectedUsers.get(resolvedUserId);
+          console.log('userSockets for user:', userSockets?.size);
           if (userSockets) {
             userSockets.delete(resolvedRawWs);
+            console.log('Deleted socket, size is now:', userSockets.size);
             if (userSockets.size === 0) {
               connectedUsers.delete(resolvedUserId);
+              console.log('Deleted from connectedUsers, checking if should broadcast');
               if (resolvedUserId > 0) {
+                console.log('Broadcasting PRESENCE_CHANGE false for', resolvedUserId);
                 broadcastUserStatusChange(resolvedUserId, false);
               }
             }

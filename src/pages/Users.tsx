@@ -1394,11 +1394,11 @@ export const Users: React.FC = () => {
           <div className="overflow-x-auto overflow-y-hidden">
             <table
               role="table"
-              aria-label="User members"
-              className="w-full min-w-[900px] text-left border-collapse font-sans"
+              aria-label="Users"
+              className="w-full min-w-0 text-left border-collapse font-sans"
             >
               {/* Sticky 40px Header */}
-              <thead className="sticky top-0 z-10 font-sans">
+              <thead className="sticky top-0 z-10 font-sans max-md:hidden">
                 <tr className="flex w-full items-center border-b border-[#222222] bg-[#141414] h-[40px] min-h-[40px] max-h-[40px]">
                   {/* Checkbox */}
                   <th className="flex items-center justify-center shrink-0 w-[44px] min-w-[44px] h-[40px] rounded-tl-lg">
@@ -1572,12 +1572,13 @@ export const Users: React.FC = () => {
                     return (
                       <tr
                         key={u.id}
-                        className={`group/row flex w-full items-center h-[40px] min-h-[40px] max-h-[40px] border-b border-[#1e1e1e] transition-colors font-sans ${
+                        className={`group/row flex max-md:flex-col w-full md:items-center max-md:p-4 max-md:gap-3 h-auto md:h-[40px] md:min-h-[40px] md:max-h-[40px] border-b border-[#1e1e1e] transition-colors font-sans ${
                           isChecked ? 'bg-[#181818]' : 'bg-[#0e0e0e] hover:bg-[#161616]'
                         }`}
                       >
                         {/* Checkbox cell */}
-                        <td className="flex items-center justify-center shrink-0 w-[44px] min-w-[44px] h-[40px]">
+                        <td className="flex items-center justify-between md:justify-center shrink-0 max-md:w-full max-md:h-auto max-md:py-1 w-[44px] min-w-[44px] h-[40px]">
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none">Select</span>
                           <button
                             type="button"
                             role="checkbox"
@@ -1599,8 +1600,9 @@ export const Users: React.FC = () => {
                         {/* Status cell */}
                         <td
                           style={{ width: `${columnWidths.status}px` }}
-                          className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                          className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans overflow-hidden"
                         >
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none">Status</span>
                           {isLocked ? (
                             <span className="inline-flex items-center gap-1.5 text-[14px] font-normal text-[#ef4444] leading-none font-sans">
                               Disabled
@@ -1619,9 +1621,10 @@ export const Users: React.FC = () => {
                         {/* Member cell with Owner Shield Icon */}
                         <td
                           style={{ width: `${columnWidths.username}px` }}
-                          className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                          className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans overflow-hidden"
                         >
-                          <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Member</span>
+                          <div className="flex items-center gap-1.5 min-w-0 max-md:justify-end">
                             <span className="truncate font-sans text-[14px] font-medium text-white">{u.username}</span>
                             {isMaster && (
                               <span title="System Owner" className="inline-flex items-center text-amber-500/90 shrink-0">
@@ -1640,8 +1643,9 @@ export const Users: React.FC = () => {
                         {visibleColumns.email && (
                           <td
                             style={{ width: `${columnWidths.email}px` }}
-                            className="flex items-center shrink-0 h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate overflow-hidden"
+                            className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans text-[14px] text-[#cccccc] truncate overflow-hidden"
                           >
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Email</span>
                             {u.email ? (
                               <span className="truncate font-sans text-[14px] text-[#cccccc]">{u.email}</span>
                             ) : (
@@ -1654,8 +1658,9 @@ export const Users: React.FC = () => {
                         {visibleColumns.permissions && (
                           <td
                             style={{ width: `${columnWidths.permissions}px` }}
-                            className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                            className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans overflow-hidden"
                           >
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Permissions</span>
                             {isMaster || grantedPerms === Object.keys(DEFAULT_PERMISSIONS).length ? (
                               <span className="text-[14px] font-normal text-white font-sans" title={`All ${Object.keys(DEFAULT_PERMISSIONS).length} permissions granted`}>
                                 Full access
@@ -1676,8 +1681,9 @@ export const Users: React.FC = () => {
                         {visibleColumns.api_keys && (
                           <td
                             style={{ width: `${columnWidths.api_keys}px` }}
-                            className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                            className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans overflow-hidden"
                           >
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">API Keys</span>
                             {(u.api_keys_count || 0) > 0 ? (
                               <button
                                 type="button"
@@ -1697,8 +1703,9 @@ export const Users: React.FC = () => {
                         {visibleColumns.two_fa && (
                           <td
                             style={{ width: `${columnWidths.two_fa}px` }}
-                            className="flex items-center shrink-0 h-[40px] px-3 font-sans overflow-hidden"
+                            className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 h-[40px] px-3 font-sans overflow-hidden"
                           >
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">2FA Status</span>
                             <span
                               className={`text-[14px] font-normal leading-none font-sans ${
                                 u.has_2fa ? 'text-white' : 'text-[#8c8c8c]'
@@ -1711,23 +1718,24 @@ export const Users: React.FC = () => {
 
                         {/* Failed Logins cell */}
                         {visibleColumns.logins && (
-                          <td className="flex items-center shrink-0 w-[120px] h-[40px] px-3 font-sans text-[14px] text-[#888888] tabular-nums">
-                            {u.failed_attempts || 0}
+                          <td className="flex items-center justify-between shrink-0 max-md:w-full max-md:h-auto max-md:py-1 w-[120px] h-[40px] px-3 font-sans text-[14px] text-[#888888] tabular-nums">
+                            <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Failed Logins</span>
+                            <span>{u.failed_attempts || 0}</span>
                           </td>
                         )}
 
                         {/* Flexible Spacer to ensure all data columns stay left and ONLY Edit is right */}
-                        <td className="flex-1 h-[40px]" />
+                        <td className="flex-1 h-[40px] max-md:hidden" />
 
                         {/* Sticky Action Cell — Exact Cloudflare Edit Button */}
                         <td
-                          className={`flex items-center justify-end shrink-0 w-[80px] h-[40px] px-3 sticky right-0 transition-colors z-[1] ${
+                          className={`flex items-center justify-end max-md:justify-end shrink-0 max-md:w-full max-md:h-auto max-md:py-2 max-md:mt-1 max-md:border-t max-md:border-[#1e1e1e] w-[80px] h-[40px] px-3 sticky right-0 transition-colors z-[1] ${
                             isChecked ? 'bg-[#181818]' : 'bg-[#0e0e0e] group-hover/row:bg-[#161616]'
                           }`}
                         >
                           <span
                             aria-hidden="true"
-                            className={`pointer-events-none absolute inset-y-0 -left-4 w-4 bg-gradient-to-r from-transparent ${
+                            className={`max-md:hidden pointer-events-none absolute inset-y-0 -left-4 w-4 bg-gradient-to-r from-transparent ${
                               isChecked ? 'to-[#181818]' : 'to-[#0e0e0e] group-hover/row:to-[#161616]'
                             }`}
                           />
