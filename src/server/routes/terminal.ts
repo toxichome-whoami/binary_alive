@@ -32,8 +32,9 @@ terminalRouter.post('/', async (c) => {
     return c.json({ success: false, message: 'Command blocked by security policy (requires unrestricted access)' }, 403);
   }
 
-  // Audit log with max 500 characters to prevent log forgery / stored XSS via massive payloads
-  const sanitizedForLog = trimmed.length > 500 ? trimmed.substring(0, 500) + '... [truncated]' : trimmed;
+  // Audit log with max 500 characters and ANSI stripped to prevent log forgery / stored XSS
+  const noAnsi = trimmed.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+  const sanitizedForLog = noAnsi.length > 500 ? noAnsi.substring(0, 500) + '... [truncated]' : noAnsi;
   await logAudit(user.id, user.username, 'terminal_command', `Command: ${sanitizedForLog}`);
 
   let currentCwd = userCwdMap.get(user.id) || os.homedir() || process.cwd();

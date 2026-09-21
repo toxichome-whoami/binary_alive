@@ -24,7 +24,7 @@ export class ConfigService {
     return {
       security: {
         secret_key: process.env.SECRET_KEY || (() => { throw new Error('FATAL: SECRET_KEY missing'); })(),
-        session_timeout_minutes: Number(process.env.SESSION_TIMEOUT_MINUTES) || 15,
+        session_timeout_minutes: Math.max(1, Math.min(480, Number(process.env.SESSION_TIMEOUT_MINUTES) || 15)),
         allowed_ips,
         force_https: process.env.FORCE_HTTPS === 'true',
       },

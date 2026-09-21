@@ -103,6 +103,15 @@ apiTokensRouter.post('/', requirePermission('api_keys_create'), async (c) => {
   const body = await c.req.json();
   const { name, permissions, expires_at } = body;
   
+  let parsedExpiresAt = null;
+  if (expires_at) {
+    const d = new Date(expires_at);
+    if (isNaN(d.getTime()) || d.getTime() <= Date.now()) {
+      return c.json({ success: false, message: 'expires_at must be a valid future ISO date' }, 400);
+    }
+    parsedExpiresAt = d.toISOString();
+  }
+  
   if (!name || name.trim() === '') {
     return c.json({ success: false, message: 'Token name is required' }, 400);
   }
@@ -126,7 +135,7 @@ apiTokensRouter.post('/', requirePermission('api_keys_create'), async (c) => {
     name.trim(),
     hash,
     JSON.stringify(effectivePermissions),
-    expires_at || null
+    parsedExpiresAt
   );
   
   await logAudit(user.id, user.username, 'create_api_token', `Created token: ${name}`);
@@ -162,14 +171,14 @@ apiTokensRouter.put('/:id', requirePermission('api_keys_edit'), async (c) => {
   }
   
   if (body.permissions) {
-    const effectivePermissions: any = {};
+    const existingPerms = typeof targetToken.permissions === 'string' ? (() => { try { return JSON.parse(targetToken.permissions); } catch { return {}; } })() : (targetToken.permissions || {});
+    const effectivePermissions: any = { ...existingPerms };
     for (const key of Object.keys(body.permissions)) {
       if (user.role === 'owner') {
         effectivePermissions[key] = !!body.permissions[key];
       } else {
         if (!(user.permissions as any)[key]) {
            // User cannot modify this permission, preserve the existing value
-           const existingPerms = typeof targetToken.permissions === 'string' ? JSON.parse(targetToken.permissions) : (targetToken.permissions || {});
            effectivePermissions[key] = !!existingPerms[key];
         } else {
            effectivePermissions[key] = !!body.permissions[key];

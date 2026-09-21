@@ -49,17 +49,19 @@ settingsRouter.post('/toggle', requireAuth(), async (c) => {
     return c.json({ success: false, message: 'Missing permission: settings_captcha' }, 403);
   }
 
-  const val = enabled ? '1' : '0';
-  await setSetting(key, val);
+  const isEnabled = enabled === true;
+  const value = isEnabled ? '1' : '0';
+
+  await setSetting(key, value);
   
   const { broadcastSettingUpdated } = await import('../websocket.js');
-  broadcastSettingUpdated(key, val);
+  broadcastSettingUpdated(key, value);
   
   await logAudit(
     user.id,
     user.username,
     'toggle_setting',
-    `Setting ${key} changed to ${enabled ? 'enabled' : 'disabled'}`
+    `Setting ${key} changed to ${isEnabled ? 'enabled' : 'disabled'}`
   );
 
   return c.json({ success: true, message: `Setting updated successfully.` });

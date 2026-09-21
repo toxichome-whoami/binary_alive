@@ -89,7 +89,8 @@ export function authMiddleware(): MiddlewareHandler {
                 : 'Your account is temporarily locked due to too many failed attempts.' 
             }, 403);
           }
-          const timeout = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '60', 10);
+          const { ConfigService } = await import('../lib/config.js');
+          const timeout = ConfigService.get().security.session_timeout_minutes;
           await touchSession(sessionId, timeout);
           c.set('user', user);
           c.set('isApiAuth', false);
