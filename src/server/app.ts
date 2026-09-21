@@ -111,6 +111,8 @@ app.use('*', authMiddleware());
 app.use('*', csrfProtection());
 app.use('*', rateLimiter());
 
+import { aiRouter } from './routes/ai.js';
+
 // API Routes
 app.route('/api/auth', authRouter);
 app.route('/api/processes', processRouter);
@@ -121,6 +123,7 @@ app.route('/api/terminal', terminalRouter);
 app.route('/api/settings', settingsRouter);
 app.route('/api/2fa', totpRouter);
 app.route('/api/internal', internalRouter);
+app.route('/api/ai', aiRouter);
 app.get('/api/debug-ws', (c) => {
   return c.json({ connectedUsersSize: connectedUsers.size });
 });

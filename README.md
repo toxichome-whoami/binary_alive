@@ -1,46 +1,138 @@
-# Secure Binary Alive System (v1.0.4)
+# Binary Alive v2.0 (Rewrite)
+A high-performance, modern process supervisor & remote management system built with **TypeScript**, **Hono**, **Turso (libSQL)**, **Vite**, **React 18**, and **Tailwind CSS**.
 
-A PHP-based monitoring and process management system designed to keep Linux binaries (such as Discord bots, Node apps, or Go/C++ binaries) running continuously on cPanel/WHM servers.
+---
 
-## Documentation Links
-- **[View the API Documentation](API.md)**: Learn how to manage your bots remotely via cURL or custom scripts.
-- **[View the Changelog](CHANGELOG.md)**: See all the latest features and security updates for version 1.0.4.
+## Architecture Overview
 
-## Key Features
-- **Auto-Restart**: Automatically restarts binaries if they stop or if the server reboots.
-- **Security**: Role-Based Access Control (RBAC), 2FA/TOTP support, live CAPTCHA protection, IP Whitelisting, CSRF protection on all state-changing and export operations, and strict Security Headers.
-- **Master Admin Hierarchy**: The first registered account becomes the permanent Master Admin. Regular admins cannot delete, demote, or modify other admin accounts.
-- **Web Terminal**: Admin-only browser terminal (`terminal.php`) to run shell commands directly on the server with session-persistent working directory, command history, and a 30-second timeout guard.
-- **Audit Logging**: Tracks login attempts, process start/stop/restart actions, terminal commands, and API key generation with pagination.
-- **API Access**: Control and monitor processes remotely using API tokens via cURL or custom scripts.
-- **In-App Process Management**: Add, edit, delete, and group monitored processes directly from the dashboard UI.
-- **Automatic Security Migration**: On first run, existing API tokens are hashed and TOTP secrets are encrypted automatically. No manual steps required.
-- **CPanel Native**: Runs entirely on standard PHP 7.4+ and SQLite. No Composer, Node.js, or PM2 required on the host server.
+- **Backend (`/server`)**: TypeScript on Node.js using Hono HTTP framework. Connects to Turso database via `@libsql/client`.
+- **Frontend (`/client`)**: Vite + React 18 + Tailwind CSS SPA with a Cloudflare-inspired dark/light interface.
+- **Database**: Serverless SQLite via Turso with database-backed sessions and audit tracking.
+- **Cron (`cron.php`)**: Lightweight PHP CLI trigger for standard cPanel cron scheduling that notifies the Node.js server.
 
-## Installation Instructions
+---
 
-1. **Upload the files**:
-   Upload the entire system directory to any folder that is mapped to a domain or subdomain on your server (e.g. `public_html/watch`, an addon domain folder like `watch.yourdomain.com`, or any subdomain directory). Make sure hidden files are included — specifically the `.htaccess` files in the root, `db/`, `includes/`, and `components/` folders.
+## Directory Structure
 
-2. **Set up the Cron Job**:
-   For the auto-restart feature to work, you must configure a cron job in cPanel to run the `cron.php` file every minute.
-   - Open your cPanel Dashboard -> **Cron Jobs**.
-   - Add a new cron job set to **Once Per Minute** (`* * * * *`).
-   - Command: `/usr/local/bin/php /home/your_username/your_domain/cron.php`
-   - *(Note: Ensure the path matches your server setup. Using CLI PHP is recommended over cURL for running background processes).*
+```
+rewrite/
+├── server/                   # TypeScript Node.js Backend
+│   ├── src/
+│   │   ├── db/               # Turso database connection, schema, and typed queries
+│   │   ├── lib/              # Process monitor, crypto (AES-256-GCM), TOTP, captcha, config
+│   │   ├── middleware/       # Auth, CSRF double-submit, rate limiting, security headers
+│   │   ├── routes/           # REST endpoints (auth, processes, users, logs, terminal, settings)
+│   │   └── index.ts          # Server entrypoint and embedded cron supervisor
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── client/                   # Vite + React 18 + Tailwind CSS Frontend
+│   ├── src/
+│   │   ├── api/              # Typed fetch API client modules
+│   │   ├── components/       # Layout (Sidebar, TopBar), UI (Buttons, SlideOver, Dialogs)
+│   │   ├── hooks/            # useAuth, useProcesses (live polling + 1s ticker)
+│   │   ├── pages/            # Login, Dashboard, Terminal, Users, Logs, Settings, Setup2FA
+│   │   ├── store/            # Zustand auth and toast state
+│   │   ├── types/            # Shared TypeScript interfaces
+│   │   ├── utils/            # cn (Tailwind merge), uptime helpers
+│   │   ├── App.tsx           # HashRouter with Auth and Role guards
+│   │   └── main.tsx
+│   ├── vite.config.ts
+│   ├── tailwind.config.ts
+│   └── package.json
+│
+├── cron.php                  # cPanel CLI cron trigger
+├── package.json              # Workspace root runner
+└── .env.example              # Environment variables template
+```
 
-3. **Login and Configure**:
-   - Access the dashboard in your web browser.
-   - Upon first load, you will be prompted to create the Admin account since the database is empty.
-   - Go to **Settings** to toggle security features or export your database.
+---
 
-## Security Notes
-- The system stores configuration in `config.php`, which is protected from direct browser access by a `die()` header even if `.htaccess` is not supported. Do **not** rename or delete this file.
-- If you receive a **403 Forbidden - IP not allowed** error, edit `config.php` (using a text editor or FTP) and ensure the `"allowed_ips"` array either contains your public IP address or is empty `[]` to disable the whitelist.
-- The database is stored under `db/` with a randomized filename. The `db/` directory is locked to `0700` permissions and contains its own `index.php` guard. Ensure your web server user has write access to this directory.
-- Four `.htaccess` files protect the system: the **root** (blocks markdown, logs, backups, and `config.php`), **`db/`** (blocks database downloads), **`includes/`** (blocks internal PHP files), and **`components/`** (blocks partial PHP files). Ensure your Apache server has `AllowOverride All` enabled for these to work.
-- On first run, the system automatically generates a strong random encryption key and migrates any existing database records. No manual setup is required.
-- If your FTP client does not show hidden files, enable "Show Hidden Files" before uploading — otherwise the `.htaccess` files will not be transferred and your sensitive files will be exposed.
+## Local Development Setup
 
-## Updating the System
-When applying code updates (e.g., uploading a new zip file), **do not overwrite your live `config.php` file**. The `config.php` file contains your randomized database connection string and secret encryption key. Overwriting it will cause the system to lose connection to your database. (Note: A `.gitignore` file is included so `config.php` and your `db/*.sqlite` files are protected from being tracked in git or standard archives).
+### 1. Prerequisites
+- **Node.js 18+** installed on your system.
+- A **Turso** database URL & token (or omit to use local SQLite `file:local.db`).
+
+### 2. Install Dependencies
+From the `rewrite/` directory:
+```bash
+# Install root workspace dependencies
+npm install
+
+# Install server dependencies
+cd server && npm install
+
+# Install client dependencies
+cd ../client && npm install
+```
+
+### 3. Configure Environment Variables
+Copy `.env.example` to `server/.env`:
+```bash
+cp .env.example server/.env
+```
+Fill in your Turso credentials (or leave `TURSO_URL=file:local.db` for local testing).
+
+### 4. Run Development Servers
+From the `rewrite/` root directory:
+```bash
+npm run dev
+```
+- Backend starts at `http://localhost:3000`
+- Frontend starts at `http://localhost:5173` (with `/api` proxy to `:3000`)
+
+---
+
+## Production Build & cPanel Deployment
+
+### 1. Build Both Workspaces
+```bash
+npm run build
+```
+- Compiles server TypeScript into `server/dist/`
+- Compiles client React into `client/dist/`
+
+### 2. cPanel Deployment
+1. **Setup Node.js App in cPanel**:
+   - Navigate to **cPanel** -> **Setup Node.js App**.
+   - Node version: **18** or **20**.
+   - Application root: `apps/binary-alive/server`.
+   - Application startup file: `dist/index.js`.
+   - Add environment variables (`TURSO_URL`, `TURSO_TOKEN`, `SECRET_KEY`, `CRON_SECRET`, `PORT=3000`).
+   - Click **Create** and **Start**.
+
+2. **Deploy Frontend Web Files**:
+   - Copy everything from `client/dist/*` into your target public folder (e.g. `public_html/watch/`).
+   - Create or update `.htaccess` in `public_html/watch/`:
+     ```apache
+     RewriteEngine On
+
+     # Proxy API calls to Node.js backend port
+     RewriteRule ^api/(.*)$ http://localhost:3000/api/$1 [P,L]
+
+     # Serve static index.html for SPA hash routing
+     RewriteCond %{REQUEST_FILENAME} !-f
+     RewriteRule ^ index.html [L]
+     ```
+
+3. **Configure cPanel Cron Job**:
+   - Go to **cPanel** -> **Cron Jobs**.
+   - Schedule: `Once Per Minute (* * * * *)`.
+   - Command:
+     ```bash
+     /usr/local/bin/php /home/username/apps/binary-alive/cron.php
+     ```
+
+---
+
+## Security Features
+
+- **Role-Based Access Control (RBAC)**: Master Admin, Admin, Operator, Auditor, Viewer.
+- **Master Admin Protection**: User ID 1 cannot be demoted, deleted, or altered by other admins.
+- **Two-Factor Authentication (2FA)**: TOTP verification via authenticator apps with secrets encrypted using AES-256-GCM.
+- **CSRF Defense**: Double-submit cookie pattern with secure headers.
+- **Brute-Force Rate Limiting**: Automatic IP lockout after 5 consecutive failed login attempts.
+- **Live CAPTCHA**: Lightweight SVG captcha generated on the server with real-time validation.
+- **Session Security**: Database-backed sessions stored in Turso with `HttpOnly; Secure; SameSite=Strict` cookies.
+- **Audit Trails**: Every command, process restart, user update, and login attempt is recorded in immutable audit tables.

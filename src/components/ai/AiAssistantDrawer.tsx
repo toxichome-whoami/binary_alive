@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '../../utils/cn';
-import { Send, Sparkles, X, Settings as SettingsIcon, ChevronLeft } from 'lucide-react';
+import { Send, Sparkles, X, Settings as SettingsIcon, ChevronLeft, Clock, Plus } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { PermissionTable } from '../shared/PermissionTable';
-import { aiApi } from '../../api/ai';
+import { aiApi, type AiHistoryData } from '../../api/ai';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Permissions } from '../../types';
 
 interface AiAssistantDrawerProps {
@@ -14,27 +16,71 @@ interface AiAssistantDrawerProps {
 export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, onClose }) => {
   const [inputValue, setInputValue] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [chatHistory, setChatHistory] = useState<{role: 'user'|'bot', content: string}[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [myHistory, setMyHistory] = useState<AiHistoryData[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
+  const [chatHistory, setChatHistory] = useState<{role: 'user'|'bot', content: string}[]>(() => {
+    const saved = localStorage.getItem('ai_chat_session');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+  
+  useEffect(() => {
+    localStorage.setItem('ai_chat_session', JSON.stringify(chatHistory));
+  }, [chatHistory]);
+
+  const handleNewChat = () => {
+    setChatHistory([]);
+    setIsHistoryOpen(false);
+  };
+
   const [isTyping, setIsTyping] = useState(false);
   const { user, hasPermission } = useAuthStore();
   const canAccessAi = hasPermission('ai_access');
+
+  const loadHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      const res = await aiApi.getMyHistory();
+      if (res.success) {
+        setMyHistory(res.data.data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
     const msg = inputValue.trim();
     setInputValue('');
+    
+    // take the last 10 messages for context
+    const historyContext = chatHistory.slice(-10);
+    
     setChatHistory(prev => [...prev, { role: 'user', content: msg }]);
     setIsTyping(true);
 
     try {
-      const res = await aiApi.sendChatMessage(msg);
+      const res = await aiApi.sendChatMessage(msg, historyContext);
       if (res.success) {
         setChatHistory(prev => [...prev, { role: 'bot', content: res.data.response }]);
+        // refresh history in background if open
+        if (isHistoryOpen) loadHistory();
       } else {
         setChatHistory(prev => [...prev, { role: 'bot', content: 'Error: Could not get response.' }]);
       }
-    } catch (err) {
-      setChatHistory(prev => [...prev, { role: 'bot', content: 'Error: Request failed.' }]);
+    } catch (err: any) {
+      setChatHistory(prev => [...prev, { role: 'bot', content: `Error: Request failed. Details: ${err?.message || err}` }]);
     } finally {
       setIsTyping(false);
     }
@@ -76,28 +122,50 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
     >
       {/* Header */}
       <div className="h-[58px] border-b border-[#222222] flex items-center justify-between px-4 shrink-0 w-[320px] md:w-[360px]">
-        {isSettingsOpen ? (
+        {isSettingsOpen || isHistoryOpen ? (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsSettingsOpen(false)}
+              onClick={() => {
+                setIsSettingsOpen(false);
+                setIsHistoryOpen(false);
+              }}
               className="p-1 -ml-1 text-[#8c8c8c] hover:text-white rounded-lg hover:bg-[#161616] transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <h2 className="text-[14px] font-medium text-white">AI Permissions</h2>
+            <h2 className="text-[14px] font-medium text-white">{isHistoryOpen ? 'Chat History' : 'AI Permissions'}</h2>
           </div>
         ) : (
           <h2 className="text-[14px] font-medium text-white">AI Assistant</h2>
         )}
         <div className="flex items-center gap-1">
-          {!isSettingsOpen && (
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-1.5 text-[#8c8c8c] hover:text-white rounded-lg hover:bg-[#161616] transition-colors"
-              title="Configure AI Session Permissions"
-            >
-              <SettingsIcon className="w-4 h-4" />
-            </button>
+          {!isSettingsOpen && !isHistoryOpen && (
+            <>
+              <button
+                onClick={handleNewChat}
+                className="p-1.5 text-[#8c8c8c] hover:text-white rounded-lg hover:bg-[#161616] transition-colors"
+                title="New Chat"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  setIsHistoryOpen(true);
+                  loadHistory();
+                }}
+                className="p-1.5 text-[#8c8c8c] hover:text-white rounded-lg hover:bg-[#161616] transition-colors"
+                title="View History"
+              >
+                <Clock className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-1.5 text-[#8c8c8c] hover:text-white rounded-lg hover:bg-[#161616] transition-colors"
+                title="Configure AI Session Permissions"
+              >
+                <SettingsIcon className="w-4 h-4" />
+              </button>
+            </>
           )}
           <button
             onClick={onClose}
@@ -125,6 +193,36 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
             />
           )}
         </div>
+      ) : isHistoryOpen ? (
+        /* History Area */
+        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#222222] w-[320px] md:w-[360px] flex flex-col gap-4">
+          {isLoadingHistory ? (
+            <div className="text-center text-[#8c8c8c] text-[13px] mt-4">Loading history...</div>
+          ) : myHistory.length === 0 ? (
+            <div className="text-center text-[#8c8c8c] text-[13px] mt-4">No history found.</div>
+          ) : (
+            myHistory.map(item => (
+              <div key={item.id} className="bg-[#161718] border border-[#26282A] rounded-lg p-3">
+                <div className="text-[12px] text-[#8c8c8c] mb-2">{new Date(item.created_at).toLocaleString()}</div>
+                <div className="text-[13px] text-white mb-2 font-medium">You: {item.message}</div>
+                <div className="text-[13px] text-[#A1A1A1] line-clamp-3">AI: {item.response}</div>
+                <button 
+                  onClick={() => {
+                    // Start a new chat seeded with this history item
+                    setChatHistory([
+                      { role: 'user', content: item.message },
+                      { role: 'bot', content: item.response }
+                    ]);
+                    setIsHistoryOpen(false);
+                  }}
+                  className="mt-3 w-full py-1.5 text-[12px] font-medium text-white bg-[#222222] hover:bg-[#333333] rounded transition-colors"
+                >
+                  Resume from here
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       ) : (
         <>
           {/* Chat Area */}
@@ -144,8 +242,12 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
             ) : (
               chatHistory.map((msg, i) => (
                 <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-full`}>
-                  <div className={`px-3 py-2 rounded-lg text-[13px] whitespace-pre-wrap leading-relaxed ${msg.role === 'user' ? 'bg-[#2f80ed] text-white' : 'bg-[#161718] border border-[#26282A] text-[#d4d4d4]'}`}>
-                    {msg.content}
+                  <div className={`px-3 py-2 rounded-lg text-[13px] ${msg.role === 'user' ? 'whitespace-pre-wrap bg-[#2f80ed] text-white' : 'bg-[#161718] border border-[#26282A] text-[#d4d4d4] w-full markdown-body'}`}>
+                    {msg.role === 'user' ? msg.content : (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.content}
+                      </ReactMarkdown>
+                    )}
                   </div>
                 </div>
               ))

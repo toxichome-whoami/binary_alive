@@ -18,6 +18,28 @@ export async function addAiHistory(userId: number, message: string, response: st
   return res.rows[0].id as number;
 }
 
+export async function getMyAiHistory(userId: number, limit = 50, offset = 0): Promise<{ data: AiHistoryRecord[], total: number }> {
+  const dataRes = await db.execute({
+    sql: `
+      SELECT * FROM ai_history
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `,
+    args: [userId, limit, offset],
+  });
+
+  const totalRes = await db.execute({
+    sql: 'SELECT COUNT(*) as count FROM ai_history WHERE user_id = ?',
+    args: [userId],
+  });
+
+  return {
+    data: dataRes.rows as unknown as AiHistoryRecord[],
+    total: totalRes.rows[0].count as number,
+  };
+}
+
 export async function getAiHistory(limit = 100, offset = 0): Promise<{ data: AiHistoryRecord[], total: number }> {
   const dataRes = await db.execute({
     sql: `

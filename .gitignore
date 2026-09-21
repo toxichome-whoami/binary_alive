@@ -1,4 +1,8 @@
-db/*.sqlite
-db/*.sqlite-shm
-db/*.sqlite-wal
-conter.html
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+package-lock.json
+local.db
