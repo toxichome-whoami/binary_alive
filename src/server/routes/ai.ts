@@ -63,8 +63,8 @@ RULES:
     }));
 
     const tools = [
-      { type: 'function', function: { name: 'list_processes', description: 'Lists all processes.' } },
-      { type: 'function', function: { name: 'get_analytics', description: 'Returns system load and processes stats.' } },
+      { type: 'function', function: { name: 'list_processes', description: 'Lists all processes.', parameters: { type: 'object', properties: {} } } },
+      { type: 'function', function: { name: 'get_analytics', description: 'Returns system load and processes stats.', parameters: { type: 'object', properties: {} } } },
       { type: 'function', function: { name: 'add_process', description: 'Creates a process.', parameters: { type: 'object', properties: { name: { type: 'string' }, command: { type: 'string' }, working_dir: { type: 'string' } }, required: ['name', 'command'] } } },
       { type: 'function', function: { name: 'edit_process', description: 'Edits process.', parameters: { type: 'object', properties: { id: { type: 'integer' }, name: { type: 'string' }, command: { type: 'string' } }, required: ['id'] } } },
       { type: 'function', function: { name: 'start_process', description: 'Starts process.', parameters: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } } },
@@ -72,7 +72,7 @@ RULES:
       { type: 'function', function: { name: 'restart_process', description: 'Restarts process.', parameters: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } } },
       { type: 'function', function: { name: 'delete_process', description: 'Deletes process.', parameters: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } } },
       
-      { type: 'function', function: { name: 'list_users', description: 'Lists users and their active permissions.' } },
+      { type: 'function', function: { name: 'list_users', description: 'Lists users and their active permissions.', parameters: { type: 'object', properties: {} } } },
       { type: 'function', function: { name: 'create_user', description: 'Creates user.', parameters: { type: 'object', properties: { username: { type: 'string' }, password: { type: 'string' }, role: { type: 'string', enum: ['admin','manager','viewer'] } }, required: ['username', 'password', 'role'] } } },
       { type: 'function', function: { name: 'update_user', description: 'Edits user.', parameters: { type: 'object', properties: { id: { type: 'integer' }, username: { type: 'string' }, email: { type: 'string' }, password: { type: 'string' }, role: { type: 'string' } }, required: ['id'] } } },
       { type: 'function', function: { name: 'disable_user', description: 'Locks user.', parameters: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } } },
@@ -80,12 +80,12 @@ RULES:
       { type: 'function', function: { name: 'delete_user', description: 'Deletes user.', parameters: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } } },
       { type: 'function', function: { name: 'reset_2fa', description: 'Disables 2FA for user.', parameters: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } } },
 
-      { type: 'function', function: { name: 'list_api_keys', description: 'Lists API keys and their active permissions.' } },
+      { type: 'function', function: { name: 'list_api_keys', description: 'Lists API keys and their active permissions.', parameters: { type: 'object', properties: {} } } },
       { type: 'function', function: { name: 'create_api_key', description: 'Creates API key.', parameters: { type: 'object', properties: { name: { type: 'string' }, user_id: { type: 'integer' } }, required: ['name', 'user_id'] } } },
       { type: 'function', function: { name: 'delete_api_key', description: 'Deletes API key.', parameters: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } } },
       { type: 'function', function: { name: 'disable_api_key', description: 'Disables API key.', parameters: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } } },
       
-      { type: 'function', function: { name: 'get_settings', description: 'Lists platform settings.' } },
+      { type: 'function', function: { name: 'get_settings', description: 'Lists platform settings.', parameters: { type: 'object', properties: {} } } },
       { type: 'function', function: { name: 'update_setting', description: 'Updates setting.', parameters: { type: 'object', properties: { key: { type: 'string' }, value: { type: 'string' } }, required: ['key', 'value'] } } },
       { type: 'function', function: { name: 'run_terminal_command', description: 'Runs a shell command on host.', parameters: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } } }
     ];
@@ -136,7 +136,8 @@ RULES:
         });
 
       if (!completion.ok) {
-        return c.json({ success: false, error: 'AI API Error' }, 500);
+        const errorText = await completion.text().catch(() => 'No text');
+        return c.json({ success: false, error: `AI API Error: ${completion.status} - ${errorText}` }, 500);
       }
 
       const responseJson = await completion.json();

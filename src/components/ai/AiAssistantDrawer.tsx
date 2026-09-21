@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { cn } from '../../utils/cn';
 import { Send, Sparkles, X, Settings as SettingsIcon, ChevronLeft, Clock, Plus } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -28,8 +28,7 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
   const [myHistory, setMyHistory] = useState<AiHistoryData[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   
-  const [chatHistory, setChatHistory] = useState<{role: 'user'|'bot', content: string}[]>([]);
-  
+  const [chatHistory, setChatHistory] = useState<{id?: number, role: 'user'|'bot', content: string}[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -53,7 +52,16 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
       setIsLoadingHistory(true);
       const res = await aiApi.getMyHistory();
       if (res.success) {
-        setMyHistory(res.data.data);
+        const freshHistory = res.data.data;
+        setMyHistory(freshHistory);
+        
+        // Sync active chat view
+        setChatHistory(prev => {
+          if (prev.length === 0) return prev;
+          const validIds = new Set(freshHistory.map((h: any) => h.id));
+          const next = prev.filter(msg => !msg.id || validIds.has(msg.id));
+          return next.length === prev.length ? prev : next;
+        });
       }
     } catch (e) {
       console.error(e);
@@ -62,7 +70,47 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
     }
   };
 
-    const handleSendMessage = async () => {
+  useEffect(() => {
+    const handleUpdate = () => {
+      // Always load history to sync deletions in active chat view
+      loadHistory();
+    };
+    window.addEventListener('ai-history-updated', handleUpdate);
+    return () => window.removeEventListener('ai-history-updated', handleUpdate);
+  }, []);
+
+  interface ChatSession {
+    id: number;
+    lastDate: Date;
+    messages: { id?: number, role: 'user' | 'bot'; content: string }[];
+  }
+
+  const groupedHistory = useMemo(() => {
+    const sorted = [...myHistory].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const sessions: ChatSession[] = [];
+    let currentSession: ChatSession | null = null;
+    
+    for (const item of sorted) {
+      const itemTime = new Date(item.created_at);
+      if (!currentSession) {
+        currentSession = { id: item.id, lastDate: itemTime, messages: [{ id: item.id, role: 'user', content: item.message }, { id: item.id, role: 'bot', content: item.response }] };
+        sessions.push(currentSession);
+      } else {
+        const diffMinutes = (itemTime.getTime() - currentSession.lastDate.getTime()) / 1000 / 60;
+        if (diffMinutes <= 30) {
+          currentSession.messages.push({ id: item.id, role: 'user', content: item.message }, { id: item.id, role: 'bot', content: item.response });
+          currentSession.lastDate = itemTime;
+          currentSession.id = item.id;
+        } else {
+          currentSession = { id: item.id, lastDate: itemTime, messages: [{ id: item.id, role: 'user', content: item.message }, { id: item.id, role: 'bot', content: item.response }] };
+          sessions.push(currentSession);
+        }
+      }
+    }
+    return sessions.reverse();
+  }, [myHistory]);
+
+  const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
     const msg = inputValue.trim();
     setInputValue('');
@@ -77,9 +125,20 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
       const context = { currentPage: window.location.pathname };
       const res = await aiApi.sendChatMessage(msg, historyContext, context);
       if (res.success) {
-        setChatHistory(prev => [...prev, { role: 'bot' as const, content: res.data.response }].slice(-100));
-        // refresh history in background if open
-        if (isHistoryOpen) loadHistory();
+        const dbId = res.data?.id; // backend returns the ID of the new record
+        setChatHistory(prev => {
+          const next = [...prev];
+          // Find the optimistic user message without an ID and attach it
+          for (let i = next.length - 1; i >= 0; i--) {
+            if (next[i].role === 'user' && !next[i].id) {
+              next[i].id = dbId;
+              break;
+            }
+          }
+          next.push({ id: dbId, role: 'bot' as const, content: res.data.response });
+          return next.slice(-100);
+        });
+        loadHistory();
       } else {
         setChatHistory(prev => [...prev, { role: 'bot' as const, content: 'Error: Could not get response.' }].slice(-100));
       }
@@ -209,21 +268,18 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
         <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#222222] w-full flex flex-col gap-4">
           {isLoadingHistory ? (
             <div className="text-center text-[#8c8c8c] text-[13px] mt-4">Loading history...</div>
-          ) : myHistory.length === 0 ? (
+          ) : groupedHistory.length === 0 ? (
             <div className="text-center text-[#8c8c8c] text-[13px] mt-4">No history found.</div>
           ) : (
-            myHistory.map(item => (
-              <div key={item.id} className="bg-[#161718] border border-[#26282A] rounded-lg p-3">
-                <div className="text-[12px] text-[#8c8c8c] mb-2">{new Date(item.created_at).toLocaleString()}</div>
-                <div className="text-[13px] text-white mb-2 font-medium">You: {item.message}</div>
-                <div className="text-[13px] text-[#A1A1A1] line-clamp-3">AI: {item.response}</div>
+            groupedHistory.map(session => (
+              <div key={session.id} className="bg-[#161718] border border-[#26282A] rounded-lg p-3">
+                <div className="text-[12px] text-[#8c8c8c] mb-2">{session.lastDate.toLocaleString()}</div>
+                <div className="text-[13px] text-white mb-2 font-medium">You: {session.messages[session.messages.length - 2]?.content}</div>
+                <div className="text-[13px] text-[#A1A1A1] line-clamp-3">AI: {session.messages[session.messages.length - 1]?.content}</div>
                 <button 
                   onClick={() => {
-                    // Start a new chat seeded with this history item
-                    setChatHistory([
-                      { role: 'user', content: item.message },
-                      { role: 'bot', content: item.response }
-                    ]);
+                    // Start a new chat seeded with this entire session
+                    setChatHistory(session.messages);
                     setIsHistoryOpen(false);
                   }}
                   className="mt-3 w-full py-1.5 text-[12px] font-medium text-white bg-[#222222] hover:bg-[#333333] rounded transition-colors"

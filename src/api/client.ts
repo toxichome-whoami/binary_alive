@@ -67,7 +67,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   }
 
   if (!res.ok) {
-    const message = (data && data.message) || res.statusText || 'An error occurred';
+    const message = (data && data.error) || (data && data.message) || res.statusText || 'An error occurred';
     throw new ApiError(res.status, message, data);
   }
 
