@@ -153,3 +153,12 @@ export function broadcastAiHistoryUpdated() {
   }
 }
 
+
+export function broadcastApiKeysRefresh() {
+  const payload = JSON.stringify({ type: 'API_KEYS_REFRESH' });
+  for (const [, sockets] of connectedUsers.entries()) {
+    for (const ws of sockets) {
+      if (ws.readyState === 1) ws.send(payload);
+    }
+  }
+}

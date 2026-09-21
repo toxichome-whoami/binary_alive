@@ -89,6 +89,21 @@ authRouter.post('/captcha/verify', async (c) => {
   return c.json({ valid });
 });
 
+// CSRF token recovery
+authRouter.get('/csrf', (c) => {
+  let token = getCookie(c, 'csrf_token');
+  if (!token) {
+    token = generateCsrfToken();
+    setCookie(c, 'csrf_token', token, {
+      path: '/',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+  }
+  return c.json({ success: true, token });
+});
+
 // Login
 authRouter.post('/login', loginRateLimiter(), async (c) => {
   const ip =

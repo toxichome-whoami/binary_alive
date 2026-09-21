@@ -253,6 +253,10 @@ userRouter.delete('/:id/2fa', requireAuth(), requirePermission('users_reset_2fa'
     return c.json({ success: false, message: 'User not found' }, 404);
   }
 
+  if (target.role === 'owner' && currentUser.role !== 'owner') {
+    return c.json({ success: false, message: 'Only the Owner can modify the owner account.' }, 403);
+  }
+
   await setTotpSecret(targetId, null);
   await logAudit(currentUser.id, currentUser.username, 'disable_2fa', `Admin removed 2FA for ${target.username}`);
   broadcastUsersRefresh();

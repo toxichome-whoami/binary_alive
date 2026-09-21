@@ -1034,7 +1034,7 @@ export const Logs: React.FC = () => {
   // Timestamp formatting
   const formatTimestamp = (ts: string) => {
     try {
-      const d = new Date(ts);
+      const d = new Date(ts.replace(' ', 'T') + 'Z');
       return format(d, 'yyyy-MM-dd HH:mm:ss');
     } catch {
       return ts;

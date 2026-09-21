@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
+import { broadcastApiKeysRefresh } from '../websocket.js';
 import {
   listApiTokensForUser,
   listAllApiTokens,

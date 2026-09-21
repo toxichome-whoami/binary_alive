@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '../../utils/cn';
 import { Send, Sparkles, X, Settings as SettingsIcon, ChevronLeft, Clock, Plus } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -15,6 +15,8 @@ interface AiAssistantDrawerProps {
 
 export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, onClose }) => {
   const [inputValue, setInputValue] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [myHistory, setMyHistory] = useState<AiHistoryData[]>([]);
@@ -35,6 +37,14 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
   useEffect(() => {
     localStorage.setItem('ai_chat_session', JSON.stringify(chatHistory));
   }, [chatHistory]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [isOpen, chatHistory]);
 
   const handleNewChat = () => {
     setChatHistory([]);
@@ -59,19 +69,20 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
     }
   };
 
-  const handleSendMessage = async () => {
+    const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
     const msg = inputValue.trim();
     setInputValue('');
     
-    // take the last 10 messages for context
-    const historyContext = chatHistory.slice(-10);
+    // take the last 4 messages for context to save tokens
+    const historyContext = chatHistory.slice(-4);
     
     setChatHistory(prev => [...prev, { role: 'user', content: msg }]);
     setIsTyping(true);
 
     try {
-      const res = await aiApi.sendChatMessage(msg, historyContext);
+      const context = { currentPage: window.location.pathname };
+      const res = await aiApi.sendChatMessage(msg, historyContext, context);
       if (res.success) {
         setChatHistory(prev => [...prev, { role: 'bot', content: res.data.response }]);
         // refresh history in background if open
@@ -242,7 +253,7 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
             ) : (
               chatHistory.map((msg, i) => (
                 <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-full`}>
-                  <div className={`px-3 py-2 rounded-lg text-[13px] ${msg.role === 'user' ? 'whitespace-pre-wrap bg-[#2f80ed] text-white' : 'bg-[#161718] border border-[#26282A] text-[#d4d4d4] w-full markdown-body'}`}>
+                  <div className={`px-3 py-2 rounded-lg text-[13px] ${msg.role === 'user' ? 'whitespace-pre-wrap bg-[#2f80ed] text-white selection:bg-white/30' : 'bg-[#161718] border border-[#26282A] text-[#d4d4d4] w-full markdown-body selection:bg-[#2f80ed] selection:text-white'}`}>
                     {msg.role === 'user' ? msg.content : (
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {msg.content}
@@ -259,28 +270,42 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
                 </div>
               </div>
             )}
+            <div ref={chatEndRef} />
           </div>
 
           {/* Input Area */}
           <div className="p-4 bg-[#0B0B0C] border-t border-[#26282A] shrink-0 w-[320px] md:w-[360px]">
             <div className="relative flex items-center bg-[#161718] border border-[#26282A] rounded-[8px] focus-within:border-[#383838] focus-within:ring-1 focus-within:ring-[#383838] transition-all">
-              <input
-                type="text"
+              <textarea
+                ref={textareaRef}
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
                 placeholder="Ask anything..."
-                className="w-full bg-transparent border-none text-[14px] text-white placeholder-[#A1A1A1] px-4 py-3 outline-none"
+                rows={1}
+                className="w-full bg-transparent border-none text-[14px] text-white placeholder-[#A1A1A1] px-4 py-3 pr-10 outline-none resize-none overflow-y-auto max-h-[150px]"
+                style={{ minHeight: '44px' }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && inputValue.trim()) {
-                    handleSendMessage();
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (inputValue.trim()) {
+                      handleSendMessage();
+                      e.currentTarget.style.height = 'auto';
+                    }
                   }
                 }}
               />
-              <button
-                disabled={!inputValue.trim() || isTyping}
-                onClick={handleSendMessage}
-                className="absolute right-2 p-1.5 text-[#A1A1A1] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-[6px] hover:bg-[#26282A] transition-colors"
-              >
+                <button
+                  disabled={!inputValue.trim() || isTyping}
+                  onClick={() => {
+                    handleSendMessage();
+                    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+                  }}
+                  className="absolute right-2 bottom-[6px] p-1.5 text-[#A1A1A1] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-[6px] hover:bg-[#26282A] transition-colors"
+                >
                 <Send className="w-4 h-4" />
               </button>
             </div>

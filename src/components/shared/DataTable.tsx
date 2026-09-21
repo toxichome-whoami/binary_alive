@@ -41,6 +41,7 @@ export interface DataTableProps<T> {
   minTableWidth?: string;
   className?: string;
   ariaLabel?: string;
+  allowRowExpansion?: boolean;
 }
 
 export const CaretUpDownIcon: React.FC<{ active: boolean; direction: 'asc' | 'desc' }> = ({
@@ -164,6 +165,7 @@ export function DataTable<T>({
   minTableWidth = 'min-w-[1000px]',
   className = '',
   ariaLabel = 'Data table',
+  allowRowExpansion = false,
 }: DataTableProps<T>) {
   // Initialize column widths map
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>(() => {
@@ -366,7 +368,7 @@ export function DataTable<T>({
                     key={key}
                     role="row"
                     onClick={() => onRowClick && onRowClick(row, rowIdx)}
-                    className={`group/row flex w-full items-center h-[40px] min-h-[40px] max-h-[40px] border-b border-[#1e1e1e] bg-[#0e0e0e] hover:bg-[#161616] transition-colors ${
+                    className={`group/row flex w-full ${allowRowExpansion ? 'items-start h-auto min-h-[40px] max-h-none' : 'items-center h-[40px] min-h-[40px] max-h-[40px]'} border-b border-[#1e1e1e] bg-[#0e0e0e] hover:bg-[#161616] transition-all ${
                       onRowClick ? 'cursor-pointer' : ''
                     }`}
                   >
@@ -376,14 +378,14 @@ export function DataTable<T>({
                         : { width: `${columnWidths[col.id] || col.width || 160}px` };
 
                       return (
-                        <td
-                          key={col.id}
-                          role="cell"
-                          style={widthStyle}
-                          className={`flex items-center shrink-0 h-[40px] overflow-hidden ${
-                            col.isFlex ? 'flex-1' : ''
-                          } ${col.className || 'px-3'}`}
-                        >
+                          <td
+                            key={col.id}
+                            role="cell"
+                            style={widthStyle}
+                            className={`flex shrink-0 ${allowRowExpansion ? 'h-auto min-h-[40px]' : 'h-[40px] items-center'} overflow-hidden ${
+                              col.isFlex ? 'flex-1' : ''
+                            } ${col.className || 'px-3'}`}
+                          >
                           {col.cell
                             ? col.cell(row, rowIdx)
                             : col.accessorKey
@@ -431,6 +433,10 @@ export function DataTable<T>({
               <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
               <span>Previous</span>
             </button>
+
+            <span className="text-[13px] text-[#8c8c8c] font-normal px-2">
+              Page <span className="text-[#cccccc] font-medium tabular-nums">{pagination.page}</span> of <span className="text-[#cccccc] font-medium tabular-nums">{totalPages}</span>
+            </span>
 
             <button
               type="button"

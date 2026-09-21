@@ -30,8 +30,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedRangeLabel, setSelectedRangeLabel] = useState(initialLabel);
   const [activePreset, setActivePreset] = useState(initialLabel);
-  // minDate is now controlled by props
-
+  
   const [customRangeQuery, setCustomRangeQuery] = useState('');
 
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
@@ -54,8 +53,15 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
         setShowDatePicker(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowDatePicker(false);
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [showDatePicker]);
 
   const formatDateTime = (d: Date | null) => {
@@ -69,6 +75,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     if (label === 'Live (60s)') {
       setRangeStart(null);
       setRangeEnd(null);
+      setSelectedRangeLabel('Live (60s)');
+      setShowDatePicker(false);
+      onRangeChange?.('Live (60s)', undefined, undefined);
       return;
     }
     const end = new Date();
@@ -76,6 +85,10 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     setRangeStart(start);
     setRangeEnd(end);
     setCurrentMonthDate(end);
+    
+    setSelectedRangeLabel(label);
+    setShowDatePicker(false);
+    onRangeChange?.(label, start, end);
   };
 
 
@@ -91,10 +104,14 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
       setRangeEnd(null as any);
     } else {
       if (dayDate < rangeStart) {
-        setRangeEnd(rangeStart);
+        const newEnd = new Date(rangeStart);
+        newEnd.setHours(23, 59, 59, 999);
+        setRangeEnd(newEnd);
         setRangeStart(dayDate);
       } else {
-        setRangeEnd(dayDate);
+        const newEnd = new Date(dayDate);
+        newEnd.setHours(23, 59, 59, 999);
+        setRangeEnd(newEnd);
       }
     }
   };

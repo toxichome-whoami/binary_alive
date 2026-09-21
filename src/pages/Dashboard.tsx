@@ -829,6 +829,8 @@ export const Dashboard: React.FC = () => {
           pushToast('success', 'Process deleted');
           setSelectedIds((prev) => prev.filter((id) => id !== deletingId));
           setDeletingId(null);
+          setIsSlideOverOpen(false);
+          setEditingProcess(null);
           refresh();
         }
       } catch (err: any) {
