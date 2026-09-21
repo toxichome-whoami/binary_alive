@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useProcessStore } from '../store/processStore';
 import { processesApi } from '../api/processes';
 import { useToastStore } from '../store/toastStore';
@@ -24,6 +24,13 @@ export function useProcesses({ intervalMs }: UseProcessesOptions = {}) {
       pushToast('error', err.message || 'Failed to fetch process status manually');
     }
   }, [pushToast]);
+
+  useEffect(() => {
+    // Fetch immediately on mount so the user doesn't wait for the first websocket broadcast
+    if (useProcessStore.getState().isInitialLoading) {
+      refresh();
+    }
+  }, [refresh]);
 
   return {
     processes,
