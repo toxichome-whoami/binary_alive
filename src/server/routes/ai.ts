@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { addAiHistory, getAiHistory, deleteAiHistory, getMyAiHistory, getAiHistoryBounds } from '../db/ai.js';
 import { getSetting, setSetting, getAllSettings } from '../db/settings.js';
 import { broadcastAiHistoryUpdated, broadcastUsersRefresh, broadcastSettingUpdated, broadcastApiKeysRefresh } from '../websocket.js';

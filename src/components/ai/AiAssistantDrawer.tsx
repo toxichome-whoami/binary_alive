@@ -64,21 +64,21 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
     // take the last 4 messages for context to save tokens
     const historyContext = chatHistory.slice(-4);
     
-    setChatHistory(prev => [...prev, { role: 'user', content: msg }].slice(-100));
+    setChatHistory(prev => [...prev, { role: 'user' as const, content: msg }].slice(-100));
     setIsTyping(true);
 
     try {
       const context = { currentPage: window.location.pathname };
       const res = await aiApi.sendChatMessage(msg, historyContext, context);
       if (res.success) {
-        setChatHistory(prev => [...prev, { role: 'bot', content: res.data.response }].slice(-100));
+        setChatHistory(prev => [...prev, { role: 'bot' as const, content: res.data.response }].slice(-100));
         // refresh history in background if open
         if (isHistoryOpen) loadHistory();
       } else {
-        setChatHistory(prev => [...prev, { role: 'bot', content: 'Error: Could not get response.' }].slice(-100));
+        setChatHistory(prev => [...prev, { role: 'bot' as const, content: 'Error: Could not get response.' }].slice(-100));
       }
     } catch (err: any) {
-      setChatHistory(prev => [...prev, { role: 'bot', content: `Error: Request failed. Details: ${err?.message || err}` }].slice(-100));
+      setChatHistory(prev => [...prev, { role: 'bot' as const, content: `Error: Request failed. Details: ${err?.message || err}` }].slice(-100));
     } finally {
       setIsTyping(false);
     }

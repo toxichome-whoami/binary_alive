@@ -50,7 +50,7 @@ export async function runAutorestart(): Promise<{ checked: number; restarted: nu
     console.error('[AutoRestart] Error during cycle:', err);
   }
 
-  return { checked: desiredRunning ? desiredRunning.length : 0, restarted };
+  return { checked: 0, restarted };
 }
 
 

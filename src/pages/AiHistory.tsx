@@ -12,7 +12,7 @@ import { useToastStore } from '../store/toastStore';
 
 export const AiHistory: React.FC = () => {
   const { isOwner } = useAuthStore();
-  const pushToast = useToastStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.push);
   const [history, setHistory] = useState<AiHistoryData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);

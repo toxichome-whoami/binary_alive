@@ -88,12 +88,6 @@ authRouter.get('/captcha', async (c) => {
 });
 
 
-  }
-
-  const valid = CaptchaService.verify(sid, answer, false);
-  return c.json({ valid });
-});
-
 // CSRF token recovery
 authRouter.get('/csrf', (c) => {
   let token = getCookie(c, 'csrf_token');

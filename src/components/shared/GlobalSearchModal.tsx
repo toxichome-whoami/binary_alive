@@ -79,6 +79,11 @@ export const GlobalSearchModal: React.FC = () => {
   };
 
   const handleModalKeyDown = (e: React.KeyboardEvent) => {
+    if (filteredItems.length === 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter')) {
+      e.preventDefault();
+      return;
+    }
+
     if (e.key === 'Escape') {
       e.preventDefault();
       setIsOpen(false);

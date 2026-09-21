@@ -21,7 +21,7 @@ export interface AiSettingsPayload {
 export const settingsApi = {
   get: () => apiFetch<ApiResponse<SettingsResponse>>('/settings'),
 
-  toggle: (key: string, enabled: boolean) =>
+  toggle: (key: 'enable_captcha' | 'maintenance_mode', enabled: boolean) =>
     apiFetch<ApiResponse>('/settings/toggle', {
       method: 'POST',
       body: JSON.stringify({ key, enabled }),

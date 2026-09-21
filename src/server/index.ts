@@ -20,7 +20,7 @@ async function start() {
         port: PORT,
       },
       (info) => {
-        console.log([Binary Alive] Server running at http://localhost:);
+        console.log(`[Binary Alive] Server running at http://localhost:${info.port}`);
       }
     );
     

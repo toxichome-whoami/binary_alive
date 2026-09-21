@@ -59,7 +59,7 @@ export function useWebSocketInit() {
           if (data.type === 'USER_DISABLED') {
             // Read fresh from store — never stale
             useAuthStore.getState().setUser(null);
-            window.location.href = '/login';
+            window.location.hash = '#/login';
           } else if (data.type === 'USERS_REFRESH') {
             window.dispatchEvent(new CustomEvent('users-refresh', { detail: data }));
           } else if (data.type === 'PERMISSIONS_UPDATED') {
@@ -83,7 +83,7 @@ export function useWebSocketInit() {
               const u = useAuthStore.getState().user;
               if (u && u.role !== 'owner' && !u.permissions?.settings_maintenance) {
                  useAuthStore.getState().setUser(null);
-                 window.location.href = '/login';
+                 window.location.hash = '#/login';
               }
             }
           }

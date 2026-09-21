@@ -313,6 +313,35 @@ processRouter.post('/:id/control', requirePermission('processes_view'), async (c
       Monitor.stopProcess(activePid);
     }
     await updateProcess(id, { pid: null, status: 'stopped' });
+    await logAudit(user.id, user.username, 'process_stop', `Stopped process: ${proc.name}`);
+    return c.json({ success: true });
+  }
+
+  if (cmd === 'restart') {
+    const activePid = Monitor.isRunning(proc);
+    if (activePid) {
+      Monitor.stopProcess(activePid);
+    }
+    newPid = Monitor.startProcess(proc);
+    if (!newPid) {
+      await updateProcess(id, { status: 'crashed' });
+      return c.json({ success: false, message: 'Process failed to restart' }, 500);
+    }
+    await updateProcess(id, { 
+      pid: newPid, 
+      status: 'running',
+      restart_count: (proc.restart_count || 0) + 1 
+    });
+    await logAudit(user.id, user.username, 'process_restart', `Restarted process: ${proc.name}`);
+    return c.json({ success: true, data: { pid: newPid } });
+  }
+
+  return c.json({ success: false, message: 'Invalid command' }, 400);
+});
+
+// Get Telemetry
+processRouter.get('/telemetry', requirePermission('processes_view'), async (c) => {
+  try {
     const minutes = parseInt(c.req.query('minutes') || '0', 10);
     const start = c.req.query('start');
     const end = c.req.query('end');

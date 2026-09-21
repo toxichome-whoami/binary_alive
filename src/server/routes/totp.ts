@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { setTotpSecret, getUserById } from '../db/users.js';
 import { logAudit } from '../db/logs.js';
 import { TotpService } from '../lib/totp.js';
-import { encryptData, verifyPassword } from '../lib/crypto.js';
+import { encryptData, decryptData, verifyPassword } from '../lib/crypto.js';
 import { requireAuth } from '../middleware/auth.js';
 import { broadcastUsersRefresh } from '../websocket.js';
 

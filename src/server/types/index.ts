@@ -31,6 +31,10 @@ export interface Permissions {
 
   terminal_access: boolean;
   terminal_unrestricted: boolean;
+  
+  ai_access: boolean;
+  ai_data_read: boolean;
+  ai_data_write: boolean;
 }
 
 export type Role = 'owner' | 'member';

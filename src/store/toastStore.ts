@@ -18,9 +18,10 @@ export const useToastStore = create<ToastState>((set) => ({
   toasts: [],
   push: (type, message) => {
     const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9) + Date.now();
-    set((state) => ({
-      toasts: [...state.toasts, { id, type, message }],
-    }));
+    set((state) => {
+      const nextToasts = [...state.toasts, { id, type, message }];
+      return { toasts: nextToasts.slice(-4) };
+    });
 
     // Auto dismiss after 4 seconds
     setTimeout(() => {
