@@ -26,30 +26,7 @@ const WAVY_NO_DATA_PATH =
 const MAX_PTS = 60;
 type MetricKey = 'cpu' | 'active' | 'memory' | 'load' | 'restarts' | 'uptime';
 
-let isFirstTick = true;
 
-const getInitialStore = (): Record<MetricKey, number[]> => {
-  try {
-    const saved = sessionStorage.getItem('binary_alive_tsStore');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.cpu && parsed.cpu.length === MAX_PTS) {
-        isFirstTick = false; // We have valid history, don't overwrite it with a flat line!
-        return parsed;
-      }
-    }
-  } catch {}
-  return {
-    cpu: Array(MAX_PTS).fill(0),
-    active: Array(MAX_PTS).fill(0),
-    memory: Array(MAX_PTS).fill(0),
-    load: Array(MAX_PTS).fill(0),
-    restarts: Array(MAX_PTS).fill(0),
-    uptime: Array(MAX_PTS).fill(100),
-  };
-};
-
-export const tsStore: Record<MetricKey, number[]> = getInitialStore();
 
 export function generateGraphPaths(key: MetricKey, width: number, bottomY: number, data: number[]) {
   
@@ -237,7 +214,7 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
       tsStore.load.fill(parseFloat(String(displaySysLoad)) || 0);
       tsStore.restarts.fill(restartsCount);
       tsStore.uptime.fill(100);
-      isFirstTick = false;
+      if (storeRef.current) storeRef.current.isFirstTick = false;
     } else {
       tsStore.cpu.shift(); tsStore.cpu.push(totalCpuPercent);
       tsStore.active.shift(); tsStore.active.push(runningCount);
@@ -259,6 +236,32 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   >(null);
   
   const [selectedRangeLabel, setSelectedRangeLabel] = useState('Live (60s)');
+  const storeRef = useRef<{ store: Record<MetricKey, number[]>; isFirstTick: boolean } | null>(null);
+  if (!storeRef.current) {
+    let initialStore = {
+      cpu: Array(MAX_PTS).fill(0),
+      active: Array(MAX_PTS).fill(0),
+      memory: Array(MAX_PTS).fill(0),
+      load: Array(MAX_PTS).fill(0),
+      restarts: Array(MAX_PTS).fill(0),
+      uptime: Array(MAX_PTS).fill(100),
+    };
+    let initFirstTick = true;
+    try {
+      const saved = sessionStorage.getItem('binary_alive_tsStore');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.cpu && parsed.cpu.length === MAX_PTS) {
+          initFirstTick = false;
+          initialStore = parsed;
+        }
+      }
+    } catch {}
+    storeRef.current = { store: initialStore, isFirstTick: initFirstTick };
+  }
+  
+  const tsStore = storeRef.current.store;
+  let isFirstTick = storeRef.current.isFirstTick;
   const [historicalData, setHistoricalData] = useState<any[]>([]);
   const [minDate, setMinDate] = useState<Date | null>(null);
 
