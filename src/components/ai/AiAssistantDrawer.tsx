@@ -6,6 +6,12 @@ import { PermissionTable } from '../shared/PermissionTable';
 import { aiApi, type AiHistoryData } from '../../api/ai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+const safeUrl = (url: string) => {
+  const u = (url || '').trim().toLowerCase();
+  if (u.startsWith('javascript:') || u.startsWith('vbscript:') || u.startsWith('data:')) return '#';
+  return url;
+};
 import type { Permissions } from '../../types';
 
 interface AiAssistantDrawerProps {
@@ -242,11 +248,11 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
               chatHistory.map((msg, i) => (
                 <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-full`}>
                   <div className={`px-3 py-2 rounded-lg text-[13px] ${msg.role === 'user' ? 'whitespace-pre-wrap bg-[#2f80ed] text-white selection:bg-white/30' : 'bg-[#161718] border border-[#26282A] text-[#d4d4d4] w-full markdown-body selection:bg-[#2f80ed] selection:text-white'}`}>
-                    {msg.role === 'user' ? msg.content : (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {msg.content}
-                      </ReactMarkdown>
-                    )}
+                      {msg.role === 'user' ? msg.content : (
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrl}>
+                          {msg.content.slice(0, 20000)}
+                        </ReactMarkdown>
+                      )}
                   </div>
                 </div>
               ))

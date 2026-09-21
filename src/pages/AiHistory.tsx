@@ -4,6 +4,12 @@ import { aiApi, AiHistoryData } from '../api/ai';
 import { Bot, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+const safeUrl = (url: string) => {
+  const u = (url || '').trim().toLowerCase();
+  if (u.startsWith('javascript:') || u.startsWith('vbscript:') || u.startsWith('data:')) return '#';
+  return url;
+};
 import { DataTable, type Column } from '../components/shared/DataTable';
 import { format } from 'date-fns';
 import { DateRangePicker } from '../components/shared/DateRangePicker';
@@ -179,8 +185,8 @@ export const AiHistory: React.FC = () => {
         <div className="w-full pt-[9px] pb-2 flex flex-col justify-start h-full">
           <div className="text-[13px] text-white leading-relaxed markdown-body selection:bg-[#2f80ed] selection:text-white max-h-[22px] group-hover/row:max-h-[400px] group-hover/row:overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#333] [&::-webkit-scrollbar-thumb]:rounded-full transition-[max-height] duration-[400ms] ease-in-out overflow-hidden">
             <div className="line-clamp-1 group-hover/row:line-clamp-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {log.response || ''}
+              <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrl}>
+                {(log.response || '').slice(0, 20000)}
               </ReactMarkdown>
             </div>
           </div>
