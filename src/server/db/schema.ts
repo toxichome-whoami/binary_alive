@@ -172,15 +172,6 @@ export async function initDatabase(): Promise<void> {
       oldPerms = {};
     }
     
-    // Check if it's the owner or needs upgrade
-    if (userId === 1) {
-      await db.execute({
-        sql: `UPDATE users SET role = 'owner', permissions = ? WHERE id = 1`,
-        args: [JSON.stringify(ALL_PERMS)]
-      });
-      continue;
-    }
-
     // Upgrade old granular to new atomic
     if (user.role === 'owner') continue; // Skip owner
 

@@ -8,8 +8,8 @@ logRouter.use('*', requireAuth());
 
 // Audit logs
 logRouter.get('/audit', requirePermission('logs_view_audit'), async (c) => {
-    const page = parseInt(c.req.query('page') || '1', 10);
-  const limit = parseInt(c.req.query('limit') || '20', 10);
+  const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '20', 10)), 100);
   const search = c.req.query('search') || '';
   const sort = c.req.query('sort') || 'timestamp';
   const dir = c.req.query('dir') || 'desc';
@@ -21,8 +21,8 @@ logRouter.get('/audit', requirePermission('logs_view_audit'), async (c) => {
 
 // Login attempts
 logRouter.get('/login', requirePermission('logs_view_login'), async (c) => {
-    const page = parseInt(c.req.query('page') || '1', 10);
-  const limit = parseInt(c.req.query('limit') || '20', 10);
+  const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '20', 10)), 100);
   const search = c.req.query('search') || '';
   const sort = c.req.query('sort') || 'timestamp';
   const dir = c.req.query('dir') || 'desc';
@@ -34,8 +34,8 @@ logRouter.get('/login', requirePermission('logs_view_login'), async (c) => {
 
 // Terminal execution history (admin only)
 logRouter.get('/terminal', requirePermission('logs_view_terminal'), async (c) => {
-    const page = parseInt(c.req.query('page') || '1', 10);
-  const limit = parseInt(c.req.query('limit') || '20', 10);
+  const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '20', 10)), 100);
   const search = c.req.query('search') || '';
   const sort = c.req.query('sort') || 'timestamp';
   const dir = c.req.query('dir') || 'desc';

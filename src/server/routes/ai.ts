@@ -15,12 +15,12 @@ const execAsync = promisify(exec);
 
 const aiRouter = new Hono<{ Variables: { user: User } }>();
 
-aiRouter.post('/chat', requireAuth(), async (c) => {
+aiRouter.post('/chat', requireAuth(), requirePermission('ai_access'), async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json().catch(() => ({}));
-    const message = body.message;
-    const history = Array.isArray(body.history) ? body.history : [];
+    const message = body.message?.toString().slice(0, 4000);
+    const history = Array.isArray(body.history) ? body.history.slice(-10) : [];
 
     if (!message || typeof message !== 'string') {
       return c.json({ success: false, error: 'Invalid message' }, 400);
@@ -109,13 +109,31 @@ RULES:
       return target;
     };
 
-    while (!isDone && loopCount < 20) {
-      loopCount++;
-      const completion = await fetch(`${aiBaseUrl.replace(/\/$/, '')}/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${aiApiKey}` },
-        body: JSON.stringify({ model: aiModel, messages, tools, temperature: 0.3 })
-      });
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(aiBaseUrl);
+      } catch (e) {
+        return c.json({ success: false, error: 'Invalid AI Base URL' }, 400);
+      }
+      const isPrivate = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|::1$)/.test(parsedUrl.hostname) || parsedUrl.hostname === 'localhost';
+      if (/^169\.254\./.test(parsedUrl.hostname)) {
+         return c.json({ success: false, error: 'Access to metadata endpoints is forbidden' }, 403);
+      }
+
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (aiApiKey && !isPrivate) {
+        headers['Authorization'] = `Bearer ${aiApiKey}`;
+      }
+
+      while (!isDone && loopCount < 20) {
+        loopCount++;
+        const completion = await fetch(`${aiBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ model: aiModel, messages, tools, temperature: 0.3 }),
+          redirect: 'manual',
+          signal: AbortSignal.timeout(15000)
+        });
 
       if (!completion.ok) {
         return c.json({ success: false, error: 'AI API Error' }, 500);
@@ -158,8 +176,11 @@ RULES:
                 if (!hasPerm('processes_start')) throw new Error('Forbidden');
                 const proc = await getProcessById(args.id);
                 if (!proc) throw new Error('Not found');
-                let newPid = Monitor.startProcess(proc);
-                if (!newPid) newPid = Math.floor(Math.random() * 8000) + 4000;
+                const newPid = Monitor.startProcess(proc);
+                if (!newPid) {
+                  await updateProcess(args.id, { status: 'crashed' });
+                  throw new Error('Process failed to spawn');
+                }
                 await updateProcess(args.id, { pid: newPid, status: 'running' });
                 toolResult = JSON.stringify({ success: true, pid: newPid });
               }
@@ -178,8 +199,11 @@ RULES:
                 if (!proc) throw new Error('Not found');
                 const activePid = Monitor.isRunning(proc);
                 if (activePid) Monitor.stopProcess(activePid);
-                let newPid = Monitor.startProcess(proc);
-                if (!newPid) newPid = Math.floor(Math.random() * 8000) + 4000;
+                const newPid = Monitor.startProcess(proc);
+                if (!newPid) {
+                  await updateProcess(args.id, { status: 'crashed' });
+                  throw new Error('Process failed to respawn');
+                }
                 await updateProcess(args.id, { pid: newPid, status: 'running' });
                 toolResult = JSON.stringify({ success: true });
               }
@@ -195,7 +219,11 @@ RULES:
               }
               else if (fn === 'create_user') {
                 if (user.role !== 'owner' && !hasPerm('users_create')) throw new Error('Forbidden');
-                const id = await createUser(args.username, 'default_hash', args.role as any);
+                if (args.role === 'owner') throw new Error('Forbidden: AI cannot create owner accounts.');
+                if (!args.password || args.password.length < 8) throw new Error('Password must be at least 8 characters.');
+                
+                const hash = await hashPassword(args.password);
+                const id = await createUser(args.username, hash, args.role as any);
                 broadcastUsersRefresh();
                 toolResult = JSON.stringify({ success: true, id });
               }
@@ -205,7 +233,10 @@ RULES:
                 const updates: any = {};
                 if (args.username) updates.username = args.username;
                 if (args.email) updates.email = args.email;
-                if (args.role) updates.role = args.role;
+                if (args.role) {
+                  if (args.role === 'owner') throw new Error('Forbidden: AI cannot assign owner role.');
+                  updates.role = args.role;
+                }
                 if (args.password) updates.passwordHash = await hashPassword(args.password);
                 await updateUser(args.id, updates);
                 broadcastUsersRefresh(args.id);
@@ -283,23 +314,35 @@ RULES:
                 toolResult = JSON.stringify(st);
               }
               else if (fn === 'update_setting') {
-                if (args.key.startsWith('ai_')) throw new Error('Hardcoded safeguard: The AI cannot modify its own configuration.');
+                const safeKey = String(args.key || '').trim().toLowerCase();
                 
-                if (args.key === 'maintenance_mode') {
-                  if (user.role !== 'owner' && !hasPerm('settings_maintenance')) throw new Error('Missing settings_maintenance permission');
-                } else if (args.key === 'enable_captcha') {
-                  if (user.role !== 'owner' && !hasPerm('settings_captcha')) throw new Error('Missing settings_captcha permission');
-                } else {
-                  if (user.role !== 'owner' && !hasPerm('settings_edit')) throw new Error('Forbidden');
+                if (safeKey.startsWith('ai_')) {
+                  throw new Error('Hardcoded safeguard: The AI cannot modify its own configuration.');
                 }
                 
-                await setSetting(args.key, args.value);
-                broadcastSettingUpdated(args.key, args.value);
+                const allowedSettings = ['maintenance_mode', 'enable_captcha'];
+                if (!allowedSettings.includes(safeKey)) {
+                  throw new Error(`AI can only modify these settings: ${allowedSettings.join(', ')}`);
+                }
+                
+                if (args.value !== '0' && args.value !== '1') {
+                  throw new Error('Value must be "0" or "1" for these settings.');
+                }
+                
+                if (safeKey === 'maintenance_mode') {
+                  if (user.role !== 'owner' && !hasPerm('settings_maintenance')) throw new Error('Missing settings_maintenance permission');
+                } else if (safeKey === 'enable_captcha') {
+                  if (user.role !== 'owner' && !hasPerm('settings_captcha')) throw new Error('Missing settings_captcha permission');
+                }
+                
+                await setSetting(safeKey, args.value);
+                broadcastSettingUpdated(safeKey, args.value);
                 toolResult = JSON.stringify({ success: true });
               }
               else if (fn === 'run_terminal_command') {
-                if (user.role !== 'owner' && !hasPerm('terminal_access')) throw new Error('Forbidden');
-                const { stdout, stderr } = await execAsync(args.command);
+                if (user.role !== 'owner' && !hasPerm('terminal_unrestricted')) throw new Error('Forbidden: Requires terminal_unrestricted permission');
+                // Cap AI execution to 5 seconds and 128KB buffer to prevent DoS
+                const { stdout, stderr } = await execAsync(args.command, { timeout: 5000, maxBuffer: 128 * 1024 });
                 toolResult = JSON.stringify({ stdout: stdout.slice(0, 5000), stderr: stderr.slice(0, 5000) });
               }
               else {
@@ -338,8 +381,8 @@ RULES:
 aiRouter.get('/my-history', requireAuth(), async (c) => {
   try {
     const user = c.get('user');
-    const page = parseInt(c.req.query('page') || '1');
-    const limit = parseInt(c.req.query('limit') || '50');
+    const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+    const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10)), 100);
     const result = await getMyAiHistory(user.id, limit, (page - 1) * limit);
     return c.json({ success: true, data: result });
   } catch (err: any) {
@@ -351,8 +394,8 @@ aiRouter.get('/history', requireAuth(), async (c) => {
   try {
     const user = c.get('user');
     if (user.role !== 'owner') return c.json({ success: false, error: 'Access Denied' }, 403);
-    const page = parseInt(c.req.query('page') || '1');
-    const limit = parseInt(c.req.query('limit') || '50');
+    const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+    const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10)), 100);
     const startDate = c.req.query('startDate');
     const endDate = c.req.query('endDate');
     const result = await getAiHistory(limit, (page - 1) * limit, startDate, endDate);

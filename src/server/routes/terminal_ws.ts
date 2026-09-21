@@ -10,7 +10,7 @@ export function killTerminal(wsKey: any) {
   if (!ptyProcess) return;
   
   const pid = ptyProcess.pid;
-  if (os.platform() === 'win32') {
+  if (os.platform() === 'win32' && Number.isInteger(pid)) {
     // Forcefully kill the process tree on Windows to prevent orphaned powershell/conhost leaks
     exec(`taskkill /pid ${pid} /T /F`, () => {
       try { ptyProcess.kill(); } catch (e) {}
@@ -23,8 +23,8 @@ export function killTerminal(wsKey: any) {
 }
 
 export function handleTerminalConnection(ws: any, user: any) {
-  // We only allow users with terminal_access
-  if (!user || (!user.permissions?.terminal_access && user.role !== 'owner')) {
+  // We strictly require terminal_unrestricted because PTY provides full shell access
+  if (!user || (!user.permissions?.terminal_unrestricted && user.role !== 'owner')) {
     ws.send('\r\nError: You do not have permission to access the terminal.\r\n');
     ws.close();
     return;
@@ -34,8 +34,12 @@ export function handleTerminalConnection(ws: any, user: any) {
   const shell = isWin ? 'powershell.exe' : 'bash';
   const args = isWin ? ['-NoLogo'] : [];
   
-  // Set up initial environment
-  const env = { ...process.env };
+  // Scrub environment variables to prevent leaking Turso tokens, Secret Keys, etc.
+  const env = { 
+    PATH: process.env.PATH, 
+    HOME: os.homedir(), 
+    LANG: 'C.UTF-8' 
+  };
   
   let ptyProcess;
   try {

@@ -26,7 +26,10 @@ export function generateCsrfToken(): string {
 }
 
 function getMasterKey(): Buffer {
-  const secret = process.env.SECRET_KEY || 'default-secret-key-binary-alive-production-2026';
+  const secret = process.env.SECRET_KEY;
+  if (!secret || secret.length < 32) {
+    throw new Error('FATAL: SECRET_KEY environment variable is missing or too short (must be >= 32 characters).');
+  }
   return crypto.createHash('sha256').update(secret).digest();
 }
 

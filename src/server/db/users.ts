@@ -39,7 +39,7 @@ export async function listUsers(page = 1, limit = 20): Promise<{ data: User[]; t
 
   const result = await db.execute({
     sql: `
-      SELECT u.id, u.username, u.email, u.role, u.permissions, u.totp_secret, u.created_at, u.failed_attempts, u.locked_until,
+      SELECT u.id, u.username, u.email, u.role, u.permissions, u.created_at, u.failed_attempts, u.locked_until,
              COUNT(t.id) as api_keys_count
       FROM users u
       LEFT JOIN api_tokens t ON u.id = t.user_id
@@ -143,14 +143,27 @@ export async function setTotpSecret(id: number, secret: string | null): Promise<
 
 export async function incrementFailedAttempts(username: string): Promise<void> {
   await db.execute({
-    sql: 'UPDATE users SET failed_attempts = failed_attempts + 1 WHERE username = ?',
+    sql: `UPDATE users 
+          SET failed_attempts = failed_attempts + 1,
+              locked_until = CASE 
+                WHEN failed_attempts + 1 >= 5 AND (locked_until IS NULL OR locked_until < datetime('now')) 
+                THEN datetime('now', '+15 minutes')
+                ELSE locked_until 
+              END
+          WHERE LOWER(username) = LOWER(?)`,
     args: [username],
   });
 }
 
 export async function resetFailedAttempts(username: string): Promise<void> {
   await db.execute({
-    sql: 'UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE username = ?',
+    sql: `UPDATE users 
+          SET failed_attempts = 0, 
+              locked_until = CASE 
+                WHEN locked_until IS NOT NULL AND strftime('%Y', locked_until) = '2099' THEN locked_until
+                ELSE NULL 
+              END
+          WHERE LOWER(username) = LOWER(?)`,
     args: [username],
   });
 }

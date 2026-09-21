@@ -36,12 +36,18 @@ export async function createProcess(p: {
 
 export async function updateProcess(
   id: number,
-  updates: Partial<ProcessRecord>
+  updates: Partial<Omit<ProcessRecord, 'id' | 'created_at'>>
 ): Promise<void> {
   const fields: string[] = [];
   const args: any[] = [];
+  
+  const allowedKeys = new Set([
+    'name', 'group_name', 'command', 'working_dir', 'log_file', 
+    'status', 'pid', 'last_restart', 'restart_count'
+  ]);
 
   for (const [key, val] of Object.entries(updates)) {
+    if (!allowedKeys.has(key)) continue;
     fields.push(`${key} = ?`);
     args.push(val);
   }

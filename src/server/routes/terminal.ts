@@ -26,16 +26,15 @@ terminalRouter.post('/', async (c) => {
     return c.json({ success: false, message: 'Command too long (max 2000 characters)' }, 400);
   }
 
-  // Basic blocklist
+  // Require unrestricted access for arbitrary shell execution
   if (user.role !== 'owner' && !user.permissions.terminal_unrestricted) {
-    const dangerous = ['rm -rf /', 'shutdown', 'reboot', 'halt', 'mkfs'];
-    if (dangerous.some(d => trimmed.includes(d))) {
-      await logAudit(user.id, user.username, 'terminal_blocked', `Blocked command: ${trimmed}`);
-      return c.json({ success: false, message: 'Command blocked by security policy (requires unrestricted access)' }, 403);
-    }
+    await logAudit(user.id, user.username, 'terminal_blocked', `Blocked command attempt`);
+    return c.json({ success: false, message: 'Command blocked by security policy (requires unrestricted access)' }, 403);
   }
 
-  await logAudit(user.id, user.username, 'terminal_command', `Command: ${trimmed}`);
+  // Audit log with max 500 characters to prevent log forgery / stored XSS via massive payloads
+  const sanitizedForLog = trimmed.length > 500 ? trimmed.substring(0, 500) + '... [truncated]' : trimmed;
+  await logAudit(user.id, user.username, 'terminal_command', `Command: ${sanitizedForLog}`);
 
   let currentCwd = userCwdMap.get(user.id) || os.homedir() || process.cwd();
 
@@ -70,8 +69,8 @@ terminalRouter.post('/', async (c) => {
     }
   }
 
-  // Execute shell command with a 30-second timeout
-  const timeoutMs = 30000;
+  // Execute shell command with strict caps to prevent DoS
+  const timeoutMs = 5000;
 
   return new Promise<Response>((resolve) => {
     let timedOut = false;
@@ -84,7 +83,7 @@ terminalRouter.post('/', async (c) => {
       {
         cwd: currentCwd,
         timeout: timeoutMs,
-        maxBuffer: 10 * 1024 * 1024,
+        maxBuffer: 128 * 1024, // 128 KB
       },
       (error, stdout, stderr) => {
         if (error && error.killed) {

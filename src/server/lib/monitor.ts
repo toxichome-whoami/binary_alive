@@ -113,11 +113,31 @@ export class Monitor {
 
   public static startProcess(p: ProcessRecord): number | false {
     try {
-      const dir = p.working_dir && fs.existsSync(p.working_dir) ? p.working_dir : process.cwd();
-      const logFile = p.log_file || (process.platform === 'win32' ? 'NUL' : '/dev/null');
+      const SAFE_ROOT = process.cwd();
+      
+      let dir = SAFE_ROOT;
+      if (p.working_dir) {
+        const resolvedDir = path.resolve(SAFE_ROOT, p.working_dir);
+        if (resolvedDir.toLowerCase().startsWith(SAFE_ROOT.toLowerCase()) && fs.existsSync(resolvedDir)) {
+          dir = resolvedDir;
+        }
+      }
+
+      let logFile = process.platform === 'win32' ? 'NUL' : '/dev/null';
+      if (p.log_file) {
+        const resolvedLog = path.resolve(SAFE_ROOT, p.log_file);
+        if (resolvedLog.toLowerCase().startsWith(SAFE_ROOT.toLowerCase())) {
+          logFile = resolvedLog;
+        }
+      }
 
       let outFd: number | 'ignore' = 'ignore';
       try {
+        if (logFile !== 'NUL' && logFile !== '/dev/null') {
+          // Ensure directory for log exists
+          const logDir = path.dirname(logFile);
+          if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+        }
         outFd = fs.openSync(logFile, 'a');
       } catch {
         outFd = 'ignore';

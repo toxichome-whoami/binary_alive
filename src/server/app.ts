@@ -124,9 +124,6 @@ app.route('/api/settings', settingsRouter);
 app.route('/api/2fa', totpRouter);
 app.route('/api/internal', internalRouter);
 app.route('/api/ai', aiRouter);
-app.get('/api/debug-ws', (c) => {
-  return c.json({ connectedUsersSize: connectedUsers.size });
-});
 
 
 app.get('/api/terminal/ws', wsParts.upgradeWebSocket((c) => {
@@ -140,6 +137,16 @@ app.get('/api/terminal/ws', wsParts.upgradeWebSocket((c) => {
       
       const user = await getUserById(session.user_id);
       if (!user) return ws.close(1008, 'Forbidden');
+      
+      if (user.locked_until && new Date(user.locked_until) > new Date()) {
+        return ws.close(1008, 'Account locked');
+      }
+
+      const { getSetting } = await import('./db/settings.js');
+      const maintenance = await getSetting('maintenance_mode', '0');
+      if (maintenance === '1' && user.role !== 'owner' && (!user.permissions || !user.permissions.settings_maintenance)) {
+        return ws.close(1008, 'Maintenance Mode');
+      }
       
       handleTerminalConnection(ws, user);
     },

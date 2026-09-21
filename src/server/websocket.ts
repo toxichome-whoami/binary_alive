@@ -57,7 +57,10 @@ export function notifyUserDisabled(userId: number) {
   if (sockets) {
     const payload = JSON.stringify({ type: 'USER_DISABLED' });
     for (const ws of sockets) {
-      if (ws.readyState === 1) ws.send(payload);
+      if (ws.readyState === 1) {
+        ws.send(payload);
+        ws.close(1008, 'Account locked');
+      }
     }
   }
 }
@@ -116,23 +119,28 @@ export function startProcessStatsBroadcaster() {
 
       const payload = JSON.stringify({
         type: 'PROCESS_STATS',
-        data: enriched,
+        data: enriched.map(p => ({ ...p, command: undefined })),
         sys_load: sysLoad
       });
 
       for (const [userId, sockets] of connectedUsers.entries()) {
+        if (userId < 0) continue;
         for (const ws of sockets) {
-          try {
-            ws.send(payload);
-          } catch (e) {
-            console.error('Failed to send WS payload', e);
+          // @ts-ignore
+          const user = ws.user;
+          if (!user) continue;
+          const canView = user.role === 'owner' || (user.permissions && user.permissions.processes_view);
+          if (canView && ws.readyState === 1) {
+            try {
+              ws.send(payload);
+            } catch (e) {}
           }
         }
       }
     } catch (err) {
       console.error('Error broadcasting process stats:', err);
     }
-  }, 1000);
+  }, 3000);
 }
 
 export function broadcastUsersRefresh(targetUserId?: number) {

@@ -23,7 +23,16 @@ export function csrfProtection(): MiddlewareHandler {
     const cookieToken = getCookie(c, 'csrf_token');
     const headerToken = c.req.header('X-CSRF-Token');
 
-    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    if (!cookieToken || !headerToken || cookieToken.length !== headerToken.length) {
+      return c.json({ success: false, message: 'Invalid or missing CSRF token' }, 403);
+    }
+
+    try {
+      const crypto = await import('crypto');
+      if (!crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(headerToken))) {
+        throw new Error('Mismatch');
+      }
+    } catch {
       return c.json({ success: false, message: 'Invalid or missing CSRF token' }, 403);
     }
 

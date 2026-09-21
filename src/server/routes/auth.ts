@@ -39,22 +39,33 @@ authRouter.get('/setup', async (c) => {
 });
 
 // Setup master admin (only when users table is empty)
+let isSettingUp = false;
 authRouter.post('/setup', async (c) => {
-  const count = await countUsers();
-  if (count > 0) {
-    return c.json({ success: false, message: 'Setup is already completed.' }, 403);
+  if (isSettingUp) return c.json({ success: false, message: 'Setup in progress' }, 409);
+  isSettingUp = true;
+  
+  try {
+    const count = await countUsers();
+    if (count > 0) {
+      return c.json({ success: false, message: 'Setup is already completed.' }, 403);
+    }
+
+    const { username, password, email } = await c.req.json();
+    if (!username || typeof username !== 'string' || !username.match(/^[a-zA-Z0-9_.-]+$/)) {
+      return c.json({ success: false, message: 'Invalid username format.' }, 400);
+    }
+    if (!password || password.length < 12) {
+      return c.json({ success: false, message: 'Password must be at least 12 characters.' }, 400);
+    }
+
+    const hash = await hashPassword(password);
+    const id = await createUser(username, hash, 'owner', '{}', email || null);
+
+    await logAudit(id, username, 'setup_first_admin', 'Initial master admin account initialized');
+    return c.json({ success: true, message: 'Master Administrator created successfully!' });
+  } finally {
+    isSettingUp = false;
   }
-
-  const { username, password, email } = await c.req.json();
-  if (!username || !password || password.length < 6) {
-    return c.json({ success: false, message: 'Username and password (min 6 chars) required.' }, 400);
-  }
-
-  const hash = await hashPassword(password);
-  const id = await createUser(username, hash, 'owner', '{}', email || null);
-
-  await logAudit(id, username, 'setup_first_admin', 'Initial master admin account initialized');
-  return c.json({ success: true, message: 'Master Administrator created successfully!' });
 });
 
 // Captcha generator
@@ -106,10 +117,14 @@ authRouter.get('/csrf', (c) => {
 
 // Login
 authRouter.post('/login', loginRateLimiter(), async (c) => {
-  const ip =
-    c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
-    c.req.header('x-real-ip') ||
-    '127.0.0.1';
+  let ip = '127.0.0.1';
+  const fwd = c.req.header('x-forwarded-for');
+  if (process.env.TRUST_PROXY === 'true' && fwd) {
+    ip = fwd.split(',')[0].trim();
+  } else {
+    // @ts-ignore
+    ip = c.env?.incoming?.socket?.remoteAddress || c.env?.incoming?.client?.remoteAddress || '127.0.0.1';
+  }
 
   const body = await c.req.json();
   const username = (body.username || '').trim();

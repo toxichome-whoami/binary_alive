@@ -80,8 +80,9 @@ userRouter.post('/', requireAuth(), requirePermission('users_create'), async (c)
   }
 
   const hash = await hashPassword(password);
+  const safePermissions = enforcePermissionConstraints(permissions);
   try {
-    const id = await createUser(username, hash, 'member', JSON.stringify(permissions), email);
+    const id = await createUser(username, hash, 'member', JSON.stringify(safePermissions), email);
     await logAudit(currentUser.id, currentUser.username, 'create_user', `Created user: ${username}`);
     broadcastUsersRefresh(id);
     return c.json({ success: true, data: { id } });
@@ -140,6 +141,9 @@ userRouter.put('/:id', requireAuth(), requirePermission('users_edit'), async (c)
     }
   }
   if (body.is_disabled !== undefined) {
+    if (currentUser.role !== 'owner' && !(currentUser.permissions as any).users_disable) {
+      return c.json({ success: false, message: 'Forbidden - Missing users_disable permission' }, 403);
+    }
     if (isMaster && body.is_disabled) {
       return c.json({ success: false, message: 'The Owner account cannot be disabled.' }, 403);
     }

@@ -115,10 +115,20 @@ export function requireAuth(): MiddlewareHandler {
 export function requirePermission(permissionKey: keyof User['permissions']): MiddlewareHandler {
   return async (c, next) => {
     const user = c.get('user');
+    const isApiAuth = c.get('isApiAuth');
     if (!user) {
       return c.json({ success: false, message: 'Forbidden - Insufficient permissions' }, 403);
     }
-    if (user.role !== 'owner' && !user.permissions[permissionKey]) {
+    
+    // If it's an API token, ALWAYS check the effective permissions, even for owners.
+    if (isApiAuth) {
+      if (!user.permissions || !user.permissions[permissionKey]) {
+        return c.json({ success: false, message: 'Forbidden - Token lacks required permission' }, 403);
+      }
+      return await next();
+    }
+
+    if (user.role !== 'owner' && (!user.permissions || !user.permissions[permissionKey])) {
       return c.json({ success: false, message: 'Forbidden - Insufficient permissions' }, 403);
     }
     await next();

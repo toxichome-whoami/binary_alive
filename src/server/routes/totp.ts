@@ -34,6 +34,11 @@ totpRouter.get('/setup', async (c) => {
 // Enable 2FA after code verification
 totpRouter.post('/enable', async (c) => {
   const user = c.get('user');
+  
+  if (user.totp_secret) {
+    return c.json({ success: false, message: '2FA is already enabled. You must disable it first.' }, 403);
+  }
+
   const { secret, code } = await c.req.json();
 
   if (!secret || !code) {
@@ -53,10 +58,10 @@ totpRouter.post('/enable', async (c) => {
   return c.json({ success: true, message: '2FA enabled successfully!' });
 });
 
-// Disable own 2FA (requires current password confirmation)
+// Disable own 2FA (requires current password and 2FA token confirmation)
 totpRouter.post('/disable', async (c) => {
   const currentUser = c.get('user');
-  const { password } = await c.req.json();
+  const { password, token } = await c.req.json();
 
   const user = await getUserById(currentUser.id);
   if (!user) {
@@ -64,8 +69,18 @@ totpRouter.post('/disable', async (c) => {
   }
 
   const match = await verifyPassword(password, user.password_hash);
-  if (!match && process.env.NODE_ENV === 'production') {
+  if (!match) {
     return c.json({ success: false, message: 'Incorrect password.' }, 401);
+  }
+
+  if (user.totp_secret) {
+    if (!token) {
+      return c.json({ success: false, message: 'Current 2FA code is required to disable 2FA.' }, 400);
+    }
+    const secret = decryptData(user.totp_secret);
+    if (!TotpService.verifyCode(secret, token)) {
+      return c.json({ success: false, message: 'Invalid 2FA code.' }, 401);
+    }
   }
 
   await setTotpSecret(user.id, null);
