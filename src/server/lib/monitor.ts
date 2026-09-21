@@ -10,7 +10,7 @@ import type { ProcessRecord } from '../types/index.js';
 export class Monitor {
   private static metricsCache = new Map<number, { cpu: string; mem: string; startTimeMs: number; timestamp: number }>();
   public static isRunning(proc: ProcessRecord): number | false {
-    if (proc.pid) {
+    if (proc.pid && Number.isInteger(proc.pid) && proc.pid > 0) {
       try {
         const isWindows = os.platform() === 'win32';
         if (isWindows) {
@@ -27,29 +27,12 @@ export class Monitor {
             }
           }
         } else {
-          const out = execSync(`ps -p ${proc.pid} -o pid= --no-headers`).toString().trim();
-          if (out) {
-            return proc.pid;
-          }
+          // Native zero-signal check on Unix
+          process.kill(proc.pid, 0);
+          return proc.pid;
         }
       } catch {
         // PID is dead
-      }
-    }
-
-    // Fallback search by command string on Linux/Unix
-    if (os.platform() !== 'win32' && proc.command) {
-      try {
-        const escaped = proc.command.replace(/'/g, "'\\''");
-        const out = execSync(`ps aux | grep '${escaped}' | grep -v grep | awk '{print $2}'`)
-          .toString()
-          .trim();
-        const firstPid = parseInt(out.split('\n')[0], 10);
-        if (!isNaN(firstPid) && firstPid > 0) {
-          return firstPid;
-        }
-      } catch {
-        // Command not found in ps table
       }
     }
 

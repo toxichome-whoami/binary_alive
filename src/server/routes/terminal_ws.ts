@@ -1,6 +1,6 @@
 import * as pty from 'node-pty';
 import os from 'os';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { logAudit } from '../db/logs.js';
 
 export const ptyMap = new Map<any, pty.IPty>();
@@ -8,13 +8,12 @@ export const ptyMap = new Map<any, pty.IPty>();
 export function killTerminal(wsKey: any) {
   const ptyProcess = ptyMap.get(wsKey);
   if (!ptyProcess) return;
-  
+
   const pid = ptyProcess.pid;
   if (os.platform() === 'win32' && Number.isInteger(pid)) {
     // Forcefully kill the process tree on Windows to prevent orphaned powershell/conhost leaks
-    exec(`taskkill /pid ${pid} /T /F`, () => {
-      try { ptyProcess.kill(); } catch (e) {}
-    });
+    spawn('taskkill', ['/pid', String(pid), '/T', '/F']);
+    try { ptyProcess.kill(); } catch (e) {}
   } else {
     try { ptyProcess.kill(); } catch (e) {}
   }
