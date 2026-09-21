@@ -140,7 +140,7 @@ export const AiHistory: React.FC = () => {
       className: 'px-4',
       cell: (log) => (
         <div className="flex items-start h-full pt-[9px] pb-2">
-          <span className="text-[13px] font-medium text-white truncate leading-relaxed">
+          <span className="text-[14px] font-normal text-white truncate leading-relaxed">
             {log.username || `User #${log.user_id}`}
           </span>
         </div>
@@ -153,7 +153,7 @@ export const AiHistory: React.FC = () => {
       className: 'px-4',
       cell: (log) => (
         <div className="flex items-start h-full pt-[9px] pb-2">
-          <span className="text-[13px] text-[#8c8c8c] truncate leading-relaxed">
+          <span className="text-[14px] text-[#8c8c8c] truncate leading-relaxed">
             {log.email}
           </span>
         </div>
@@ -167,7 +167,7 @@ export const AiHistory: React.FC = () => {
       className: 'px-4',
       cell: (log) => (
         <div className="w-full pt-[9px] pb-2 flex flex-col justify-start h-full">
-          <div className="text-[13px] text-[#a0a0a0] leading-relaxed whitespace-pre-wrap break-words max-h-[22px] group-hover/row:max-h-[300px] group-hover/row:overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#333] [&::-webkit-scrollbar-thumb]:rounded-full transition-[max-height] duration-[400ms] ease-in-out overflow-hidden">
+          <div className="text-[14px] text-[#a0a0a0] leading-relaxed whitespace-pre-wrap break-words max-h-[22px] group-hover/row:max-h-[300px] group-hover/row:overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#333] [&::-webkit-scrollbar-thumb]:rounded-full transition-[max-height] duration-[400ms] ease-in-out overflow-hidden">
             <div className="line-clamp-1 group-hover/row:line-clamp-none">
               {log.message}
             </div>
@@ -183,7 +183,7 @@ export const AiHistory: React.FC = () => {
       className: 'px-4',
       cell: (log) => (
         <div className="w-full pt-[9px] pb-2 flex flex-col justify-start h-full">
-          <div className="text-[13px] text-white leading-relaxed markdown-body selection:bg-[#2f80ed] selection:text-white max-h-[22px] group-hover/row:max-h-[400px] group-hover/row:overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#333] [&::-webkit-scrollbar-thumb]:rounded-full transition-[max-height] duration-[400ms] ease-in-out overflow-hidden">
+          <div className="text-[14px] text-white leading-relaxed markdown-body selection:bg-[#2f80ed] selection:text-white max-h-[22px] group-hover/row:max-h-[400px] group-hover/row:overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#333] [&::-webkit-scrollbar-thumb]:rounded-full transition-[max-height] duration-[400ms] ease-in-out overflow-hidden">
             <div className="line-clamp-1 group-hover/row:line-clamp-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrl}>
                 {(log.response || '').slice(0, 20000)}
@@ -200,7 +200,7 @@ export const AiHistory: React.FC = () => {
       className: 'px-4',
       cell: (log) => (
         <div className="flex items-start h-full pt-[9px] pb-2">
-          <span className="text-[13px] text-[#8c8c8c] whitespace-nowrap leading-relaxed">
+          <span className="text-[14px] text-[#8c8c8c] whitespace-nowrap leading-relaxed">
             {format(new Date(log.created_at.replace(' ', 'T') + 'Z'), 'MMM d, yyyy HH:mm:ss')}
           </span>
         </div>
@@ -253,7 +253,7 @@ export const AiHistory: React.FC = () => {
           <h1 className="text-[16px] font-semibold text-white tracking-tight font-sans">
             AI History
           </h1>
-          <p className="text-[13px] text-[#8c8c8c] font-sans mt-0.5">
+          <p className="text-[14px] text-[#8c8c8c] font-sans mt-0.5">
             Live feed of platform interactions.
           </p>
         </div>

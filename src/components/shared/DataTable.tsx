@@ -237,7 +237,7 @@ export function DataTable<T>({
   const endItem = pagination ? Math.min(pagination.page * pagination.pageSize, pagination.totalCount) : data.length;
 
   return (
-    <div className={`border border-[#262626] rounded-lg overflow-hidden bg-[#0e0e0e] flex flex-col ${className}`}>
+    <div className={`border border-[#262626] rounded-lg overflow-hidden bg-[#0e0e0e] flex flex-col text-[14px] ${className}`}>
       <div className="overflow-x-auto w-full">
         <table role="table" aria-label={ariaLabel} className={`w-full ${minTableWidth} text-left border-collapse`}>
           {/* Sticky Table Header */}
