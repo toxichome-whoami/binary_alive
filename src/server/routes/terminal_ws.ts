@@ -34,11 +34,10 @@ export function handleTerminalConnection(ws: any, user: any) {
   const args = isWin ? ['-NoLogo'] : [];
   
   // Scrub environment variables to prevent leaking Turso tokens, Secret Keys, etc.
-  const env = { 
-    PATH: process.env.PATH, 
-    HOME: os.homedir(), 
-    LANG: 'C.UTF-8' 
-  };
+  const env = { ...process.env };
+  delete env.TURSO_DB_URL;
+  delete env.TURSO_DB_AUTH_TOKEN;
+  delete env.SESSION_SECRET;
   
   let ptyProcess;
   try {
