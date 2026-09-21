@@ -119,7 +119,7 @@ export function startProcessStatsBroadcaster() {
 
       const payload = JSON.stringify({
         type: 'PROCESS_STATS',
-        data: enriched.map(p => ({ ...p, command: undefined })),
+        data: enriched,
         sys_load: sysLoad
       });
 
