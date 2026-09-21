@@ -87,13 +87,7 @@ authRouter.get('/captcha', async (c) => {
   return c.body(svg);
 });
 
-// Live captcha verification
-authRouter.post('/captcha/verify', async (c) => {
-  const sid = getCookie(c, 'captcha_sid');
-  const { answer } = await c.req.json();
 
-  if (!sid || !answer) {
-    return c.json({ valid: false });
   }
 
   const valid = CaptchaService.verify(sid, answer, false);
@@ -126,7 +120,7 @@ authRouter.post('/login', loginRateLimiter(), async (c) => {
     ip = c.env?.incoming?.socket?.remoteAddress || c.env?.incoming?.client?.remoteAddress || '127.0.0.1';
   }
 
-  const body = await c.req.json();
+  let body; try { body = await c.req.json(); } catch { return c.json({success:false,message:'Bad Request'}, 400); }
   const username = (body.username || '').trim();
   const password = body.password || '';
   const totpCode = (body.totp || '').trim();

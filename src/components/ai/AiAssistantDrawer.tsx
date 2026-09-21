@@ -22,21 +22,8 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
   const [myHistory, setMyHistory] = useState<AiHistoryData[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   
-  const [chatHistory, setChatHistory] = useState<{role: 'user'|'bot', content: string}[]>(() => {
-    const saved = localStorage.getItem('ai_chat_session');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [chatHistory, setChatHistory] = useState<{role: 'user'|'bot', content: string}[]>([]);
   
-  useEffect(() => {
-    localStorage.setItem('ai_chat_session', JSON.stringify(chatHistory));
-  }, [chatHistory]);
 
   useEffect(() => {
     if (isOpen) {
@@ -77,21 +64,21 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
     // take the last 4 messages for context to save tokens
     const historyContext = chatHistory.slice(-4);
     
-    setChatHistory(prev => [...prev, { role: 'user', content: msg }]);
+    setChatHistory(prev => [...prev, { role: 'user', content: msg }].slice(-100));
     setIsTyping(true);
 
     try {
       const context = { currentPage: window.location.pathname };
       const res = await aiApi.sendChatMessage(msg, historyContext, context);
       if (res.success) {
-        setChatHistory(prev => [...prev, { role: 'bot', content: res.data.response }]);
+        setChatHistory(prev => [...prev, { role: 'bot', content: res.data.response }].slice(-100));
         // refresh history in background if open
         if (isHistoryOpen) loadHistory();
       } else {
-        setChatHistory(prev => [...prev, { role: 'bot', content: 'Error: Could not get response.' }]);
+        setChatHistory(prev => [...prev, { role: 'bot', content: 'Error: Could not get response.' }].slice(-100));
       }
     } catch (err: any) {
-      setChatHistory(prev => [...prev, { role: 'bot', content: `Error: Request failed. Details: ${err?.message || err}` }]);
+      setChatHistory(prev => [...prev, { role: 'bot', content: `Error: Request failed. Details: ${err?.message || err}` }].slice(-100));
     } finally {
       setIsTyping(false);
     }

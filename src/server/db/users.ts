@@ -3,9 +3,14 @@ import type { User, Role } from '../types/index.js';
 
 function parseUserRow(row: any): User | null {
   if (!row) return null;
+  let perms = row.permissions || {};
+  if (typeof row.permissions === 'string') {
+    try { perms = JSON.parse(row.permissions); } catch { perms = {}; }
+  }
+
   return {
     ...row,
-    permissions: typeof row.permissions === 'string' ? JSON.parse(row.permissions) : (row.permissions || {}),
+    permissions: perms,
     api_keys_count: row.api_keys_count ? Number(row.api_keys_count) : 0,
     has_2fa: !!row.totp_secret,
   } as User;

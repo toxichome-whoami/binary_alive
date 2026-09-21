@@ -224,11 +224,19 @@ processRouter.post('/bulk/control', requirePermission('processes_view'), async (
   if (cmd === 'stop' && user.role !== 'owner' && !user.permissions.processes_stop) return c.json({ success: false, message: 'Forbidden' }, 403);
   if (cmd === 'restart' && user.role !== 'owner' && !user.permissions.processes_restart) return c.json({ success: false, message: 'Forbidden' }, 403);
 
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return c.json({ success: false, message: 'No processes selected' }, 400);
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 50) {
+    return c.json({ success: false, message: 'Invalid or too many processes selected (max 50)' }, 400);
   }
 
-  const results: Record<number, { success: boolean; pid?: number }> = {};
+  if (!['start', 'stop', 'restart'].includes(cmd)) {
+    return c.json({ success: false, message: 'Invalid command' }, 400);
+  }
+
+  if (ids.some(id => !Number.isInteger(id))) {
+    return c.json({ success: false, message: 'Invalid process ID format' }, 400);
+  }
+
+  const results: Record<number, { success: boolean; pid?: number }> = Object.create(null);
 
   for (const id of ids) {
     const proc = await getProcessById(id);

@@ -12,6 +12,8 @@ export function getCookie(name: string): string | null {
   return match ? decodeURIComponent(match[3]) : null;
 }
 
+let csrfPromise: Promise<any> | null = null;
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers || {});
   
@@ -24,19 +26,16 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
     let csrfToken = getCookie('csrf_token');
     if (!csrfToken) {
-      // If token is missing, fetch it from the server
-      await fetch(`${BASE}/auth/csrf`);
+      if (!csrfPromise) {
+        csrfPromise = fetch(`${BASE}/auth/csrf`, { credentials: 'include' });
+      }
+      await csrfPromise;
+      csrfPromise = null;
       csrfToken = getCookie('csrf_token');
     }
     if (csrfToken) {
       headers.set('X-CSRF-Token', csrfToken);
     }
-  }
-
-  // Optional API bearer token if stored in localStorage
-  const apiToken = localStorage.getItem('api_token');
-  if (apiToken && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${apiToken}`);
   }
 
   const res = await fetch(`${BASE}${path}`, {

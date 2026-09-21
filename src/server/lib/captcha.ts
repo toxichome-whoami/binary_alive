@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 export class CaptchaService {
   private static captchaStore = new Map<string, { answer: string; expiresAt: number }>();
 
@@ -5,7 +6,7 @@ export class CaptchaService {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluded confusing chars (0, O, 1, I)
     let text = '';
     for (let i = 0; i < 5; i++) {
-      text += chars.charAt(Math.floor(Math.random() * chars.length));
+      text += chars.charAt(crypto.randomInt(chars.length));
     }
 
     // Store expected answer for 5 minutes
@@ -89,6 +90,8 @@ export class CaptchaService {
 
     return { text, svg };
   }
+
+  public static sweep() { const now = Date.now(); for (const [k, v] of this.captchaStore.entries()) { if (now > v.expiresAt) this.captchaStore.delete(k); } }
 
   public static verify(sessionId: string, answer: string, consume = true): boolean {
     const item = this.captchaStore.get(sessionId);

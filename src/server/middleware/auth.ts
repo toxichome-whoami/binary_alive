@@ -13,6 +13,16 @@ declare module 'hono' {
   }
 }
 
+const tokenLastUsedCache = new Map<number, number>();
+function throttleUpdateApiTokenLastUsed(id: number) {
+  const now = Date.now();
+  const last = tokenLastUsedCache.get(id) || 0;
+  if (now - last > 5 * 60 * 1000) {
+    tokenLastUsedCache.set(id, now);
+    updateApiTokenLastUsed(id).catch(() => {});
+  }
+}
+
 export function authMiddleware(): MiddlewareHandler {
   return async (c, next) => {
     // 1. Check Bearer Token header

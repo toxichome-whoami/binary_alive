@@ -15,6 +15,12 @@ export async function runAutorestart(): Promise<{ checked: number; restarted: nu
       const activePid = Monitor.isRunning(p);
 
       if (!activePid) {
+        const lastRestart = p.last_restart ? new Date(p.last_restart).getTime() : 0;
+        if (Date.now() - lastRestart < 60000) {
+           console.log(`[AutoRestart] Backing off restart for "${p.name}" (too soon).`);
+           continue;
+        }
+
         console.log(`[AutoRestart] Process "${p.name}" is dead! Attempting automatic restart...`);
         const newPid = Monitor.startProcess(p);
 
@@ -44,12 +50,17 @@ export async function runAutorestart(): Promise<{ checked: number; restarted: nu
     console.error('[AutoRestart] Error during cycle:', err);
   }
 
-  return { checked: 0, restarted };
+  return { checked: desiredRunning ? desiredRunning.length : 0, restarted };
 }
 
 
 export async function logTelemetryData(): Promise<void> {
   try {
+    // Retention prune
+    await db.execute("DELETE FROM telemetry_logs WHERE timestamp < datetime('now', '-30 days')");
+    await db.execute("DELETE FROM audit_logs WHERE timestamp < datetime('now', '-30 days')");
+    await db.execute("DELETE FROM login_attempts WHERE timestamp < datetime('now', '-30 days')");
+
     const processes = await getAllProcesses();
     let cpuSum = 0;
     let memSum = 0;

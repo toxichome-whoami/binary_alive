@@ -55,7 +55,7 @@ userRouter.post('/', requireAuth(), requirePermission('users_create'), async (c)
   const currentUser = c.get('user');
   const body = await c.req.json();
   const username = (body.username || '').trim();
-  const email = (body.email || '').trim() || null;
+  const email = typeof body.email === 'string' ? body.email.trim() : null;
   const password = body.password || '';
   const permissions: Permissions = body.permissions || {
     users_view: false, users_create: false, users_edit: false, users_disable: false, users_delete: false, users_reset_2fa: false,
@@ -66,8 +66,8 @@ userRouter.post('/', requireAuth(), requirePermission('users_create'), async (c)
     terminal_access: false, terminal_unrestricted: false,
   };
 
-  if (!username || !password) {
-    return c.json({ success: false, message: 'Username and password required' }, 400);
+  if (!username || typeof password !== 'string' || password.length < 8 || password.length > 72) {
+    return c.json({ success: false, message: 'Username required and password must be 8-72 characters' }, 400);
   }
 
   // Privilege escalation check
@@ -110,16 +110,22 @@ userRouter.put('/:id', requireAuth(), requirePermission('users_edit'), async (c)
   }
 
   const updates: { username?: string; email?: string | null; passwordHash?: string; permissions?: string; locked_until?: string | null; failed_attempts?: number } = {};
-  if (body.username && body.username.trim() !== target.username) {
+  if (body.username && typeof body.username === 'string' && body.username.trim() !== target.username) {
     updates.username = body.username.trim();
   }
   if (body.email !== undefined) {
-    const trimmedEmail = body.email.trim() || null;
+    if (typeof body.email !== 'string' && body.email !== null) {
+      return c.json({ success: false, message: 'Invalid email format' }, 400);
+    }
+    const trimmedEmail = (body.email || '').trim() || null;
     if (trimmedEmail !== target.email) {
       updates.email = trimmedEmail;
     }
   }
   if (body.password) {
+    if (typeof body.password !== 'string' || body.password.length < 8 || body.password.length > 72) {
+      return c.json({ success: false, message: 'Password must be 8-72 characters' }, 400);
+    }
     updates.passwordHash = await hashPassword(body.password);
   }
   if (body.permissions && !isMaster) {
