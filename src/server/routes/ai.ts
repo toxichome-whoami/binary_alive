@@ -54,7 +54,8 @@ RULES:
 1. You have tools to manage ALL resources (processes, users, api_keys, settings, terminal).
 2. DO NOT modify AI settings (\`ai_model\`, \`ai_api_key\`, \`ai_base_url\`).
 3. Only use tools if explicitly asked.
-4. TO SAVE TOKENS: Keep your final answers to a maximum of 1 or 2 short sentences. Do not use filler words. If a tool succeeds, just say "Done" or "Updated successfully" without explaining what you did. Never print JSON arrays.`;
+4. TO SAVE TOKENS: Keep your final answers to a maximum of 1 or 2 short sentences. Do not use filler words. If a tool succeeds, just say "Done" or "Updated successfully" without explaining what you did. Never print JSON arrays.
+5. PRO-TIP: When organizing files or doing complex OS tasks via terminal, try to batch multiple commands using && or script them to accomplish tasks in fewer steps to avoid hitting your turn limits.`;
 
     const mappedHistory = history.map((msg: any) => ({
       role: msg.role === 'bot' ? 'assistant' : 'user',
@@ -108,7 +109,7 @@ RULES:
       return target;
     };
 
-    while (!isDone && loopCount < 5) {
+    while (!isDone && loopCount < 20) {
       loopCount++;
       const completion = await fetch(`${aiBaseUrl.replace(/\/$/, '')}/chat/completions`, {
         method: 'POST',
@@ -299,7 +300,7 @@ RULES:
               else if (fn === 'run_terminal_command') {
                 if (user.role !== 'owner' && !hasPerm('terminal_access')) throw new Error('Forbidden');
                 const { stdout, stderr } = await execAsync(args.command);
-                toolResult = JSON.stringify({ stdout: stdout.slice(0, 1000), stderr: stderr.slice(0, 1000) });
+                toolResult = JSON.stringify({ stdout: stdout.slice(0, 5000), stderr: stderr.slice(0, 5000) });
               }
               else {
                 toolResult = `Unknown tool: ${fn}`;
@@ -316,7 +317,7 @@ RULES:
     }
 
       if (!responseText.trim()) {
-        responseText = loopCount >= 5 
+        responseText = loopCount >= 20 
           ? "I reached my internal processing limit. Check if the action succeeded." 
           : "Done.";
       }
@@ -324,13 +325,14 @@ RULES:
     const id = await addAiHistory(user.id, message, responseText);
     broadcastAiHistoryUpdated();
 
-    return c.json({
-      success: true,
-      data: { id, user_id: user.id, message, response: responseText, created_at: new Date().toISOString() }
-    });
-  } catch (err: any) {
-    return c.json({ success: false, error: 'Internal Server Error' }, 500);
-  }
+      return c.json({ 
+        success: true, 
+        data: { id, user_id: user.id, message, response: responseText, created_at: new Date().toISOString() }
+      });
+    } catch (err: any) {
+      console.error('AI Chat Error:', err);
+      return c.json({ success: false, error: err.message || 'Internal Server Error' }, 500);
+    }
 });
 
 aiRouter.get('/my-history', requireAuth(), async (c) => {
