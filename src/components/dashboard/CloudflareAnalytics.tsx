@@ -276,11 +276,21 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
   
 
   // Use historical data if available, else live buffer
+  const mappedHistoricalData = useMemo(() => {
+    if (historicalData.length === 0) return null;
+    return {
+      cpu: historicalData.map(row => row['cpu'] || 0),
+      memory: historicalData.map(row => row['memory_mb'] || 0),
+      load: historicalData.map(row => row['sys_load'] || 0),
+      active: historicalData.map(row => row['active_procs'] || 0),
+      restarts: historicalData.map(row => row['restarts'] || 0),
+      uptime: historicalData.map(row => row['uptime'] || 0),
+    };
+  }, [historicalData]);
+
   const getGraphData = (key: MetricKey) => {
-    if (historicalData.length > 0) {
-      // Map DB columns to metric keys
-      const dbKey = key === 'memory' ? 'memory_mb' : key === 'load' ? 'sys_load' : key === 'active' ? 'active_procs' : key;
-      return historicalData.map(row => row[dbKey] || 0);
+    if (mappedHistoricalData) {
+      return mappedHistoricalData[key];
     }
     return tsStore[key];
   };
@@ -293,6 +303,18 @@ export const CloudflareAnalytics: React.FC<CloudflareAnalyticsProps> = ({
     onRefresh();
     setTimeout(() => setIsCooldown(false), 2000);
   };
+
+  const chartPaths = useMemo(() => {
+    return {
+      cpu: generateGraphPaths('cpu', 1000, 116, getGraphData('cpu')),
+      active: generateGraphPaths('active', 1000, 116, getGraphData('active')),
+      memory: generateGraphPaths('memory', 1000, 116, getGraphData('memory')),
+      load: generateGraphPaths('load', 1000, 116, getGraphData('load')),
+      restarts: generateGraphPaths('restarts', 1000, 116, getGraphData('restarts')),
+      uptime: generateGraphPaths('uptime', 1000, 116, getGraphData('uptime')),
+      mini: selectedMetric ? generateGraphPaths(selectedMetric, 220, 48, getGraphData(selectedMetric)) : { line: '', area: '' },
+    };
+  }, [mappedHistoricalData, storeRef.current.store, totalCpuPercent, runningCount, totalMemoryMB, displaySysLoad, restartsCount, selectedMetric]);
 
   const [drawerSearch, setDrawerSearch] = useState('');
 
@@ -652,12 +674,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('cpu', 1000, 116, getGraphData('cpu')).area}
+                  d={chartPaths.cpu.area}
                   fill="url(#cpu-gradient-area)"
                   stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
-                  d={generateGraphPaths('cpu', 1000, 116, getGraphData('cpu')).line}
+                  d={chartPaths.cpu.line}
                   fill="none"
                   stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
@@ -765,12 +787,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('active', 1000, 116, getGraphData('active')).area}
+                  d={chartPaths.active.area}
                   fill="url(#active-gradient-area)"
                   stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
-                  d={generateGraphPaths('active', 1000, 116, getGraphData('active')).line}
+                  d={chartPaths.active.line}
                   fill="none"
                   stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="2"
@@ -881,12 +903,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('memory', 1000, 116, getGraphData('memory')).area}
+                  d={chartPaths.memory.area}
                   fill="url(#mem-usage-grad)"
                   stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
-                  d={generateGraphPaths('memory', 1000, 116, getGraphData('memory')).line}
+                  d={chartPaths.memory.line}
                   fill="none"
                   stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
@@ -994,12 +1016,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('load', 1000, 116, getGraphData('load')).area}
+                  d={chartPaths.load.area}
                   fill="url(#sys-load-grad)"
                   stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
-                  d={generateGraphPaths('load', 1000, 116, getGraphData('load')).line}
+                  d={chartPaths.load.line}
                   fill="none"
                   stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
@@ -1107,12 +1129,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('restarts', 1000, 116, getGraphData('restarts')).area}
+                  d={chartPaths.restarts.area}
                   fill="url(#restarts-grad)"
                   stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
-                  d={generateGraphPaths('restarts', 1000, 116, getGraphData('restarts')).line}
+                  d={chartPaths.restarts.line}
                   fill="none"
                   stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
@@ -1220,12 +1242,12 @@ return (
                 <line className="chart-grid-line" x1="0" y1="116" x2="1000" y2="116" stroke="#262626" strokeWidth="1" />
 
                 <path
-                  d={generateGraphPaths('uptime', 1000, 116, getGraphData('uptime')).area}
+                  d={chartPaths.uptime.area}
                   fill="url(#uptime-grad)"
                   stroke="none" className="transition-all duration-500 ease-in-out"
                 />
                 <path
-                  d={generateGraphPaths('uptime', 1000, 116, getGraphData('uptime')).line}
+                  d={chartPaths.uptime.line}
                   fill="none"
                   stroke="#2f80ed" className="transition-all duration-500 ease-in-out"
                   strokeWidth="1.8"
@@ -1375,12 +1397,12 @@ return (
                     <line x1="0" y1="44" x2="220" y2="44" stroke="#1c1c1c" strokeWidth="1" strokeDasharray="3 3" />
                     {/* Area fill */}
                     <path
-                      d={selectedMetric ? generateGraphPaths(selectedMetric, 220, 48, getGraphData(selectedMetric)).area : ''}
+                      d={chartPaths.mini.area}
                       fill="url(#drawerSparklineGrad)"
                     />
                     {/* Stroke line */}
                     <path
-                      d={selectedMetric ? generateGraphPaths(selectedMetric, 220, 48, getGraphData(selectedMetric)).line : ''}
+                      d={chartPaths.mini.line}
                       fill="none"
                       stroke='#2f80ed'
                       strokeWidth="1.75"

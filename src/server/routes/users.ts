@@ -273,3 +273,13 @@ userRouter.delete('/:id/2fa', requireAuth(), requirePermission('users_reset_2fa'
 
   return c.json({ success: true, message: '2FA disabled for user.' });
 });
+
+// Update AI permissions for current user
+userRouter.patch('/me/ai_permissions', requireAuth(), async (c) => {
+  const currentUser = c.get('user');
+  const body = await c.req.json();
+  const aiPermissions = body.ai_permissions;
+  
+  await updateUser(currentUser.id, { ai_permissions: aiPermissions ? JSON.stringify(aiPermissions) : undefined });
+  return c.json({ success: true, message: 'AI permissions updated.' });
+});

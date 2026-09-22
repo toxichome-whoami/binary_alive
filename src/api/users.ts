@@ -61,4 +61,10 @@ export const usersApi = {
     apiFetch<ApiResponse>(`/users/${id}/2fa`, {
       method: 'DELETE',
     }),
+
+  updateAiPermissions: (permissions: Permissions | null) =>
+    apiFetch<ApiResponse>(`/users/me/ai_permissions`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ai_permissions: permissions }),
+    }),
 };

@@ -45,6 +45,7 @@ export interface CurrentUser {
   email?: string | null;
   role: Role;
   permissions: Permissions;
+  ai_permissions?: Permissions | null;
   hostname?: string;
 }
 
@@ -84,6 +85,7 @@ export interface User {
   email?: string | null;
   role: Role;
   permissions: Permissions;
+  ai_permissions?: Permissions | null;
   api_keys_count: number;
   has_2fa: boolean;
   created_at: string;

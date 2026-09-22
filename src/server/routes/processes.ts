@@ -128,9 +128,9 @@ processRouter.get('/telemetry', requirePermission('processes_view'), async (c) =
       result = await db.execute({
         sql: `SELECT cpu, memory_mb, sys_load, active_procs, restarts, timestamp 
               FROM telemetry_logs 
-              WHERE timestamp >= datetime('now', '-' || ? || ' minutes')
+              WHERE timestamp >= datetime('now', ?)
               ORDER BY timestamp ASC`,
-        args: [min]
+        args: [`-${min} minutes`]
       });
     }
     return c.json({ success: true, data: result.rows });
@@ -360,9 +360,9 @@ processRouter.get('/telemetry', requirePermission('processes_view'), async (c) =
       result = await db.execute({
         sql: `SELECT cpu, memory_mb, sys_load, active_procs, restarts, timestamp 
               FROM telemetry_logs 
-              WHERE timestamp >= datetime('now', '-' || ? || ' minutes')
+              WHERE timestamp >= datetime('now', ?)
               ORDER BY timestamp ASC`,
-        args: [min]
+        args: [`-${min} minutes`]
       });
     }
     return c.json({ success: true, data: result.rows });

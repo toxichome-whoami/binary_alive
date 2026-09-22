@@ -1479,10 +1479,10 @@ export const Dashboard: React.FC = () => {
               role="table"
               aria-label="Monitored processes"
               aria-rowcount={filteredProcesses.length + 1}
-              className="w-full min-w-[1100px] text-left border-collapse"
+              className="w-full max-md:min-w-0 md:min-w-[1100px] text-left border-collapse"
             >
               {/* Table Head — sticky, 40px, border-b */}
-              <thead className="sticky top-0 z-10">
+              <thead className="sticky top-0 z-10 max-md:hidden">
                 <tr
                   role="row"
                   aria-rowindex={1}
@@ -1729,14 +1729,14 @@ export const Dashboard: React.FC = () => {
                       role="row"
                       aria-rowindex={ariaRowIndex}
                       aria-selected={isChecked}
-                      className={`group/row flex w-full items-center h-[40px] min-h-[40px] max-h-[40px] border-b border-[#1e1e1e] transition-colors ${
+                      className={`group/row flex max-md:flex-col max-md:p-4 max-md:gap-3 max-md:h-auto w-full md:items-center md:h-[40px] md:min-h-[40px] md:max-h-[40px] border-b border-[#1e1e1e] transition-colors relative ${
                         isChecked ? 'bg-[#181818] hover:bg-[#181818]' : 'bg-[#0e0e0e] hover:bg-[#161616]'
                       }`}
                     >
                       {hasPermission('processes_view') && (
                         <td
                           role="cell"
-                          className="flex items-center justify-center shrink-0 w-[44px] min-w-[44px] h-[40px]"
+                          className="flex items-center justify-center shrink-0 w-[44px] min-w-[44px] md:h-[40px] max-md:absolute max-md:right-4 max-md:top-4 max-md:w-auto max-md:h-auto max-md:min-w-0 z-10"
                         >
                           <button
                             type="button"
@@ -1760,24 +1760,28 @@ export const Dashboard: React.FC = () => {
                       <td
                         role="cell"
                         style={{ width: `${columnWidths.status}px` }}
-                        className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
+                        className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 max-md:h-auto md:h-[40px] md:pl-3 md:pr-4 overflow-hidden"
                       >
-                        {isRunning ? (
-                          <span className="text-[14px] font-normal text-[#30a46c] leading-none">Running</span>
-                        ) : p.status === 'crashed' ? (
-                          <span className="text-[14px] font-normal text-[#e5484d] leading-none">Crashed</span>
-                        ) : (
-                          <span className="text-[14px] font-normal text-[#8c8c8c] leading-none">Stopped</span>
-                        )}
+                        <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Status</span>
+                        <div className="flex items-center">
+                          {isRunning ? (
+                            <span className="text-[14px] font-normal text-[#30a46c] leading-none">Running</span>
+                          ) : p.status === 'crashed' ? (
+                            <span className="text-[14px] font-normal text-[#e5484d] leading-none">Crashed</span>
+                          ) : (
+                            <span className="text-[14px] font-normal text-[#8c8c8c] leading-none">Stopped</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Name */}
                       <td
                         role="cell"
                         style={{ width: `${columnWidths.name}px` }}
-                        className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
+                        className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 max-md:h-auto md:h-[40px] md:pl-3 md:pr-4 overflow-hidden"
                       >
-                        <div className="flex items-center gap-1.5 min-w-0 w-full">
+                        <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Name</span>
+                        <div className="flex items-center max-md:justify-end gap-1.5 min-w-0 w-full">
                           <button
                             type="button"
                             onClick={() => openEditModal(p)}
@@ -1795,28 +1799,32 @@ export const Dashboard: React.FC = () => {
                       </td>
 
                       {visibleColumns.pid && (
-                        <td role="cell" className="flex items-center shrink-0 w-[84px] h-[40px] px-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 w-[84px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">PID</span>
                           <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
                             {p.pid ? String(p.pid) : '—'}
                           </span>
                         </td>
                       )}
                       {visibleColumns.cpu && (
-                        <td role="cell" className="flex items-center shrink-0 w-[84px] h-[40px] px-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 w-[84px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">CPU</span>
                           <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
                             {p.cpu !== undefined && p.cpu !== null ? (String(p.cpu).endsWith('%') ? p.cpu : `${p.cpu}%`) : '0%'}
                           </span>
                         </td>
                       )}
                       {visibleColumns.memory && (
-                        <td role="cell" className="flex items-center shrink-0 w-[96px] h-[40px] px-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 w-[96px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Memory</span>
                           <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
                             {p.mem || '0 MB'}
                           </span>
                         </td>
                       )}
                       {visibleColumns.uptime && (
-                        <td role="cell" className="flex items-center shrink-0 w-[120px] h-[40px] px-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 w-[120px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Uptime</span>
                           <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
                             {isRunning ? p.uptime : '—'}
                           </span>
@@ -1826,9 +1834,10 @@ export const Dashboard: React.FC = () => {
                         <td
                           role="cell"
                           style={{ width: `${columnWidths.restarts}px` }}
-                          className="flex items-center shrink-0 h-[40px] pl-3 pr-4 overflow-hidden"
+                          className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 max-md:h-auto md:h-[40px] md:pl-3 md:pr-4 overflow-hidden"
                         >
-                          {p.restart_count > 0 ? (
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Restarts</span>
+                          <div className="flex items-center max-md:justify-end gap-1.5 w-full">{p.restart_count > 0 ? (
                             <span
                               title={`${p.restart_count} restart${p.restart_count !== 1 ? 's' : ''}`}
                               className="inline-flex items-center gap-1.5 text-[14px] font-normal text-[#d4d4d4] tabular-nums"
@@ -1838,11 +1847,12 @@ export const Dashboard: React.FC = () => {
                             </span>
                           ) : (
                             <span className="text-[14px] font-normal text-[#666666] tabular-nums">0</span>
-                          )}
+                          )}</div>
                         </td>
                       )}
                       {visibleColumns.command && (
-                        <td role="cell" className="flex items-center flex-1 min-w-[260px] h-[40px] pl-4 pr-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:flex-col max-md:items-start max-md:w-full max-md:!w-full max-md:!max-w-none max-md:gap-1 flex-1 min-w-[260px] max-md:h-auto md:h-[40px] md:pl-4 md:pr-3 overflow-hidden">
+                          <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Command</span>
                           <span className="truncate font-mono text-[13px] leading-none text-[#8c8c8c] block w-full" title={p.command}>
                             {p.command}
                           </span>
@@ -1852,13 +1862,14 @@ export const Dashboard: React.FC = () => {
                       {/* Actions — sticky with fade gradient, compact Edit button */}
                       <td
                         role="cell"
-                        className={`flex items-center justify-end shrink-0 w-[80px] h-[40px] px-3 sticky right-0 transition-colors z-[1] ${
+                        className={`flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none max-md:mt-2 max-md:pt-4 max-md:border-t max-md:border-[#1e1e1e] max-md:static max-md:px-0 justify-end shrink-0 w-[80px] md:h-[40px] md:px-3 md:sticky md:right-0 transition-colors z-[1] ${
                           isChecked ? 'bg-[#181818]' : 'bg-[#0e0e0e] group-hover/row:bg-[#161616]'
                         }`}
                       >
+                        <span className="md:hidden text-[13px] text-[#888888] font-medium mr-auto select-none shrink-0">Actions</span>
                         <span
                           aria-hidden="true"
-                          className={`pointer-events-none absolute inset-y-0 -left-4 w-4 bg-gradient-to-r from-transparent ${
+                          className={`pointer-events-none absolute inset-y-0 -left-4 w-4 bg-gradient-to-r from-transparent max-md:hidden ${
                             isChecked ? 'to-[#181818]' : 'to-[#0e0e0e] group-hover/row:to-[#161616]'
                           }`}
                         />

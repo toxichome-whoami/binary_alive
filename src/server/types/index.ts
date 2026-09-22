@@ -46,6 +46,7 @@ export interface User {
   password_hash: string;
   role: Role;
   permissions: Permissions;
+  ai_permissions?: Permissions | null;
   totp_secret: string | null;
   // api_token column is deprecated, moving to api_tokens table
   created_at: string;

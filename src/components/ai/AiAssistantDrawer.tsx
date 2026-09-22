@@ -4,6 +4,7 @@ import { Send, Sparkles, X, Settings as SettingsIcon, ChevronLeft, Clock, Plus }
 import { useAuthStore } from '../../store/authStore';
 import { PermissionTable } from '../shared/PermissionTable';
 import { aiApi, type AiHistoryData } from '../../api/ai';
+import { usersApi } from '../../api/users';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -79,8 +80,11 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
     return () => window.removeEventListener('ai-history-updated', handleUpdate);
   }, []);
 
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(undefined);
+
   interface ChatSession {
     id: number;
+    sessionId?: string;
     lastDate: Date;
     messages: { id?: number, role: 'user' | 'bot'; content: string }[];
   }
@@ -92,19 +96,19 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
     
     for (const item of sorted) {
       const itemTime = new Date(item.created_at);
-      if (!currentSession) {
-        currentSession = { id: item.id, lastDate: itemTime, messages: [{ id: item.id, role: 'user', content: item.message }, { id: item.id, role: 'bot', content: item.response }] };
-        sessions.push(currentSession);
+      
+      const shouldGroup = currentSession && (
+        (item.session_id && currentSession.sessionId === item.session_id) || 
+        (!item.session_id && !currentSession.sessionId && ((itemTime.getTime() - currentSession.lastDate.getTime()) / 1000 / 60) <= 30)
+      );
+
+      if (shouldGroup && currentSession) {
+        currentSession.messages.push({ id: item.id, role: 'user', content: item.message }, { id: item.id, role: 'bot', content: item.response });
+        currentSession.lastDate = itemTime;
+        currentSession.id = item.id;
       } else {
-        const diffMinutes = (itemTime.getTime() - currentSession.lastDate.getTime()) / 1000 / 60;
-        if (diffMinutes <= 30) {
-          currentSession.messages.push({ id: item.id, role: 'user', content: item.message }, { id: item.id, role: 'bot', content: item.response });
-          currentSession.lastDate = itemTime;
-          currentSession.id = item.id;
-        } else {
-          currentSession = { id: item.id, lastDate: itemTime, messages: [{ id: item.id, role: 'user', content: item.message }, { id: item.id, role: 'bot', content: item.response }] };
-          sessions.push(currentSession);
-        }
+        currentSession = { id: item.id, sessionId: item.session_id, lastDate: itemTime, messages: [{ id: item.id, role: 'user', content: item.message }, { id: item.id, role: 'bot', content: item.response }] };
+        sessions.push(currentSession);
       }
     }
     return sessions.reverse();
@@ -123,7 +127,13 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
 
     try {
       const context = { currentPage: window.location.pathname };
-      const res = await aiApi.sendChatMessage(msg, historyContext, context);
+      let activeSessionId = currentSessionId;
+      if (!activeSessionId) {
+        activeSessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
+        setCurrentSessionId(activeSessionId);
+      }
+      
+      const res = await aiApi.sendChatMessage(msg, historyContext, context, aiPermissions, activeSessionId);
       if (res.success) {
         const dbId = res.data?.id; // backend returns the ID of the new record
         setChatHistory(prev => {
@@ -153,18 +163,29 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
   const [aiPermissions, setAiPermissions] = useState<Permissions | null>(null);
   const [lastUserId, setLastUserId] = useState<number | null>(null);
 
-  // Initialize the AI permissions based on what the user actually has
+  // Initialize the AI permissions based on what the user actually has or DB prefs
   useEffect(() => {
     if (user) {
-      if (user.id !== lastUserId || !aiPermissions) {
+      if (user.id !== lastUserId) {
         setLastUserId(user.id);
-        setAiPermissions({ ...user.permissions });
+        if (user.ai_permissions) {
+          setAiPermissions(user.ai_permissions);
+        } else {
+          setAiPermissions({ ...user.permissions });
+        }
       }
     } else {
       setAiPermissions(null);
       setLastUserId(null);
     }
-  }, [user, aiPermissions, lastUserId]);
+  }, [user, lastUserId]);
+
+  // Persist to DB when changed
+  useEffect(() => {
+    if (user && aiPermissions && user.id === lastUserId) {
+      usersApi.updateAiPermissions(aiPermissions).catch(console.error);
+    }
+  }, [aiPermissions, user, lastUserId]);
 
   if (!canAccessAi) return null;
 
@@ -280,6 +301,7 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({ isOpen, on
                   onClick={() => {
                     // Start a new chat seeded with this entire session
                     setChatHistory(session.messages);
+                    setCurrentSessionId(session.sessionId || (Date.now().toString(36) + Math.random().toString(36).substring(2)));
                     setIsHistoryOpen(false);
                   }}
                   className="mt-3 w-full py-1.5 text-[12px] font-medium text-white bg-[#222222] hover:bg-[#333333] rounded transition-colors"

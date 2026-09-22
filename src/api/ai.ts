@@ -3,6 +3,7 @@ import { apiFetch } from './client';
 export interface AiHistoryData {
   id: number;
   user_id: number;
+  session_id?: string;
   message: string;
   response: string;
   created_at: string;
@@ -11,10 +12,10 @@ export interface AiHistoryData {
 }
 
 export const aiApi = {
-  sendChatMessage: async (message: string, history: any[] = [], context: any = {}) => {
+  sendChatMessage: async (message: string, history: any[] = [], context: any = {}, aiPermissions?: any, sessionId?: string) => {
     return apiFetch<any>(`/ai/chat`, {
       method: 'POST',
-      body: JSON.stringify({ message, history, context }),
+      body: JSON.stringify({ message, history, context, aiPermissions, sessionId }),
     });
   },
 

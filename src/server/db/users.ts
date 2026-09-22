@@ -7,10 +7,20 @@ function parseUserRow(row: any): User | null {
   if (typeof row.permissions === 'string') {
     try { perms = JSON.parse(row.permissions); } catch { perms = {}; }
   }
+  
+  let aiPerms = null;
+  if (row.ai_permissions) {
+    if (typeof row.ai_permissions === 'string') {
+      try { aiPerms = JSON.parse(row.ai_permissions); } catch { aiPerms = null; }
+    } else {
+      aiPerms = row.ai_permissions;
+    }
+  }
 
   return {
     ...row,
     permissions: perms,
+    ai_permissions: aiPerms,
     api_keys_count: row.api_keys_count ? Number(row.api_keys_count) : 0,
     has_2fa: !!row.totp_secret || !!row.has_totp,
   } as User;
@@ -80,6 +90,7 @@ export async function updateUser(
     passwordHash?: string;
     role?: Role;
     permissions?: string;
+    ai_permissions?: string;
     locked_until?: string | null;
     failed_attempts?: number;
   }
@@ -106,6 +117,10 @@ export async function updateUser(
   if (updates.permissions !== undefined) {
     fields.push('permissions = ?');
     args.push(updates.permissions);
+  }
+  if (updates.ai_permissions !== undefined) {
+    fields.push('ai_permissions = ?');
+    args.push(updates.ai_permissions);
   }
   if (updates.locked_until !== undefined) {
     fields.push('locked_until = ?');

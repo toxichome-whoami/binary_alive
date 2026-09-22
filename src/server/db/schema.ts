@@ -9,6 +9,7 @@ export async function initDatabase(): Promise<void> {
       password_hash    TEXT NOT NULL,
       role             TEXT NOT NULL DEFAULT 'member',
       permissions      TEXT DEFAULT '{}',
+      ai_permissions   TEXT,
       totp_secret      TEXT,
       api_token        TEXT,
       created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -87,6 +88,7 @@ export async function initDatabase(): Promise<void> {
     `CREATE TABLE IF NOT EXISTS ai_history (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      session_id  TEXT,
       message     TEXT NOT NULL,
       response    TEXT NOT NULL,
       created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -113,6 +115,20 @@ export async function initDatabase(): Promise<void> {
   // Migrate DB: add email column if it doesn't exist
   try {
     await db.execute('ALTER TABLE users ADD COLUMN email TEXT');
+  } catch (err: any) {
+    // Ignore if column already exists
+  }
+
+  // Migrate DB: add ai_permissions column if it doesn't exist
+  try {
+    await db.execute('ALTER TABLE users ADD COLUMN ai_permissions TEXT');
+  } catch (err: any) {
+    // Ignore if column already exists
+  }
+
+  // Migrate DB: add session_id to ai_history
+  try {
+    await db.execute('ALTER TABLE ai_history ADD COLUMN session_id TEXT');
   } catch (err: any) {
     // Ignore if column already exists
   }

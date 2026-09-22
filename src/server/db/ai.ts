@@ -3,6 +3,7 @@ import { db } from './client';
 export interface AiHistoryRecord {
   id: number;
   user_id: number;
+  session_id?: string;
   message: string;
   response: string;
   created_at: string;
@@ -10,10 +11,10 @@ export interface AiHistoryRecord {
   email?: string; // Joined from users
 }
 
-export async function addAiHistory(userId: number, message: string, response: string): Promise<number> {
+export async function addAiHistory(userId: number, message: string, response: string, sessionId?: string): Promise<number> {
   const res = await db.execute({
-    sql: `INSERT INTO ai_history (user_id, message, response) VALUES (?, ?, ?) RETURNING id`,
-    args: [userId, message, response],
+    sql: `INSERT INTO ai_history (user_id, session_id, message, response) VALUES (?, ?, ?, ?) RETURNING id`,
+    args: [userId, sessionId || null, message, response],
   });
   return res.rows[0].id as number;
 }
