@@ -61,7 +61,7 @@ All options are read from `.env` at startup via `dotenv`. The app starts without
 | `ALLOWED_IPS` | No | `""` (disabled) | Comma-separated IP allowlist. All other IPs get 403. Leave empty to disable. |
 | `TURSO_DATABASE_URL` | No | `file:local.db` | libSQL connection string. Use `file:local.db` for local SQLite or a `libsql://` URL for a remote Turso database. |
 | `TURSO_AUTH_TOKEN` | No | `""` | Required when `TURSO_DATABASE_URL` is a remote Turso URL. Leave empty for local file. |
-| `POLL_INTERVAL` | No | `3000` | How often (ms) the process list endpoint reports as the suggested client poll interval. Returned in the `poll_interval_ms` field of `GET /api/processes`. |
+
 | `AUTO_RESTART_INTERVAL_MS` | No | `30000` | How often (ms) the background cron checks process health and logs telemetry. The code warns to keep this at 30000ms in production. |
 
 ---

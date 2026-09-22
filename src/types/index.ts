@@ -125,7 +125,6 @@ export interface StatusResponse {
   success: boolean;
   data: Process[];
   sys_load: string | number;
-  poll_interval_ms?: number;
 }
 
 export interface TerminalResponse {

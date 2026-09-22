@@ -21,14 +21,12 @@ const CACHE_TTL_MS = 500;
 
 processRouter.get('/', requirePermission('processes_view'), async (c) => {
   const now = Date.now();
-  const pollIntervalMs = parseInt(process.env.POLL_INTERVAL || '1000', 10);
 
   if (statusCache && now - statusCache.timestamp < CACHE_TTL_MS) {
     return c.json({
       success: true,
       data: statusCache.data,
-      sys_load: statusCache.sys_load,
-      poll_interval_ms: pollIntervalMs
+      sys_load: statusCache.sys_load
     });
   }
 
@@ -86,8 +84,7 @@ processRouter.get('/', requirePermission('processes_view'), async (c) => {
     return c.json({
       success: true,
       data: enriched,
-      sys_load: sysLoad,
-      poll_interval_ms: pollIntervalMs
+      sys_load: sysLoad
     });
 });
 
