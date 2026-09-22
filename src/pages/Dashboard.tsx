@@ -1760,7 +1760,7 @@ export const Dashboard: React.FC = () => {
                       <td
                         role="cell"
                         style={{ width: `${columnWidths.status}px` }}
-                        className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 max-md:h-auto md:h-[40px] md:pl-3 md:pr-4 overflow-hidden"
+                        className="flex items-center max-md:justify-between  max-md:!w-full max-md:!max-w-none shrink-0 max-md:h-auto md:h-[40px] md:pl-3 md:pr-4 overflow-hidden"
                       >
                         <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Status</span>
                         <div className="flex items-center">
@@ -1778,7 +1778,7 @@ export const Dashboard: React.FC = () => {
                       <td
                         role="cell"
                         style={{ width: `${columnWidths.name}px` }}
-                        className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 max-md:h-auto md:h-[40px] md:pl-3 md:pr-4 overflow-hidden"
+                        className="flex items-center max-md:justify-between max-md:!w-full max-md:!max-w-none shrink-0 max-md:h-auto md:h-[40px] md:pl-3 md:pr-4 overflow-hidden"
                       >
                         <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Name</span>
                         <div className="flex items-center max-md:justify-end gap-1.5 min-w-0 w-full">
@@ -1799,7 +1799,7 @@ export const Dashboard: React.FC = () => {
                       </td>
 
                       {visibleColumns.pid && (
-                        <td role="cell" className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 w-[84px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:justify-between max-md:!w-full max-md:!max-w-none shrink-0 w-[84px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
                           <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">PID</span>
                           <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
                             {p.pid ? String(p.pid) : '—'}
@@ -1807,7 +1807,7 @@ export const Dashboard: React.FC = () => {
                         </td>
                       )}
                       {visibleColumns.cpu && (
-                        <td role="cell" className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 w-[84px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:justify-between max-md:!w-full max-md:!max-w-none shrink-0 w-[84px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
                           <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">CPU</span>
                           <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
                             {p.cpu !== undefined && p.cpu !== null ? (String(p.cpu).endsWith('%') ? p.cpu : `${p.cpu}%`) : '0%'}
@@ -1815,7 +1815,7 @@ export const Dashboard: React.FC = () => {
                         </td>
                       )}
                       {visibleColumns.memory && (
-                        <td role="cell" className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 w-[96px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:justify-between max-md:!w-full max-md:!max-w-none shrink-0 w-[96px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
                           <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Memory</span>
                           <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
                             {p.mem || '0 MB'}
@@ -1823,7 +1823,7 @@ export const Dashboard: React.FC = () => {
                         </td>
                       )}
                       {visibleColumns.uptime && (
-                        <td role="cell" className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 w-[120px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:justify-between max-md:!w-full max-md:!max-w-none shrink-0 w-[120px] max-md:h-auto md:h-[40px] md:px-3 overflow-hidden">
                           <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Uptime</span>
                           <span className="text-[14px] font-normal text-[#d4d4d4] tabular-nums truncate">
                             {isRunning ? p.uptime : '—'}
@@ -1834,7 +1834,7 @@ export const Dashboard: React.FC = () => {
                         <td
                           role="cell"
                           style={{ width: `${columnWidths.restarts}px` }}
-                          className="flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none shrink-0 max-md:h-auto md:h-[40px] md:pl-3 md:pr-4 overflow-hidden"
+                          className="flex items-center max-md:justify-between max-md:!w-full max-md:!max-w-none shrink-0 max-md:h-auto md:h-[40px] md:pl-3 md:pr-4 overflow-hidden"
                         >
                           <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Restarts</span>
                           <div className="flex items-center max-md:justify-end gap-1.5 w-full">{p.restart_count > 0 ? (
@@ -1851,7 +1851,7 @@ export const Dashboard: React.FC = () => {
                         </td>
                       )}
                       {visibleColumns.command && (
-                        <td role="cell" className="flex items-center max-md:flex-col max-md:items-start max-md:w-full max-md:!w-full max-md:!max-w-none max-md:gap-1 flex-1 min-w-[260px] max-md:h-auto md:h-[40px] md:pl-4 md:pr-3 overflow-hidden">
+                        <td role="cell" className="flex items-center max-md:flex-col max-md:items-start max-md:!w-full max-md:!max-w-none max-md:gap-1 flex-1 min-w-[260px] max-md:h-auto md:h-[40px] md:pl-4 md:pr-3 overflow-hidden">
                           <span className="md:hidden text-[13px] text-[#888888] font-medium mr-4 select-none shrink-0">Command</span>
                           <span className="truncate font-mono text-[13px] leading-none text-[#8c8c8c] block w-full" title={p.command}>
                             {p.command}
@@ -1862,7 +1862,7 @@ export const Dashboard: React.FC = () => {
                       {/* Actions — sticky with fade gradient, compact Edit button */}
                       <td
                         role="cell"
-                        className={`flex items-center max-md:justify-between max-md:w-full max-md:!w-full max-md:!max-w-none max-md:mt-2 max-md:pt-4 max-md:border-t max-md:border-[#1e1e1e] max-md:static max-md:px-0 justify-end shrink-0 w-[80px] md:h-[40px] md:px-3 md:sticky md:right-0 transition-colors z-[1] ${
+                        className={`flex items-center max-md:justify-between max-md:!w-full max-md:!max-w-none max-md:mt-2 max-md:pt-4 max-md:border-t max-md:border-[#1e1e1e] max-md:static max-md:px-0 justify-end shrink-0 w-[80px] md:h-[40px] md:px-3 md:sticky md:right-0 transition-colors z-[1] ${
                           isChecked ? 'bg-[#181818]' : 'bg-[#0e0e0e] group-hover/row:bg-[#161616]'
                         }`}
                       >
