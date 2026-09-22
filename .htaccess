@@ -1,0 +1,46 @@
+# ==============================================================================
+# Binary Alive - Apache / cPanel Security Configuration
+# ==============================================================================
+
+# 1. Disable Directory Browsing (Prevents hackers from seeing lists of files)
+Options -Indexes
+
+# 2. Block Access to Sensitive Files and Source Code
+# If you accidentally uploaded your entire repo instead of just 'dist/', 
+# this prevents anyone from downloading your database, passwords, or source code.
+<FilesMatch "(^\.|local\.db|\.sqlite|\.log|\.env|package\.json|tsconfig\.json|vite\.config\.ts|README\.md)">
+    Require all denied
+</FilesMatch>
+
+# Block access to backend source directories
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(src|server|node_modules|logs)/(.*)$ - [F,L]
+</IfModule>
+
+# 3. Add HTTP Security Headers (Extra layer of defense)
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set X-Frame-Options "DENY"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    # Uncomment the next line ONLY if you have an SSL/HTTPS certificate installed
+    # Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# 4. SPA Routing (React HashRouter)
+# cPanel "Setup Node.js App" uses Passenger, which automatically intercepts requests 
+# and routes them to Node.js. 
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Force HTTPS (Uncomment the 2 lines below if you want to force SSL)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Serve index.html for frontend requests (Only if the request is not an API call meant for Passenger)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !^/api/ [NC]
+    RewriteRule ^ index.html [L]
+</IfModule>
