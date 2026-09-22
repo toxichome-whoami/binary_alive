@@ -10,5 +10,4 @@ package-lock.json
 local.db
 crash.log
 database.sqlite
-log*
 NUL
