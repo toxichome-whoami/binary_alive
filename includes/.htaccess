@@ -3,10 +3,15 @@
 # This folder contains auth, security, and database logic.
 # PHP files here are only used internally via require_once.
 # No file should be directly accessible from the web.
+# Compatible with Apache 2.4 (cPanel EA4 / LiteSpeed) and 2.2.
 # ============================================================
 
 Options -Indexes
 
-# Block ALL access to every file in this folder
-Order deny,allow
-Deny from all
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>
