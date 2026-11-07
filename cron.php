@@ -23,6 +23,9 @@ if (!$lockFp || !@flock($lockFp, LOCK_EX | LOCK_NB)) {
     exit(0);
 }
 
+// Record timestamp of active cron execution for health verification
+@touch(__DIR__ . '/db/.cron_last_run');
+
 try {
     $db = new Database();
     /** @var \PDO $pdo */
