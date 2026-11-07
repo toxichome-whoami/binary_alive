@@ -54,6 +54,13 @@ try {
             }
         }
     }
+
+    // Automated database hygiene (runs ~once per hour in cron execution)
+    if (mt_rand(1, 60) === 1) {
+        $pruneDate = date('Y-m-d H:i:s', strtotime('-30 days'));
+        $pdo->prepare("DELETE FROM login_attempts WHERE timestamp < ?")->execute([$pruneDate]);
+        $pdo->exec("PRAGMA optimize;");
+    }
 } catch (Exception $e) {
     // Fail silently in cron environment
 } finally {

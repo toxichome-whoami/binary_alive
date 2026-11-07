@@ -92,6 +92,10 @@ class Database {
             $this->pdo = new PDO("sqlite:" . $this->dbPath);
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->pdo->exec("PRAGMA journal_mode = WAL;");
+            $this->pdo->exec("PRAGMA synchronous = NORMAL;");
+            $this->pdo->exec("PRAGMA cache_size = -32000;");
+            $this->pdo->exec("PRAGMA temp_store = MEMORY;");
+            $this->pdo->exec("PRAGMA busy_timeout = 5000;");
 
             if (file_exists($this->dbPath)) {
                 @chmod($this->dbPath, 0600);
@@ -166,6 +170,20 @@ class Database {
         try {
             $this->pdo->exec("ALTER TABLE audit_logs ADD COLUMN username TEXT");
         } catch (PDOException $e) {}
+
+        // High-performance query indexes
+        $indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_audit_logs_action_ts ON audit_logs (action, timestamp DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_logs_ts ON audit_logs (timestamp DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_ts ON login_attempts (ip_address, timestamp, is_successful)",
+            "CREATE INDEX IF NOT EXISTS idx_users_api_token ON users (api_token)",
+            "CREATE INDEX IF NOT EXISTS idx_processes_status_auto ON processes (status, auto_restart)"
+        ];
+        foreach ($indexes as $idx) {
+            try {
+                $this->pdo->exec($idx);
+            } catch (PDOException $e) {}
+        }
 
         // Auto-run security migration if not already done
         $this->runSecurityMigration();

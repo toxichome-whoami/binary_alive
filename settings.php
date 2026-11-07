@@ -74,11 +74,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     header("Location: " . $_SERVER['REQUEST_URI']);
                     exit;
                 }
-                $dbPath = (new Database())->getDbPath();
-                move_uploaded_file($tmpName, $dbPath);
-                @chmod($dbPath, 0600);
-                $auth->getLogger()->logAudit($_SESSION['user_id'], 'import_data', "Type: database");
-                $_SESSION['flash_message'] = '<div class="alert alert-success py-2 px-3 small">Database imported successfully.</div>';
+                $dbObj = new Database();
+                $dbPath = $dbObj->getDbPath();
+                try {
+                    $currPdo = $dbObj->getPdo();
+                    $currPdo->exec("PRAGMA wal_checkpoint(TRUNCATE);");
+                } catch (Exception $e) {}
+                $currPdo = null;
+                $dbObj = null;
+                $pdo = null;
+
+                @unlink($dbPath . '-wal');
+                @unlink($dbPath . '-shm');
+                if (@move_uploaded_file($tmpName, $dbPath) || @copy($tmpName, $dbPath)) {
+                    @chmod($dbPath, 0600);
+                    $newAuth = new Auth();
+                    $newAuth->getLogger()->logAudit($_SESSION['user_id'], 'import_data', "Type: database");
+                    $_SESSION['flash_message'] = '<div class="alert alert-success py-2 px-3 small">Database imported successfully.</div>';
+                } else {
+                    $_SESSION['flash_message'] = '<div class="alert alert-danger py-2 px-3 small">Failed to write new database file. Check directory permissions.</div>';
+                }
+                header("Location: " . $_SERVER['REQUEST_URI']);
+                exit;
             } else {
                 $_SESSION['flash_message'] = '<div class="alert alert-danger py-2 px-3 small">Invalid file type. Only .json or .sqlite allowed.</div>';
             }

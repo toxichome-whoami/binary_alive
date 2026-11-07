@@ -18,6 +18,13 @@ require_once dirname(__DIR__) . '/includes/ProcessManager.php';
 require_once dirname(__DIR__) . '/includes/security.php';
 require_once dirname(__DIR__) . '/includes/totp_helper.php';
 
+// Automatically clean up all ephemeral test SQLite databases on test suite completion
+register_shutdown_function(function() {
+    foreach (glob(__DIR__ . '/temp_*.sqlite*') as $f) {
+        @unlink($f);
+    }
+});
+
 // =============================================================================
 // Zero-Dependency Test Runner Engine
 // =============================================================================
@@ -173,6 +180,13 @@ function runDatabaseTest(): void {
         TestRunner::assertContains('audit_logs', $tables, "Table 'audit_logs' exists");
         TestRunner::assertContains('login_attempts', $tables, "Table 'login_attempts' exists");
 
+        // Verify performance indexes exist
+        $indexes = $pdo->query("SELECT name FROM sqlite_master WHERE type='index';")->fetchAll(PDO::FETCH_COLUMN);
+        TestRunner::assertContains('idx_audit_logs_action_ts', $indexes, "Performance index 'idx_audit_logs_action_ts' exists");
+        TestRunner::assertContains('idx_login_attempts_ip_ts', $indexes, "Performance index 'idx_login_attempts_ip_ts' exists");
+        TestRunner::assertContains('idx_users_api_token', $indexes, "Performance index 'idx_users_api_token' exists");
+        TestRunner::assertContains('idx_processes_status_auto', $indexes, "Performance index 'idx_processes_status_auto' exists");
+
         // Test process insertion
         $insert = $pdo->prepare("INSERT INTO processes (name, group_name, command, working_dir, auto_restart, status) VALUES (?, ?, ?, ?, ?, ?)");
         $res = $insert->execute(['unit_test_proc', 'TestGroup', 'echo test', '/tmp', 1, 'running']);
@@ -206,6 +220,9 @@ function runDatabaseTest(): void {
         TestRunner::assertFalse((bool)$deleted, "Deleted process is no longer in database");
 
     } finally {
+        $pdo = null;
+        $db = null;
+        if (function_exists('gc_collect_cycles')) gc_collect_cycles();
         @unlink($tempDbPath);
         @unlink($tempDbPath . '-wal');
         @unlink($tempDbPath . '-shm');
@@ -409,6 +426,9 @@ function runAutoRestartTest(): void {
         TestRunner::assertFalse($restarted3, "Auto-restart correctly skipped when auto_restart is disabled");
 
     } finally {
+        $pdo = null;
+        $db = null;
+        if (function_exists('gc_collect_cycles')) gc_collect_cycles();
         @unlink($tempDbPath);
         @unlink($tempDbPath . '-wal');
         @unlink($tempDbPath . '-shm');
@@ -614,6 +634,9 @@ function runApiTest(): void {
         TestRunner::assertFalse((bool)$checkDeleted, "API delete_process logic successfully removed record");
 
     } finally {
+        $pdo = null;
+        $db = null;
+        if (function_exists('gc_collect_cycles')) gc_collect_cycles();
         @unlink($tempDbPath);
         @unlink($tempDbPath . '-wal');
         @unlink($tempDbPath . '-shm');
