@@ -34,6 +34,11 @@ try {
     // Preload batch metrics in 1 call
     ProcessManager::preloadBatchMetrics();
 
+    // Auto-revive background supervisor daemon if host/CloudLinux terminated it
+    if (!empty($processes) && !ProcessManager::isDaemonRunning()) {
+        ProcessManager::startDaemon();
+    }
+
     foreach ($processes as $process) {
         $pid = ProcessManager::isRunning($process);
 
