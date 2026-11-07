@@ -403,7 +403,14 @@ class ProcessManager {
             fclose($pipes[1]);
             proc_close($proc);
             $cleanPid = (int)$pid;
-            return $cleanPid > 0 ? $cleanPid : false;
+            if ($cleanPid > 0) return $cleanPid;
+        }
+
+        // Fallback for cPanel shared hosts where proc_open is disabled in disable_functions
+        if (function_exists('shell_exec')) {
+            $pid = @shell_exec("cd " . escapeshellarg($dir) . " && $fullCmd");
+            $cleanPid = (int)trim((string)$pid);
+            if ($cleanPid > 0) return $cleanPid;
         }
 
         return false;

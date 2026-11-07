@@ -49,8 +49,10 @@ try {
             if ($newPid) {
                 $stmt = $pdo->prepare("UPDATE processes SET pid = ?, status = 'running', last_restart = CURRENT_TIMESTAMP, restart_count = COALESCE(restart_count, 0) + 1 WHERE id = ?");
                 $stmt->execute([$newPid, $process['id']]);
+                @file_put_contents(__DIR__ . '/db/.cron.log', '[' . date('Y-m-d H:i:s') . "] Process '{$process['name']}' revived with PID $newPid\n", FILE_APPEND);
             } else {
                 $pdo->prepare("UPDATE processes SET pid = NULL, status = 'crashed' WHERE id = ?")->execute([$process['id']]);
+                @file_put_contents(__DIR__ . '/db/.cron.log', '[' . date('Y-m-d H:i:s') . "] Failed to revive process '{$process['name']}'\n", FILE_APPEND);
             }
         } else {
             // Update PID if it changed out of band
@@ -66,8 +68,8 @@ try {
         $pdo->prepare("DELETE FROM login_attempts WHERE timestamp < ?")->execute([$pruneDate]);
         $pdo->exec("PRAGMA optimize;");
     }
-} catch (Exception $e) {
-    // Fail silently in cron environment
+} catch (Throwable $e) {
+    @file_put_contents(__DIR__ . '/db/.cron_error.log', '[' . date('Y-m-d H:i:s') . '] Cron error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n", FILE_APPEND);
 } finally {
     if ($lockFp) {
         @flock($lockFp, LOCK_UN);
