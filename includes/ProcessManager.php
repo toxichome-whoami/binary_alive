@@ -74,13 +74,18 @@ class ProcessManager {
         $workDir = realpath(__DIR__ . '/..');
 
         if (self::isWindows()) {
-            $psCmd = "Start-Process -FilePath " . escapeshellarg($phpBin) . " -ArgumentList " . escapeshellarg($daemonScript) . " -WorkingDirectory " . escapeshellarg($workDir) . " -WindowStyle Hidden";
-            @shell_exec("powershell -NoProfile -ExecutionPolicy Bypass -Command \"$psCmd\"");
+            $cmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Start-Process ' . escapeshellarg($phpBin) . ' -ArgumentList ' . escapeshellarg($daemonScript) . ' -WorkingDirectory ' . escapeshellarg($workDir) . '"';
+            @shell_exec($cmd);
         } else {
             @shell_exec("nohup " . escapeshellarg($phpBin) . " " . escapeshellarg($daemonScript) . " > /dev/null 2>&1 &");
         }
 
-        usleep(400000);
+        for ($i = 0; $i < 6; $i++) {
+            usleep(250000);
+            if (self::isDaemonRunning()) {
+                return true;
+            }
+        }
         return self::isDaemonRunning();
     }
 

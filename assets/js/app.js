@@ -60,24 +60,20 @@ const App = (function() {
         const processList = document.getElementById('process-list');
         if (!processList) return;
 
-        startPolling();
-
-        // Pause polling when tab is hidden to save cPanel server resources
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                stopPolling();
-            } else {
-                fetchStatus();
-                startPolling();
-            }
-        });
+        // Fetch once on page load
+        fetchStatus();
 
         // Manual refresh button
-        const refreshBtn = document.getElementById('refresh-btn');
+        const refreshBtn = document.getElementById('manual-refresh-btn');
         if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => {
-                fetchStatus();
-                showToast('Refreshed status', 'info');
+            refreshBtn.addEventListener('click', async () => {
+                const icon = document.getElementById('refresh-icon');
+                if (icon) icon.classList.add('spin-animation');
+                await fetchStatus();
+                if (icon) {
+                    setTimeout(() => icon.classList.remove('spin-animation'), 500);
+                }
+                showToast('Status refreshed', 'info');
             });
         }
 

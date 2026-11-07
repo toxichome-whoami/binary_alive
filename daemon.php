@@ -12,13 +12,24 @@
  *   php daemon.php --status   (Check daemon status)
  */
 
+@set_time_limit(0);
+@ignore_user_abort(true);
+
 require_once __DIR__ . '/includes/database.php';
 require_once __DIR__ . '/includes/ProcessManager.php';
+
+// Log fatal errors to file for debugging background daemon crashes
+register_shutdown_function(function() {
+    $err = error_get_last();
+    if ($err) {
+        @file_put_contents(__DIR__ . '/db/.daemon_error.log', '[' . date('Y-m-d H:i:s') . "] Fatal: {$err['message']} in {$err['file']}:{$err['line']}\n", FILE_APPEND);
+    }
+});
 
 $pidFile = __DIR__ . '/db/.daemon.pid';
 $lockFile = __DIR__ . '/db/.daemon.lock';
 
-$arg = $argv[1] ?? '';
+$arg = (isset($argv) && is_array($argv)) ? ($argv[1] ?? '') : '';
 
 // 1. Status check
 if ($arg === '--status') {
@@ -55,24 +66,14 @@ if ($arg === '--start') {
         exit(0);
     }
 
-    $phpBin = PHP_BINARY;
-    $script = __FILE__;
-
-    if (ProcessManager::isWindows()) {
-        $psCmd = "Start-Process -FilePath " . escapeshellarg($phpBin) . " -ArgumentList " . escapeshellarg($script) . " -WorkingDirectory " . escapeshellarg(__DIR__) . " -WindowStyle Hidden";
-        @shell_exec("powershell -NoProfile -ExecutionPolicy Bypass -Command \"$psCmd\"");
-    } else {
-        @shell_exec("nohup " . escapeshellarg($phpBin) . " " . escapeshellarg($script) . " > /dev/null 2>&1 &");
-    }
-
-    sleep(1);
-    if (ProcessManager::isDaemonRunning()) {
+    $started = ProcessManager::startDaemon();
+    if ($started) {
         $pid = trim((string)@file_get_contents($pidFile));
         echo "Binary Alive daemon started successfully (PID: $pid)." . PHP_EOL;
         exit(0);
     } else {
-        echo "Started Binary Alive daemon." . PHP_EOL;
-        exit(0);
+        echo "Failed to start Binary Alive daemon." . PHP_EOL;
+        exit(1);
     }
 }
 
@@ -82,6 +83,13 @@ $lockFp = @fopen($lockFile, 'c');
 if (!$lockFp || !@flock($lockFp, LOCK_EX | LOCK_NB)) {
     echo "Another daemon instance is already active." . PHP_EOL;
     exit(1);
+}
+
+function daemon_log(string $msg): void {
+    if (PHP_SAPI === 'cli' && defined('STDOUT')) {
+        @fwrite(STDOUT, $msg . PHP_EOL);
+    }
+    @file_put_contents(__DIR__ . '/db/.daemon.log', '[' . date('Y-m-d H:i:s') . '] ' . $msg . PHP_EOL, FILE_APPEND);
 }
 
 // Write PID
@@ -96,13 +104,13 @@ register_shutdown_function(function() use ($pidFile, $lockFp) {
     @unlink($pidFile);
 });
 
-echo "Binary Alive native supervisor daemon started (PID: " . getmypid() . ")." . PHP_EOL;
+daemon_log("Binary Alive native supervisor daemon started (PID: " . getmypid() . ").");
 
 try {
     $db = new Database();
     $pdo = $db->getPdo();
 } catch (Exception $e) {
-    echo "Failed to connect to database: " . $e->getMessage() . PHP_EOL;
+    daemon_log("Failed to connect to database: " . $e->getMessage());
     exit(1);
 }
 
@@ -122,10 +130,10 @@ while (true) {
                 if ($newPid) {
                     $update = $pdo->prepare("UPDATE processes SET pid = ?, status = 'running', last_restart = CURRENT_TIMESTAMP, restart_count = COALESCE(restart_count, 0) + 1 WHERE id = ?");
                     $update->execute([$newPid, $process['id']]);
-                    echo "[" . date('Y-m-d H:i:s') . "] Process '{$process['name']}' revived with PID $newPid" . PHP_EOL;
+                    daemon_log("Process '{$process['name']}' revived with PID $newPid");
                 } else {
                     $pdo->prepare("UPDATE processes SET pid = NULL, status = 'crashed' WHERE id = ?")->execute([$process['id']]);
-                    echo "[" . date('Y-m-d H:i:s') . "] Process '{$process['name']}' failed to start." . PHP_EOL;
+                    daemon_log("Process '{$process['name']}' failed to start.");
                 }
             } else {
                 // Ensure PID in DB matches actual PID
@@ -134,8 +142,8 @@ while (true) {
                 }
             }
         }
-    } catch (Exception $e) {
-        // Recover from transient DB errors
+    } catch (Throwable $e) {
+        daemon_log("Loop error: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
     }
 
     sleep(2);

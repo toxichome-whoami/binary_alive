@@ -620,6 +620,17 @@ a:hover {
 .ansi-c96 { color: #7dd3fc; }
 .ansi-c97 { color: #ffffff; }
 
+/* Spin Animation for Refresh Button */
+.spin-animation {
+    display: inline-block;
+    animation: clean-spin 0.5s ease-in-out;
+}
+
+@keyframes clean-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 /* Toast Notification */
 .clean-toast-container {
     position: fixed;

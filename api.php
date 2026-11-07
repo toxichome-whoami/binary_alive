@@ -88,6 +88,19 @@ if ($action === 'status') {
     $sys = ProcessManager::getSystemMetrics();
     $daemonActive = ProcessManager::isDaemonRunning();
 
+    // Ensure background supervisor daemon is active if there are running or auto-restart processes
+    $needsSupervisor = false;
+    foreach ($processes as $p) {
+        if (!empty($p['auto_restart']) || $p['status'] === 'running') {
+            $needsSupervisor = true;
+            break;
+        }
+    }
+    if ($needsSupervisor && !$daemonActive) {
+        ProcessManager::startDaemon();
+        $daemonActive = ProcessManager::isDaemonRunning();
+    }
+
     echo json_encode([
         'success' => true,
         'data' => $processes,
@@ -127,6 +140,9 @@ if ($action === 'control') {
             $pid = ProcessManager::startProcess($process);
             if ($pid) {
                 $pdo->prepare("UPDATE processes SET pid = ?, status = 'running' WHERE id = ?")->execute([$pid, $process['id']]);
+                if (!ProcessManager::isDaemonRunning()) {
+                    ProcessManager::startDaemon();
+                }
             }
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'process_start', "Process: {$process['name']}");
             $results[$process['id']] = ['success' => (bool)$pid, 'pid' => $pid];
@@ -147,6 +163,9 @@ if ($action === 'control') {
             $newPid = ProcessManager::startProcess($process);
             if ($newPid) {
                 $pdo->prepare("UPDATE processes SET pid = ?, status = 'running', last_restart = CURRENT_TIMESTAMP, restart_count = COALESCE(restart_count, 0) + 1 WHERE id = ?")->execute([$newPid, $process['id']]);
+                if (!ProcessManager::isDaemonRunning()) {
+                    ProcessManager::startDaemon();
+                }
             }
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'process_restart', "Process: {$process['name']}");
             $results[$process['id']] = ['success' => (bool)$newPid, 'pid' => $newPid];
@@ -191,6 +210,9 @@ if ($action === 'add_process') {
     try {
         $stmt = $pdo->prepare("INSERT INTO processes (name, group_name, command, working_dir, log_file, auto_restart) VALUES (?, ?, ?, ?, ?, ?)");
         $stmt->execute([$name, $group, $command, $dir, $log, $autoRestart]);
+        if ($autoRestart == 1 && !ProcessManager::isDaemonRunning()) {
+            ProcessManager::startDaemon();
+        }
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'add_process', "Added process: $name");
         echo json_encode(['success' => true, 'message' => 'Process added successfully']);
     } catch (PDOException $e) {
@@ -231,6 +253,9 @@ if ($action === 'edit_process') {
     try {
         $stmt = $pdo->prepare("UPDATE processes SET name = ?, group_name = ?, command = ?, working_dir = ?, log_file = ?, auto_restart = ? WHERE id = ?");
         $stmt->execute([$name, $group, $command, $dir, $log, $autoRestart, $id]);
+        if ($autoRestart == 1 && !ProcessManager::isDaemonRunning()) {
+            ProcessManager::startDaemon();
+        }
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_process', "Edited process ID: $id");
         echo json_encode(['success' => true, 'message' => 'Process updated successfully']);
     } catch (PDOException $e) {
