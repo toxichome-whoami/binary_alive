@@ -369,9 +369,27 @@ class ProcessManager {
         }
 
         // Linux Execution
-        $sanitizedCmd = escapeshellcmd($cmd);
+        $cleanDir = rtrim($dir, "/");
+        $parts = explode(' ', trim($cmd), 2);
+        $binPart = $parts[0];
+        $argsPart = $parts[1] ?? '';
+
+        // Auto-resolve relative binary path in working directory and ensure execute permissions (chmod 0755)
+        if (strpos($binPart, '/') === false) {
+            $localCandidate = $cleanDir . '/' . $binPart;
+            if (file_exists($localCandidate)) {
+                if (!is_executable($localCandidate)) {
+                    @chmod($localCandidate, 0755);
+                }
+                $binPart = './' . $binPart;
+            }
+        } elseif (file_exists($binPart) && !is_executable($binPart)) {
+            @chmod($binPart, 0755);
+        }
+
+        $execCmd = $binPart . ($argsPart !== '' ? ' ' . $argsPart : '');
         $logTarget = !empty($log) ? $log : '/dev/null';
-        $fullCmd = "nohup $sanitizedCmd > " . escapeshellarg($logTarget) . " 2>&1 & echo $!";
+        $fullCmd = "nohup $execCmd > " . escapeshellarg($logTarget) . " 2>&1 & echo $!";
 
         $descriptorspec = [
             0 => ["file", "/dev/null", "r"],
