@@ -214,6 +214,27 @@ a:hover {
     font-family: var(--font-mono);
 }
 
+.metric-card #stat-mem {
+    font-size: 1.15rem;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .metric-ribbon {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+    }
+    .metric-card {
+        padding: 0.75rem 1rem;
+    }
+    .metric-card .metric-val {
+        font-size: 1.25rem;
+    }
+    .metric-card #stat-mem {
+        font-size: 0.95rem;
+    }
+}
+
 .metric-card.online .metric-val { color: var(--status-online); }
 .metric-card.offline .metric-val { color: var(--status-offline); }
 .metric-card.warning .metric-val { color: var(--status-warning); }

@@ -64,10 +64,10 @@ const App = (function() {
         fetchStatus();
 
         // Manual refresh button
-        const refreshBtn = document.getElementById('manual-refresh-btn');
+        const refreshBtn = document.getElementById('refresh-btn') || document.getElementById('manual-refresh-btn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', async () => {
-                const icon = document.getElementById('refresh-icon');
+                const icon = document.getElementById('refresh-icon') || refreshBtn.querySelector('i');
                 if (icon) icon.classList.add('spin-animation');
                 await fetchStatus();
                 if (icon) {
@@ -202,8 +202,8 @@ const App = (function() {
         if (elTotal) elTotal.textContent = processes.length;
         if (elRunning) elRunning.textContent = runningCount;
         if (elStopped) elStopped.textContent = stoppedCount;
-        if (elLoad) elLoad.textContent = sysLoad || '---';
-        if (elMem && sysMem) elMem.textContent = sysMem;
+        if (elLoad) elLoad.textContent = (sysLoad !== undefined && sysLoad !== null && sysLoad !== '') ? sysLoad : '---';
+        if (elMem) elMem.textContent = (sysMem !== undefined && sysMem !== null && sysMem !== '') ? sysMem : '---';
         if (elSupervisor) {
             if (daemonActive) {
                 elSupervisor.innerHTML = '<span class="text-success">Daemon Active</span>';

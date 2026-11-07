@@ -48,9 +48,6 @@ require_once __DIR__ . '/components/navbar.php';
             </div>
 
             <div class="d-flex flex-wrap align-items-center gap-2">
-                <button id="manual-refresh-btn" class="btn-clean btn-clean-sm" type="button" title="Refresh metrics and process status">
-                    <i class="bi bi-arrow-clockwise" id="refresh-icon"></i> Refresh
-                </button>
                 <?php if ($auth->hasRole(['admin'])): ?>
                     <button class="btn-clean btn-clean-primary" type="button" data-bs-toggle="modal" data-bs-target="#addProcessModal">
                         <i class="bi bi-plus-lg"></i> Add Process
@@ -71,8 +68,8 @@ require_once __DIR__ . '/components/navbar.php';
                     </div>
                 <?php endif; ?>
 
-                <button id="refresh-btn" class="btn-clean btn-clean-sm" type="button" title="Refresh list">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                <button id="refresh-btn" class="btn-clean btn-clean-sm" type="button" title="Refresh list and system metrics">
+                    <i class="bi bi-arrow-clockwise" id="refresh-icon"></i> Refresh
                 </button>
             </div>
         </div>

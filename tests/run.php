@@ -279,6 +279,8 @@ function runProcessManagerTest(): void {
     $sys = ProcessManager::getSystemMetrics();
     TestRunner::assertTrue(isset($sys['load']), "System load key present in metrics");
     TestRunner::assertTrue(isset($sys['mem_usage']), "System memory usage key present in metrics");
+    TestRunner::assertTrue($sys['load'] !== '---', "System load actively measured: " . $sys['load']);
+    TestRunner::assertTrue($sys['mem_usage'] !== '---', "System memory usage actively measured: " . $sys['mem_usage']);
 
     // 3. Spawning a monitored background process
     if ($isWin) {

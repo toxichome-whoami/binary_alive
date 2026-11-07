@@ -408,6 +408,7 @@ class ProcessManager {
 
     /**
      * Get system-wide load average and memory stats.
+     * Fully cross-platform: Linux /proc & sys_getloadavg, Windows CIM/PowerShell with fast temp caching.
      *
      * @return array{load: string, mem_usage: string}
      */
@@ -440,6 +441,35 @@ class ProcessManager {
                     $usedMb = round(((int)$totalMatch[1] - (int)$availMatch[1]) / 1024);
                     $memUsage = "{$usedMb} / {$totalMb} MB";
                 }
+            }
+        }
+
+        // Windows fallback for CPU load and Host RAM
+        if (self::isWindows() && ($sysLoad === '---' || $memUsage === '---')) {
+            $cacheFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'binary_alive_sysmetrics.json';
+            if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 4)) {
+                $cached = @json_decode(@file_get_contents($cacheFile), true);
+                if (is_array($cached) && isset($cached['load'], $cached['mem_usage'])) {
+                    return $cached;
+                }
+            }
+
+            $ps = '$os = Get-CimInstance Win32_OperatingSystem; $cpu = (Get-CimInstance Win32_Processor).LoadPercentage; "$cpu," + [math]::Round(($os.TotalVisibleMemorySize-$os.FreePhysicalMemory)/1024) + "," + [math]::Round($os.TotalVisibleMemorySize/1024)';
+            $b64 = base64_encode(iconv('UTF-8', 'UTF-16LE', $ps));
+            $out = @shell_exec("powershell -NoProfile -NonInteractive -EncodedCommand {$b64} 2>nul");
+            if ($out && preg_match('/^(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/', trim($out), $m)) {
+                if ($sysLoad === '---') {
+                    $sysLoad = (string)round((float)$m[1] / 100, 2);
+                }
+                if ($memUsage === '---') {
+                    $memUsage = "{$m[2]} / {$m[3]} MB";
+                }
+                $result = [
+                    'load' => (string)$sysLoad,
+                    'mem_usage' => $memUsage
+                ];
+                @file_put_contents($cacheFile, json_encode($result), LOCK_EX);
+                return $result;
             }
         }
 
