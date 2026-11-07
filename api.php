@@ -368,6 +368,126 @@ if ($action === 'terminal') {
         exit;
     }
 
+    // Intercept native process supervisor commands (stop, start, restart)
+    if (preg_match('/^(?:binary-alive\s+)?(stop|start|restart)\s+([a-zA-Z0-9_\-\.]+)/i', $cmd, $procMatch)) {
+        $actionType = strtolower($procMatch[1]);
+        $targetProcName = trim($procMatch[2]);
+
+        $pStmt = $pdo->prepare("SELECT * FROM processes WHERE name = ?");
+        $pStmt->execute([$targetProcName]);
+        $targetProc = $pStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($targetProc) {
+            if ($actionType === 'stop') {
+                $pPid = ProcessManager::isRunning($targetProc);
+                if ($pPid) {
+                    ProcessManager::stopProcess($pPid);
+                }
+                $pdo->prepare("UPDATE processes SET pid = NULL, status = 'stopped' WHERE id = ?")->execute([$targetProc['id']]);
+                $auth->getLogger()->logAudit($_SESSION['user_id'], 'terminal_process_stop', "Stopped {$targetProc['name']}");
+                echo json_encode([
+                    'success' => true,
+                    'output' => "[Binary Alive] Process '{$targetProc['name']}' has been stopped. Auto-restart disabled.\n",
+                    'exit_code' => 0,
+                    'timed_out' => false,
+                    'cwd' => $cwd,
+                    'shell' => $activeShell
+                ]);
+                exit;
+            } elseif ($actionType === 'start') {
+                $newPid = ProcessManager::startProcess($targetProc);
+                if ($newPid) {
+                    $pdo->prepare("UPDATE processes SET pid = ?, status = 'running' WHERE id = ?")->execute([$newPid, $targetProc['id']]);
+                    if (!ProcessManager::isDaemonRunning()) {
+                        ProcessManager::startDaemon();
+                    }
+                    echo json_encode([
+                        'success' => true,
+                        'output' => "[Binary Alive] Process '{$targetProc['name']}' started with PID $newPid.\n",
+                        'exit_code' => 0,
+                        'timed_out' => false,
+                        'cwd' => $cwd,
+                        'shell' => $activeShell
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => true,
+                        'output' => "[Binary Alive] Failed to start '{$targetProc['name']}'. Check binary command and path.\n",
+                        'exit_code' => 1,
+                        'timed_out' => false,
+                        'cwd' => $cwd,
+                        'shell' => $activeShell
+                    ]);
+                }
+                exit;
+            } elseif ($actionType === 'restart') {
+                $pPid = ProcessManager::isRunning($targetProc);
+                if ($pPid) ProcessManager::stopProcess($pPid);
+                $newPid = ProcessManager::startProcess($targetProc);
+                if ($newPid) {
+                    $pdo->prepare("UPDATE processes SET pid = ?, status = 'running', last_restart = CURRENT_TIMESTAMP, restart_count = COALESCE(restart_count, 0) + 1 WHERE id = ?")->execute([$newPid, $targetProc['id']]);
+                    echo json_encode([
+                        'success' => true,
+                        'output' => "[Binary Alive] Process '{$targetProc['name']}' restarted with PID $newPid.\n",
+                        'exit_code' => 0,
+                        'timed_out' => false,
+                        'cwd' => $cwd,
+                        'shell' => $activeShell
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => true,
+                        'output' => "[Binary Alive] Failed to restart '{$targetProc['name']}'.\n",
+                        'exit_code' => 1,
+                        'timed_out' => false,
+                        'cwd' => $cwd,
+                        'shell' => $activeShell
+                    ]);
+                }
+                exit;
+            }
+        }
+    }
+
+    // Intercept daemon supervisor commands (daemon stop, daemon start, daemon status)
+    if (preg_match('/^(?:binary-alive\s+)?daemon\s+(stop|start|status)/i', $cmd, $daemonMatch)) {
+        $daemonAction = strtolower($daemonMatch[1]);
+        if ($daemonAction === 'stop') {
+            ProcessManager::stopDaemon();
+            echo json_encode([
+                'success' => true,
+                'output' => "[Binary Alive] Supervisor daemon stopped successfully.\n",
+                'exit_code' => 0,
+                'timed_out' => false,
+                'cwd' => $cwd,
+                'shell' => $activeShell
+            ]);
+            exit;
+        } elseif ($daemonAction === 'start') {
+            $started = ProcessManager::startDaemon();
+            echo json_encode([
+                'success' => true,
+                'output' => $started ? "[Binary Alive] Supervisor daemon active.\n" : "[Binary Alive] Failed to start daemon.\n",
+                'exit_code' => $started ? 0 : 1,
+                'timed_out' => false,
+                'cwd' => $cwd,
+                'shell' => $activeShell
+            ]);
+            exit;
+        } elseif ($daemonAction === 'status') {
+            $isRunning = ProcessManager::isDaemonRunning();
+            echo json_encode([
+                'success' => true,
+                'output' => $isRunning ? "[Binary Alive] Supervisor daemon is active.\n" : "[Binary Alive] Supervisor daemon is stopped.\n",
+                'exit_code' => 0,
+                'timed_out' => false,
+                'cwd' => $cwd,
+                'shell' => $activeShell
+            ]);
+            exit;
+        }
+    }
+
     // Intercept Windows Shell switching (powershell / power / pwsh / cmd)
     if (PHP_OS_FAMILY === 'Windows') {
         if (in_array(strtolower($cmd), ['powershell', 'power', 'pwsh'], true)) {

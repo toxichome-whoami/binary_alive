@@ -103,6 +103,24 @@ class ProcessManager {
             }
             @unlink($pidFile);
         }
+
+        // Clean up any detached or orphaned daemon supervisor instances
+        if (self::isWindows()) {
+            $currentPid = getmypid();
+            $ps = '(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*daemon.php*" -and $_.ProcessId -ne ' . $currentPid . ' }).ProcessId';
+            $out = @shell_exec("powershell -NoProfile -Command \"$ps\" 2>nul");
+            if ($out) {
+                foreach (preg_split('/\s+/', trim($out)) as $p) {
+                    $pInt = (int)$p;
+                    if ($pInt > 0) {
+                        @shell_exec("taskkill /F /T /PID $pInt 2>nul");
+                    }
+                }
+            }
+        } else {
+            @shell_exec("pkill -9 -f daemon.php 2>/dev/null");
+        }
+
         return true;
     }
 
