@@ -118,17 +118,6 @@ require_once __DIR__ . '/components/navbar.php';
 
         <!-- Terminal Stream Canvas -->
         <div class="terminal-screen" id="terminal-screen">
-            <div class="terminal-banner">
-                <div><strong>Binary Alive Native Terminal [Version 1.0.5]</strong></div>
-                <div>Server: <?= htmlspecialchars(PHP_OS . ' | PHP ' . phpversion() . ' | ' . ($isWindows ? 'Windows Console Engine' : 'Linux Shell Engine')) ?></div>
-                <div class="mt-1 text-muted">
-                    Quick Commands: <span class="text-info">help</span> &bull; <span class="text-info">clear</span> &bull; <span class="text-info">processes</span> &bull; <span class="text-info">system</span>
-                    <?php if ($isWindows): ?>
-                        &bull; Type <span class="text-info">power</span> or <span class="text-info">powershell</span> to switch to PowerShell &bull; <span class="text-info">cmd</span> for CMD.
-                    <?php endif; ?>
-                </div>
-            </div>
-
             <!-- Log buffer container -->
             <div id="terminal-log"></div>
 
