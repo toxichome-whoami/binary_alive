@@ -442,13 +442,13 @@ function runDaemonTest(): void {
     }
 
     // 3. Test non-blocking file locking mechanism
-    $lockFile = dirname(__DIR__) . '/db/.daemon.lock';
-    $fp1 = @fopen($lockFile, 'c');
+    $testLockFile = dirname(__DIR__) . '/db/.test_daemon.lock';
+    $fp1 = @fopen($testLockFile, 'c');
     $locked1 = ($fp1 && @flock($fp1, LOCK_EX | LOCK_NB));
     TestRunner::assertTrue((bool)$locked1, "Acquired primary non-blocking lock on daemon lockfile");
 
     // Attempt second concurrent lock
-    $fp2 = @fopen($lockFile, 'c');
+    $fp2 = @fopen($testLockFile, 'c');
     $locked2 = ($fp2 && @flock($fp2, LOCK_EX | LOCK_NB));
     TestRunner::assertFalse((bool)$locked2, "Secondary concurrent lock is properly rejected (prevents duplicate daemons)");
 
@@ -459,6 +459,7 @@ function runDaemonTest(): void {
         @flock($fp1, LOCK_UN);
         @fclose($fp1);
     }
+    @unlink($testLockFile);
 }
 
 function runCronTest(): void {

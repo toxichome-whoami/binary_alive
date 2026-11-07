@@ -67,73 +67,35 @@ require_once __DIR__ . '/components/navbar.php';
 ?>
 
 <div class="container-fluid py-4 px-md-4">
-    <div class="terminal-card">
-        <!-- Terminal Top Chrome / Window Controls -->
-        <div class="terminal-chrome">
-            <div class="d-flex align-items-center gap-3">
-                <div class="terminal-dots" title="Terminal Window">
-                    <span class="terminal-dot terminal-dot-red"></span>
-                    <span class="terminal-dot terminal-dot-yellow"></span>
-                    <span class="terminal-dot terminal-dot-green"></span>
-                </div>
-
-                <!-- Shell Selector -->
-                <div class="dropdown">
-                    <button class="terminal-shell-badge dropdown-toggle" type="button" id="shellDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-terminal-fill text-muted"></i>
-                        <span id="active-shell-label"><?= $isWindows ? ($activeShell === 'powershell' ? 'PowerShell' : 'Command Prompt (CMD)') : ($activeShell === 'sh' ? 'POSIX Sh' : 'Bash') ?></span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="shellDropdownBtn" style="border: 1px solid var(--border); box-shadow: none !important;">
-                        <?php if ($isWindows): ?>
-                            <li><a class="dropdown-item shell-option <?= $activeShell === 'cmd' ? 'active' : '' ?>" href="#" data-shell="cmd"><i class="bi bi-terminal me-2"></i>Command Prompt (CMD)</a></li>
-                            <li><a class="dropdown-item shell-option <?= $activeShell === 'powershell' ? 'active' : '' ?>" href="#" data-shell="powershell"><i class="bi bi-lightning-charge me-2"></i>Windows PowerShell</a></li>
-                        <?php else: ?>
-                            <li><a class="dropdown-item shell-option <?= $activeShell === 'bash' ? 'active' : '' ?>" href="#" data-shell="bash"><i class="bi bi-terminal me-2"></i>GNU Bash</a></li>
-                            <li><a class="dropdown-item shell-option <?= $activeShell === 'sh' ? 'active' : '' ?>" href="#" data-shell="sh"><i class="bi bi-terminal me-2"></i>POSIX Sh</a></li>
-                        <?php endif; ?>
-                    </ul>
-                </div>
-
-                <!-- Working Directory Badge -->
-                <div class="terminal-cwd-badge d-none d-md-block" id="chrome-cwd" title="<?= htmlspecialchars($currentCwd) ?>">
-                    <i class="bi bi-folder2-open me-1"></i><span id="cwd-display"><?= htmlspecialchars($currentCwd) ?></span>
-                </div>
+    <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-terminal text-muted"></i>
+                <span>Server Terminal</span>
             </div>
-
-            <!-- Quick Action Tools -->
-            <div class="terminal-quick-tools">
-                <button id="quick-help-btn" class="btn-clean btn-clean-sm" type="button" title="Show Help Menu">
-                    <i class="bi bi-question-circle"></i> Help
-                </button>
-                <button id="quick-clear-btn" class="btn-clean btn-clean-sm" type="button" title="Clear Screen (Ctrl+L)">
-                    <i class="bi bi-slash-circle"></i> Clear
-                </button>
-                <button id="quick-copy-btn" class="btn-clean btn-clean-sm" type="button" title="Copy Output to Clipboard">
-                    <i class="bi bi-clipboard"></i> Copy
-                </button>
-                <button id="quick-abort-btn" class="btn-clean btn-clean-sm text-danger" type="button" title="Cancel Input (Ctrl+C)">
-                    <i class="bi bi-x-circle"></i> Interrupt
-                </button>
-            </div>
+            <button id="quick-clear-btn" class="btn-clean btn-clean-sm" type="button" title="Clear Screen (Ctrl+L)">
+                <i class="bi bi-trash"></i> Clear
+            </button>
         </div>
+        <div class="card-body p-0">
+            <!-- Terminal Stream Canvas -->
+            <div class="terminal-screen" id="terminal-screen">
+                <!-- Log buffer container -->
+                <div id="terminal-log"></div>
 
-        <!-- Terminal Stream Canvas -->
-        <div class="terminal-screen" id="terminal-screen">
-            <!-- Log buffer container -->
-            <div id="terminal-log"></div>
+                <!-- Active interactive prompt line at the bottom of the buffer -->
+                <div class="terminal-input-line" id="terminal-active-line">
+                    <span class="terminal-prompt-badge" id="terminal-prompt-badge"></span>
+                    <span class="terminal-text-buffer" id="terminal-text-buffer"></span>
+                    <span class="terminal-cursor" id="terminal-cursor"></span>
+                </div>
 
-            <!-- Active interactive prompt line at the bottom of the buffer -->
-            <div class="terminal-input-line" id="terminal-active-line">
-                <span class="terminal-prompt-badge" id="terminal-prompt-badge"></span>
-                <span class="terminal-text-buffer" id="terminal-text-buffer"></span>
-                <span class="terminal-cursor" id="terminal-cursor"></span>
+                <!-- Autocomplete suggestion box -->
+                <div id="terminal-autocomplete-bar" class="terminal-autocomplete-box" style="display: none;"></div>
+
+                <!-- Off-screen receiver capturing keystrokes and clipboard -->
+                <textarea id="terminal-receiver" class="terminal-hidden-receiver" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
             </div>
-
-            <!-- Autocomplete suggestion box -->
-            <div id="terminal-autocomplete-bar" class="terminal-autocomplete-box" style="display: none;"></div>
-
-            <!-- Off-screen receiver capturing keystrokes and clipboard -->
-            <textarea id="terminal-receiver" class="terminal-hidden-receiver" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
         </div>
     </div>
 </div>
@@ -491,68 +453,15 @@ require_once __DIR__ . '/components/navbar.php';
         focusInput();
     });
 
-    // Shell options switcher
-    document.querySelectorAll('.shell-option').forEach(item => {
-        item.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const targetShell = item.dataset.shell;
-            if (targetShell === activeShell) return;
-
-            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-            const fd = new FormData();
-            fd.append('shell', targetShell);
-            fd.append('csrf_token', csrf);
-
-            try {
-                const res = await fetch('api.php?action=terminal_shell', { method: 'POST', body: fd });
-                const data = await res.json();
-                if (data.success && data.shell) {
-                    activeShell = data.shell;
-                    if (activeShellLabel) {
-                        activeShellLabel.textContent = IS_WINDOWS ? (activeShell === 'powershell' ? 'PowerShell' : 'Command Prompt (CMD)') : (activeShell === 'sh' ? 'POSIX Sh' : 'Bash');
-                    }
-                    document.querySelectorAll('.shell-option').forEach(opt => {
-                        opt.classList.toggle('active', opt.dataset.shell === activeShell);
-                    });
-                    appendLine(`<span class="text-info">[Switched active shell to ${activeShellLabel.textContent}]</span>`);
-                    updatePrompt();
-                    focusInput();
-                }
-            } catch (err) {
-                appendLine('<span class="text-danger">Failed to switch shell.</span>');
-            }
+    // Quick Clear Button
+    const clearBtn = document.getElementById('quick-clear-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            logContainer.innerHTML = '';
+            clearAutocomplete();
+            focusInput();
         });
-    });
-
-    // Quick Action Bar Buttons
-    document.getElementById('quick-help-btn').addEventListener('click', () => {
-        runLocalCommand('help');
-        focusInput();
-    });
-
-    document.getElementById('quick-clear-btn').addEventListener('click', () => {
-        logContainer.innerHTML = '';
-        clearAutocomplete();
-        focusInput();
-    });
-
-    document.getElementById('quick-copy-btn').addEventListener('click', () => {
-        const text = logContainer.innerText;
-        navigator.clipboard.writeText(text).then(() => {
-            appendLine('<span class="text-success">[Terminal output copied to clipboard]</span>');
-        }).catch(() => {
-            appendLine('<span class="text-danger">[Clipboard copy permission denied]</span>');
-        });
-        focusInput();
-    });
-
-    document.getElementById('quick-abort-btn').addEventListener('click', () => {
-        appendExecuted(receiver.value + '^C');
-        receiver.value = '';
-        syncBuffer();
-        clearAutocomplete();
-        focusInput();
-    });
+    }
 
     // Initialize prompt and cursor
     updatePrompt();
