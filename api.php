@@ -207,6 +207,16 @@ if ($action === 'add_process') {
         exit;
     }
 
+    // On Linux/cPanel, attempt preemptive chmod 0755 if local binary exists
+    if (PHP_OS_FAMILY !== 'Windows') {
+        $cleanDir = !empty($dir) && is_dir($dir) ? rtrim($dir, "/") : __DIR__;
+        $binPart = explode(' ', $command, 2)[0];
+        $candidate = (strpos($binPart, '/') === false) ? $cleanDir . '/' . $binPart : $binPart;
+        if (file_exists($candidate) && !is_executable($candidate)) {
+            @chmod($candidate, 0755);
+        }
+    }
+
     try {
         $stmt = $pdo->prepare("INSERT INTO processes (name, group_name, command, working_dir, log_file, auto_restart) VALUES (?, ?, ?, ?, ?, ?)");
         $stmt->execute([$name, $group, $command, $dir, $log, $autoRestart]);
@@ -248,6 +258,16 @@ if ($action === 'edit_process') {
     if (empty($name) || empty($command)) {
         echo json_encode(['success' => false, 'message' => 'Name and command are required']);
         exit;
+    }
+
+    // On Linux/cPanel, attempt preemptive chmod 0755 if local binary exists
+    if (PHP_OS_FAMILY !== 'Windows') {
+        $cleanDir = !empty($dir) && is_dir($dir) ? rtrim($dir, "/") : __DIR__;
+        $binPart = explode(' ', $command, 2)[0];
+        $candidate = (strpos($binPart, '/') === false) ? $cleanDir . '/' . $binPart : $binPart;
+        if (file_exists($candidate) && !is_executable($candidate)) {
+            @chmod($candidate, 0755);
+        }
     }
 
     try {
