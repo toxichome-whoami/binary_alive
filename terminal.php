@@ -49,6 +49,7 @@ if (!isset($_SESSION['terminal_cwd'])) {
             $homeDir = '/home/' . $sysUser;
         }
     }
+    $_SESSION['terminal_home'] = $homeDir;
     $_SESSION['terminal_cwd'] = (is_dir($homeDir)) ? $homeDir : __DIR__;
 }
 

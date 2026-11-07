@@ -417,7 +417,7 @@ if ($action === 'terminal') {
     if (preg_match('/^cd(?:\s+\/d)?\s*(.*)$/i', $cmd, $matches)) {
         $target = trim($matches[1]);
         if (empty($target) || $target === '~') {
-            $target = (PHP_OS_FAMILY === 'Windows') ? (getenv('USERPROFILE') ?: 'C:\\') : (getenv('HOME') ?: '/');
+            $target = (PHP_OS_FAMILY === 'Windows') ? (getenv('USERPROFILE') ?: 'C:\\') : ($_SESSION['terminal_home'] ?? getenv('HOME') ?: '/');
         }
         $target = trim($target, "\"'");
 
