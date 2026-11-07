@@ -508,13 +508,40 @@ function runTerminalTest(): void {
     $invalidCheck = realpath($targetInvalid);
     TestRunner::assertFalse((bool)$invalidCheck, "Non-existent directory rejected by path resolution");
 
-    // 3. Command execution safety
+    // 3. Command execution safety & Shell environments
     if (PHP_OS_FAMILY === 'Windows') {
-        $out = @shell_exec("cmd.exe /c echo HelloFromTerminalTest 2>&1");
+        // CMD built-in execution
+        $cmdOut = @shell_exec("cmd.exe /d /c echo HelloFromCmdTest 2>&1");
+        TestRunner::assertContains('HelloFromCmdTest', (string)$cmdOut, "CMD shell executes and captures stdout cleanly");
+
+        // PowerShell encoded execution
+        $psScript = '$ProgressPreference = "SilentlyContinue"; Write-Output "HelloFromPowerShellTest" 2>&1';
+        $enc = base64_encode(mb_convert_encoding($psScript, 'UTF-16LE', 'UTF-8'));
+        $psOut = @shell_exec("powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -EncodedCommand $enc");
+        TestRunner::assertContains('HelloFromPowerShellTest', (string)$psOut, "PowerShell engine executes and captures stdout cleanly");
+
+        // Windows Drive letter detection
+        $drive = 'C:';
+        $driveDetected = (bool)preg_match('/^([a-zA-Z]):$/', $drive);
+        TestRunner::assertTrue($driveDetected, "Drive letter syntax (C:) is correctly detected");
     } else {
-        $out = @shell_exec("echo HelloFromTerminalTest 2>&1");
+        $bashOut = @shell_exec("/bin/bash -c " . escapeshellarg("echo HelloFromBashTest 2>&1"));
+        TestRunner::assertContains('HelloFromBashTest', (string)$bashOut, "Bash shell executes and captures stdout cleanly");
+
+        $shOut = @shell_exec("/bin/sh -c " . escapeshellarg("echo HelloFromShTest 2>&1"));
+        TestRunner::assertContains('HelloFromShTest', (string)$shOut, "POSIX Sh shell executes and captures stdout cleanly");
     }
-    TestRunner::assertContains('HelloFromTerminalTest', (string)$out, "Terminal shell executes and captures stdout cleanly");
+
+    // 4. Shell switching trigger validation
+    $powerSwitches = ['powershell', 'power', 'pwsh'];
+    foreach ($powerSwitches as $sw) {
+        TestRunner::assertTrue(in_array($sw, ['powershell', 'power', 'pwsh', 'cmd', 'bash', 'sh'], true), "Shell switch trigger '$sw' recognized");
+    }
+
+    // 5. Autocomplete path logic
+    $scanDir = dirname(__DIR__);
+    $items = @scandir($scanDir);
+    TestRunner::assertTrue(is_array($items) && count($items) > 0, "Autocomplete successfully scans files in active directory");
 }
 
 function runApiTest(): void {

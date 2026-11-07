@@ -408,46 +408,217 @@ a:hover {
     color: var(--text-dim);
 }
 
-/* Terminal Styles */
-.terminal-window {
-    background-color: #080a0d !important;
+/* Terminal Styles & Native Console Emulator */
+.terminal-card {
+    background-color: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    font-family: var(--font-mono) !important;
-    font-size: 0.875rem;
-    color: #e6edf3;
-    padding: 1rem;
-    height: 65vh;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
+    box-shadow: none !important;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
-.terminal-prompt {
+.terminal-chrome {
     display: flex;
     align-items: center;
-    border-top: 1px solid var(--border);
-    background-color: var(--bg-surface);
-    padding: 0.5rem 0.75rem;
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    justify-content: space-between;
+    padding: 0.65rem 1rem;
+    background-color: var(--bg-hover);
+    border-bottom: 1px solid var(--border);
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
-.terminal-prompt span {
+.terminal-dots {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.terminal-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.terminal-dot-red { background-color: #ef4444; }
+.terminal-dot-yellow { background-color: #f59e0b; }
+.terminal-dot-green { background-color: #10b981; }
+
+.terminal-shell-badge {
     font-family: var(--font-mono);
-    font-size: 0.85rem;
-    color: var(--status-online);
-    margin-right: 0.5rem;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.55rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
 }
 
-.terminal-input {
-    background: transparent !important;
-    border: none !important;
-    color: var(--text-primary) !important;
-    font-family: var(--font-mono) !important;
-    font-size: 0.875rem !important;
-    outline: none !important;
-    width: 100%;
+.terminal-cwd-badge {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
+
+.terminal-quick-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.terminal-screen {
+    background-color: #080c12 !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: #e6edf3;
+    padding: 1rem 1.25rem;
+    min-height: 60vh;
+    max-height: 72vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    cursor: text;
+}
+
+.terminal-line {
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 0.15rem;
+}
+
+.terminal-banner {
+    color: var(--text-dim);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px dashed var(--border);
+}
+
+.terminal-input-line {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    position: relative;
+    margin-top: 0.25rem;
+}
+
+.terminal-prompt-badge {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    margin-right: 0.4rem;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.terminal-prompt-ps {
+    color: #38bdf8;
+}
+
+.terminal-prompt-cmd {
+    color: #34d399;
+}
+
+.terminal-prompt-bash {
+    color: #a78bfa;
+}
+
+.terminal-text-buffer {
+    font-family: var(--font-mono);
+    color: #f8fafc;
+    word-break: break-all;
+    min-height: 1.2em;
+}
+
+.terminal-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.1em;
+    background-color: #38bdf8;
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    animation: terminal-blink 1s step-start infinite;
+}
+
+@keyframes terminal-blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+.terminal-hidden-receiver {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+    border: none;
+    outline: none;
+    padding: 0;
+    margin: 0;
+}
+
+.terminal-autocomplete-box {
+    margin-top: 0.35rem;
+    padding: 0.4rem 0.65rem;
+    background: #0f172a;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+}
+
+.terminal-autocomplete-item {
+    color: #94a3b8;
+    padding: 0.15rem 0.35rem;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.terminal-autocomplete-item.is-dir {
+    color: #38bdf8;
+    font-weight: 600;
+}
+
+.terminal-autocomplete-item:hover {
+    background: #1e293b;
+    color: #f8fafc;
+}
+
+/* ANSI Colors */
+.ansi-bold { font-weight: 700; }
+.ansi-dim { opacity: 0.65; }
+.ansi-italic { font-style: italic; }
+.ansi-underline { text-decoration: underline; }
+.ansi-c30 { color: #475569; }
+.ansi-c31 { color: #f87171; }
+.ansi-c32 { color: #4ade80; }
+.ansi-c33 { color: #fbbf24; }
+.ansi-c34 { color: #60a5fa; }
+.ansi-c35 { color: #c084fc; }
+.ansi-c36 { color: #38bdf8; }
+.ansi-c37 { color: #f1f5f9; }
+.ansi-c90 { color: #64748b; }
+.ansi-c91 { color: #fca5a5; }
+.ansi-c92 { color: #86efac; }
+.ansi-c93 { color: #fde047; }
+.ansi-c94 { color: #93c5fd; }
+.ansi-c95 { color: #d8b4fe; }
+.ansi-c96 { color: #7dd3fc; }
+.ansi-c97 { color: #ffffff; }
 
 /* Toast Notification */
 .clean-toast-container {

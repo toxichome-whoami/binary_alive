@@ -263,6 +263,59 @@ if ($action === 'delete_process') {
     exit;
 }
 
+if ($action === 'terminal_shell') {
+    $auth->requireRole(['admin']);
+    $requestedShell = strtolower(trim($_POST['shell'] ?? $_GET['shell'] ?? ''));
+    $availableShells = (PHP_OS_FAMILY === 'Windows') ? ['cmd', 'powershell'] : ['bash', 'sh'];
+    if (in_array($requestedShell, $availableShells, true)) {
+        $_SESSION['terminal_shell'] = $requestedShell;
+        echo json_encode(['success' => true, 'shell' => $requestedShell]);
+    } else {
+        $current = $_SESSION['terminal_shell'] ?? (PHP_OS_FAMILY === 'Windows' ? 'cmd' : 'bash');
+        echo json_encode(['success' => true, 'shell' => $current, 'available' => $availableShells]);
+    }
+    exit;
+}
+
+if ($action === 'terminal_autocomplete') {
+    $auth->requireRole(['admin']);
+    $cwd = $_SESSION['terminal_cwd'] ?? __DIR__;
+    $prefix = trim($_GET['prefix'] ?? $_POST['prefix'] ?? '');
+
+    $targetDir = $cwd;
+    $searchPrefix = $prefix;
+
+    if (strpos($prefix, '/') !== false || strpos($prefix, '\\') !== false) {
+        $lastSep = max(strrpos($prefix, '/'), strrpos($prefix, '\\'));
+        $subDir = substr($prefix, 0, $lastSep + 1);
+        $searchPrefix = substr($prefix, $lastSep + 1);
+
+        $resolvedSubDir = realpath(is_dir($subDir) ? $subDir : $cwd . DIRECTORY_SEPARATOR . $subDir);
+        if ($resolvedSubDir && is_dir($resolvedSubDir)) {
+            $targetDir = $resolvedSubDir;
+        }
+    }
+
+    $matches = [];
+    if (is_dir($targetDir)) {
+        $items = @scandir($targetDir);
+        if ($items !== false) {
+            foreach ($items as $item) {
+                if ($item === '.' || $item === '..') continue;
+                if (empty($searchPrefix) || stripos($item, $searchPrefix) === 0) {
+                    $isDir = is_dir($targetDir . DIRECTORY_SEPARATOR . $item);
+                    $matches[] = [
+                        'name' => $item . ($isDir ? (PHP_OS_FAMILY === 'Windows' ? '\\' : '/') : ''),
+                        'is_dir' => $isDir
+                    ];
+                }
+            }
+        }
+    }
+    echo json_encode(['success' => true, 'matches' => $matches]);
+    exit;
+}
+
 if ($action === 'terminal') {
     $auth->requireRole(['admin']);
 
@@ -278,10 +331,90 @@ if ($action === 'terminal') {
 
     $auth->getLogger()->logAudit($_SESSION['user_id'], 'terminal_command', "Command: $cmd");
 
+    if (!isset($_SESSION['terminal_shell'])) {
+        $_SESSION['terminal_shell'] = (PHP_OS_FAMILY === 'Windows') ? 'cmd' : 'bash';
+    }
+    $activeShell = $_SESSION['terminal_shell'];
     $cwd = $_SESSION['terminal_cwd'] ?? __DIR__;
 
-    // Intercept 'cd' command to update session state
-    if (preg_match('/^cd\s*(.*)$/', $cmd, $matches)) {
+    // Intercept clear / cls command
+    if (in_array(strtolower($cmd), ['clear', 'cls'], true)) {
+        echo json_encode(['success' => true, 'output' => '', 'clear' => true, 'exit_code' => 0, 'timed_out' => false, 'cwd' => $cwd, 'shell' => $activeShell]);
+        exit;
+    }
+
+    // Intercept Windows Shell switching (powershell / power / pwsh / cmd)
+    if (PHP_OS_FAMILY === 'Windows') {
+        if (in_array(strtolower($cmd), ['powershell', 'power', 'pwsh'], true)) {
+            $_SESSION['terminal_shell'] = 'powershell';
+            echo json_encode([
+                'success' => true,
+                'output' => "Windows PowerShell\nCopyright (C) Microsoft Corporation. All rights reserved.\nActive shell switched to PowerShell.\n",
+                'exit_code' => 0,
+                'timed_out' => false,
+                'cwd' => $cwd,
+                'shell' => 'powershell'
+            ]);
+            exit;
+        }
+
+        if (strtolower($cmd) === 'cmd') {
+            $_SESSION['terminal_shell'] = 'cmd';
+            echo json_encode([
+                'success' => true,
+                'output' => "Microsoft Windows Command Prompt\n(c) Microsoft Corporation. All rights reserved.\nActive shell switched to CMD.\n",
+                'exit_code' => 0,
+                'timed_out' => false,
+                'cwd' => $cwd,
+                'shell' => 'cmd'
+            ]);
+            exit;
+        }
+
+        // Intercept drive switch (e.g. D: or C:)
+        if (preg_match('/^([a-zA-Z]):$/', $cmd, $driveMatch)) {
+            $targetDrive = strtoupper($driveMatch[1]) . ':\\';
+            if (is_dir($targetDrive)) {
+                $_SESSION['terminal_cwd'] = $targetDrive;
+                echo json_encode(['success' => true, 'output' => '', 'exit_code' => 0, 'timed_out' => false, 'cwd' => $targetDrive, 'shell' => $activeShell]);
+            } else {
+                echo json_encode(['success' => true, 'output' => "The system cannot find the drive specified.\n", 'exit_code' => 1, 'timed_out' => false, 'cwd' => $cwd, 'shell' => $activeShell]);
+            }
+            exit;
+        }
+    } else {
+        // Linux Shell switching
+        if (in_array(strtolower($cmd), ['bash', 'sh'], true)) {
+            $_SESSION['terminal_shell'] = strtolower($cmd);
+            echo json_encode([
+                'success' => true,
+                'output' => "Switched active shell to " . strtolower($cmd) . ".\n",
+                'exit_code' => 0,
+                'timed_out' => false,
+                'cwd' => $cwd,
+                'shell' => strtolower($cmd)
+            ]);
+            exit;
+        }
+    }
+
+    // Intercept exit command to reset shell
+    if (strtolower($cmd) === 'exit') {
+        $defaultShell = (PHP_OS_FAMILY === 'Windows') ? 'cmd' : 'bash';
+        $_SESSION['terminal_shell'] = $defaultShell;
+        echo json_encode([
+            'success' => true,
+            'output' => "Active shell reset to $defaultShell.\n",
+            'exit_code' => 0,
+            'timed_out' => false,
+            'cwd' => $cwd,
+            'shell' => $defaultShell
+        ]);
+        exit;
+    }
+
+    // Intercept 'cd' command to update session state across CMD and PowerShell
+    if (preg_match('/^cd(?:\s+\/d)?\s*(.*)$/i', $cmd, $matches)) {
         $target = trim($matches[1]);
         if (empty($target) || $target === '~') {
             $target = (PHP_OS_FAMILY === 'Windows') ? (getenv('USERPROFILE') ?: 'C:\\') : (getenv('HOME') ?: '/');
@@ -292,9 +425,9 @@ if ($action === 'terminal') {
 
         if ($newCwd && is_dir($newCwd)) {
             $_SESSION['terminal_cwd'] = $newCwd;
-            echo json_encode(['success' => true, 'output' => '', 'exit_code' => 0, 'timed_out' => false, 'cwd' => $newCwd]);
+            echo json_encode(['success' => true, 'output' => '', 'exit_code' => 0, 'timed_out' => false, 'cwd' => $newCwd, 'shell' => $activeShell]);
         } else {
-            echo json_encode(['success' => true, 'output' => "cd: $target: No such file or directory", 'exit_code' => 1, 'timed_out' => false, 'cwd' => $cwd]);
+            echo json_encode(['success' => true, 'output' => "cd: $target: No such file or directory\n", 'exit_code' => 1, 'timed_out' => false, 'cwd' => $cwd, 'shell' => $activeShell]);
         }
         exit;
     }
@@ -303,9 +436,18 @@ if ($action === 'terminal') {
     $output = '';
     $exitCode = -1;
 
-    // Use bash for a richer environment on Linux
-    if (PHP_OS_FAMILY !== 'Windows') {
-        $cmd = '/bin/bash -c ' . escapeshellarg($cmd . ' 2>&1');
+    // Platform execution wrapping
+    if (PHP_OS_FAMILY === 'Windows') {
+        if ($activeShell === 'powershell') {
+            $psScript = "\$ProgressPreference = 'SilentlyContinue'; " . $cmd . " 2>&1";
+            $encoded = base64_encode(mb_convert_encoding($psScript, 'UTF-16LE', 'UTF-8'));
+            $execCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -EncodedCommand " . $encoded;
+        } else {
+            $execCmd = 'cmd.exe /d /c "' . $cmd . '" 2>&1';
+        }
+    } else {
+        $shBin = ($activeShell === 'sh') ? '/bin/sh' : '/bin/bash';
+        $execCmd = $shBin . ' -c ' . escapeshellarg($cmd . ' 2>&1');
     }
 
     $descriptorspec = [
@@ -314,7 +456,7 @@ if ($action === 'terminal') {
         2 => ['pipe', 'w']
     ];
 
-    $proc = proc_open($cmd, $descriptorspec, $pipes, $cwd);
+    $proc = proc_open($execCmd, $descriptorspec, $pipes, $cwd);
     if (!is_resource($proc)) {
         echo json_encode(['success' => false, 'message' => 'Failed to start command process']);
         exit;
@@ -356,7 +498,8 @@ if ($action === 'terminal') {
         'output' => $output,
         'exit_code' => $exitCode,
         'timed_out' => $timedOut,
-        'cwd' => $cwd
+        'cwd' => $cwd,
+        'shell' => $activeShell
     ]);
     exit;
 }
