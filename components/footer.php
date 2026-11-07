@@ -4,23 +4,15 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
     exit('Access denied.');
 }
 ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-// Global Theme Toggle Logic
-document.addEventListener('DOMContentLoaded', function() {
-    const toggleBtn = document.getElementById('theme-toggle');
-    if (toggleBtn) {
-        let current = document.documentElement.getAttribute('data-bs-theme');
-        toggleBtn.innerHTML = current === 'dark' ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon-stars"></i>';
-        toggleBtn.addEventListener('click', function() {
-            let current = document.documentElement.getAttribute('data-bs-theme');
-            let next = current === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-bs-theme', next);
-            localStorage.setItem('theme', next);
-            toggleBtn.innerHTML = next === 'dark' ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon-stars"></i>';
-        });
-    }
-});
-</script>
+    <footer class="app-footer">
+        <div class="container-fluid text-center">
+            <span>Binary Alive &bull; High Performance Process Supervisor</span>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Core Application Client Controller -->
+    <script src="assets/js/app.js"></script>
 </body>
 </html>

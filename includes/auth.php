@@ -7,12 +7,16 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
 }
 
 if (session_status() === PHP_SESSION_NONE) {
+    $hostName = explode(':', $_SERVER['HTTP_HOST'] ?? '')[0];
+    $isLocalhost = in_array($hostName, ['localhost', '127.0.0.1', '::1']) || php_sapi_name() === 'cli-server';
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
     session_set_cookie_params([
         'lifetime' => 0,
         'path'     => '/',
-        'secure'   => true,     // Unconditionally secure per security finding
+        'secure'   => (!$isLocalhost || $isHttps),
         'httponly' => true,
-        'samesite' => 'Strict'  // Omitted domain to prevent host header attacks
+        'samesite' => 'Strict'
     ]);
     session_start();
 }
@@ -43,180 +47,189 @@ class Auth {
         }
     }
 
-    public function login($username, $password, $totpCode = '') {
-        if ($this->isLockedOut($username)) {
-            $this->logger->logLoginAttempt($username, false);
-            return ["success" => false, "message" => "Account locked due to too many failed attempts."];
-        }
-
-        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE username = ?");
-        $stmt->execute([$username]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($user && password_verify($password, $user['password_hash'])) {
-
-            // TOTP Verification if secret is set
-            if (!empty($user['totp_secret'])) {
-                $decryptedSecret = decryptData($user['totp_secret']);
-                $secretToTest = !empty($decryptedSecret) ? $decryptedSecret : $user['totp_secret'];
-                if (empty($totpCode) || !TotpHelper::verifyCode($secretToTest, $totpCode)) {
-                    $this->logger->logLoginAttempt($username, false);
-                    return ["success" => false, "message" => "Invalid Two-Factor Authentication code."];
-                }
-            }
-
-            $this->resetFailedAttempts($username);
-            $this->logger->logLoginAttempt($username, true);
-            $this->logger->logAudit($user['id'], 'login_success');
-
-            session_regenerate_id(true);
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Rotate CSRF token on login (finding #7)
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['last_activity'] = time();
-            return ["success" => true];
-        } else {
-            $this->incrementFailedAttempts($username);
-            $this->logger->logLoginAttempt($username, false);
-            return ["success" => false, "message" => "Invalid credentials."];
-        }
-    }
-
-    public function logout() {
-        if (isset($_SESSION['user_id'])) {
-            $this->logger->logAudit($_SESSION['user_id'], 'logout');
-        }
-        session_unset();
-        session_destroy();
-    }
-
-    public function isAuthenticated() {
-        // Handle API Token authentication if no session
-        if (!isset($_SESSION['user_id'])) {
-            $headers = apache_request_headers();
-            $token = '';
-            if (isset($headers['Authorization'])) {
-                $token = str_replace('Bearer ', '', $headers['Authorization']);
-            } elseif (isset($_GET['api_token'])) {
-                $token = $_GET['api_token'];
-            }
-
-            if (!empty($token)) {
-                $hashedToken = hash('sha256', $token);
-                $stmt = $this->pdo->prepare("SELECT id, username, role FROM users WHERE api_token = ? OR api_token = ?");
-                $stmt->execute([$hashedToken, $token]); // Supports new hashes while allowing smooth upgrade
-                $user = $stmt->fetch();
-                if ($user) {
-                    // Set a pseudo-session for the rest of the script
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['username'] = $user['username'];
-                    $_SESSION['role'] = $user['role'];
-                    $_SESSION['api_auth'] = true; // Mark as API authenticated
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        // Session timeout from config or default 15 mins
-        $timeoutMins = $this->config['security']['session_timeout_minutes'] ?? 15;
-        $timeoutSecs = $timeoutMins * 60;
-
-        if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeoutSecs)) {
-            $this->logout();
-            return false;
-        }
-
-        // Live Security Check: Refresh role from DB and ensure user wasn't deleted
-        if (isset($_SESSION['user_id'])) {
-            $stmt = $this->pdo->prepare("SELECT role FROM users WHERE id = ?");
-            $stmt->execute([$_SESSION['user_id']]);
-            $currentRole = $stmt->fetchColumn();
-
-            if ($currentRole) {
-                $_SESSION['role'] = $currentRole; // Instantly apply role changes
-            } else {
-                $this->logout(); // Instantly log them out if deleted
-                return false;
-            }
-        }
-
-        $_SESSION['last_activity'] = time();
-        return true;
-    }
-
-    public function requireAuth() {
-        if (!$this->isAuthenticated()) {
-            if (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-                exit();
-            }
-            header("Location: login.php");
-            exit();
-        }
-    }
-
-    public function hasRole($allowedRoles) {
-        $userRole = $_SESSION['role'] ?? '';
-        return in_array($userRole, (array)$allowedRoles);
-    }
-
-    public function requireRole($allowedRoles) {
-        if (!$this->hasRole($allowedRoles)) {
-            if (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'message' => 'Forbidden - Insufficient Role']);
-                exit();
-            }
-            header("HTTP/1.1 403 Forbidden");
-            die("403 Forbidden - You do not have permission to access this resource.");
-        }
+    public function getPdo() {
+        return $this->pdo;
     }
 
     public function getLogger() {
         return $this->logger;
     }
 
-    public function getPdo() {
-        return $this->pdo;
+    public function login($username, $password, $totpCode = null) {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+
+        // Check for brute force lock
+        if ($this->isIpBlocked($ip)) {
+            $this->logger->logLogin($username, false, $ip);
+            return ['success' => false, 'message' => 'Too many failed login attempts. Please try again in 15 minutes.'];
+        }
+
+        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            $this->recordFailedAttempt($ip);
+            $this->logger->logLogin($username, false, $ip);
+            return ['success' => false, 'message' => 'Invalid username or password'];
+        }
+
+        if (password_verify($password, $user['password_hash'])) {
+            // Check 2FA
+            if (!empty($user['totp_secret'])) {
+                $decryptedSecret = decryptData($user['totp_secret']);
+                if (empty($totpCode) || !TotpHelper::verifyCode($decryptedSecret, $totpCode)) {
+                    $this->recordFailedAttempt($ip, $user['id']);
+                    $this->logger->logLogin($username, false, $ip);
+                    return ['success' => false, 'message' => 'Invalid or missing Two-Factor Authentication code'];
+                }
+            }
+
+            // Reset failed attempts
+            $this->resetFailedAttempts($ip, $user['id']);
+
+            // Session Fixation Prevention: regenerate session ID on successful login
+            session_regenerate_id(true);
+
+            // Rotate CSRF token on login
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['login_time'] = time();
+
+            $this->logger->logLogin($username, true, $ip);
+            $this->logger->logAudit($user['id'], 'login_success', 'User logged in successfully');
+
+            return ['success' => true];
+        } else {
+            $this->recordFailedAttempt($ip, $user['id']);
+            $this->logger->logLogin($username, false, $ip);
+            return ['success' => false, 'message' => 'Invalid username or password'];
+        }
     }
 
-    private function isLockedOut($username) {
-        $stmt = $this->pdo->prepare("SELECT locked_until FROM users WHERE username = ?");
-        $stmt->execute([$username]);
-        $locked_until = $stmt->fetchColumn();
+    public function logout() {
+        if ($this->isAuthenticated()) {
+            $this->logger->logAudit($_SESSION['user_id'], 'logout', 'User logged out');
+        }
+        $_SESSION = [];
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
+        session_destroy();
+    }
 
-        if ($locked_until && strtotime($locked_until) > time()) {
-            return true;
+    public function isAuthenticated() {
+        return isset($_SESSION['user_id']);
+    }
+
+    public function requireAuth() {
+        // First check for API Token Auth if present
+        if ($this->authenticateViaToken()) {
+            return;
+        }
+
+        if (!$this->isAuthenticated()) {
+            if ($this->isApiRequest()) {
+                http_response_code(401);
+                header('Content-Type: application/json');
+                echo json_encode(['error' => 'Unauthorized']);
+                exit();
+            }
+            header("Location: login.php");
+            exit();
+        }
+
+        // Session timeout (e.g., 2 hours)
+        $timeout = 7200;
+        if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time'] > $timeout)) {
+            $this->logout();
+            header("Location: login.php?timeout=1");
+            exit();
+        }
+    }
+
+    public function hasRole($roles = []) {
+        if (!$this->isAuthenticated()) return false;
+        return in_array($_SESSION['role'], (array)$roles);
+    }
+
+    public function requireRole($roles = []) {
+        $this->requireAuth();
+        if (!$this->hasRole($roles)) {
+            if ($this->isApiRequest()) {
+                http_response_code(403);
+                header('Content-Type: application/json');
+                echo json_encode(['error' => 'Forbidden']);
+                exit();
+            }
+            http_response_code(403);
+            die("403 Forbidden - Access Denied");
+        }
+    }
+
+    private function authenticateViaToken() {
+        $token = null;
+        if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+            if (preg_match('/Bearer\s(\S+)/', $_SERVER['HTTP_AUTHORIZATION'], $matches)) {
+                $token = $matches[1];
+            }
+        } elseif (isset($_GET['api_token'])) {
+            $token = $_GET['api_token'];
+        }
+
+        if ($token) {
+            $hashedToken = hash('sha256', $token);
+            $stmt = $this->pdo->prepare("SELECT * FROM users WHERE api_token = ?");
+            $stmt->execute([$hashedToken]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($user) {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['role'] = $user['role'];
+                $_SESSION['api_auth'] = true;
+                return true;
+            }
         }
         return false;
     }
 
-    private function incrementFailedAttempts($username) {
-        $stmt = $this->pdo->prepare("SELECT failed_attempts FROM users WHERE username = ?");
-        $stmt->execute([$username]);
-        $attempts = $stmt->fetchColumn();
+    private function isApiRequest() {
+        return (
+            (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
+            (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'api.php') !== false) ||
+            isset($_SESSION['api_auth'])
+        );
+    }
 
-        $maxAttempts = $this->config['security']['max_login_attempts'] ?? 5;
-        $blockMins = $this->config['security']['block_duration_minutes'] ?? 15;
+    private function recordFailedAttempt($ip, $userId = null) {
+        $stmt = $this->pdo->prepare("INSERT INTO login_attempts (ip_address, is_successful) VALUES (?, 0)");
+        $stmt->execute([$ip]);
 
-        if ($attempts !== false) {
-            $attempts++;
-            if ($attempts >= $maxAttempts) {
-                $locked_until = date('Y-m-d H:i:s', time() + ($blockMins * 60));
-                $stmt = $this->pdo->prepare("UPDATE users SET failed_attempts = ?, locked_until = ? WHERE username = ?");
-                $stmt->execute([$attempts, $locked_until, $username]);
-            } else {
-                $stmt = $this->pdo->prepare("UPDATE users SET failed_attempts = ? WHERE username = ?");
-                $stmt->execute([$attempts, $username]);
-            }
+        if ($userId) {
+            $stmt = $this->pdo->prepare("UPDATE users SET failed_attempts = failed_attempts + 1 WHERE id = ?");
+            $stmt->execute([$userId]);
         }
     }
 
-    private function resetFailedAttempts($username) {
-        $stmt = $this->pdo->prepare("UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE username = ?");
-        $stmt->execute([$username]);
+    private function resetFailedAttempts($ip, $userId = null) {
+        if ($userId) {
+            $stmt = $this->pdo->prepare("UPDATE users SET failed_attempts = 0 WHERE id = ?");
+            $stmt->execute([$userId]);
+        }
+    }
+
+    private function isIpBlocked($ip) {
+        $timeWindow = date('Y-m-d H:i:s', time() - 900); // 15 mins ago
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM login_attempts WHERE ip_address = ? AND is_successful = 0 AND timestamp > ?");
+        $stmt->execute([$ip, $timeWindow]);
+        return $stmt->fetchColumn() >= 5;
     }
 }

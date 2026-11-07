@@ -5,29 +5,63 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
 }
 $currentRole = $_SESSION['role'] ?? 'viewer';
 $username = $_SESSION['username'] ?? 'User';
+$currentPage = basename($_SERVER['PHP_SELF'] ?? '');
 ?>
-<nav class="navbar navbar-expand-xl shadow-sm navbar-dark" data-bs-theme="dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="index.php"><i class="bi bi-shield-lock"></i> Binary Alive v1.0.4</a>
-        <button class="navbar-toggler border-white" type="button" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="mainNavbar">
-            <div class="d-flex flex-column flex-xl-row align-items-stretch align-items-xl-center gap-2 mt-3 mt-xl-0 ms-auto">
-                <span class="navbar-text text-white me-3 d-none d-xl-inline">User: <?= htmlspecialchars($username) ?> (<?= ucfirst(htmlspecialchars($currentRole)) ?>)</span>
-                <a href="index.php" class="btn btn-outline-light btn-sm"><i class="bi bi-speedometer2"></i> Dashboard</a>
-                <?php if (in_array($currentRole, ['admin'])): ?>
-                    <a href="users.php" class="btn btn-outline-success btn-sm"><i class="bi bi-people"></i> Users</a>
-                    <a href="logs.php" class="btn btn-outline-light btn-sm"><i class="bi bi-journal-text"></i> Logs</a>
-                    <a href="settings.php" class="btn btn-outline-warning btn-sm"><i class="bi bi-gear"></i> Settings</a>
-                    <a href="terminal.php" class="btn btn-outline-danger btn-sm"><i class="bi bi-terminal"></i> Terminal</a>
-                <?php elseif (in_array($currentRole, ['auditor', 'operator'])): ?>
-                    <a href="logs.php" class="btn btn-outline-light btn-sm"><i class="bi bi-journal-text"></i> Logs</a>
-                <?php endif; ?>
-                <a href="setup_2fa.php" class="btn btn-outline-info btn-sm"><i class="bi bi-shield-check"></i> 2FA</a>
-                <button id="theme-toggle" class="btn btn-outline-light btn-sm" title="Toggle Theme"><i class="bi bi-moon-stars"></i> <span class="d-xl-none">Toggle Theme</span></button>
-                <a href="logout.php" class="btn btn-outline-light btn-sm">Logout</a>
+<nav class="app-navbar">
+    <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <!-- Brand & Version -->
+        <div class="d-flex align-items-center gap-2">
+            <a class="navbar-brand m-0" href="index.php">
+                <i class="bi bi-shield-check text-success"></i> Binary Alive
+            </a>
+            <span class="version-pill">v1.0.5</span>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs-custom flex-wrap">
+            <a href="index.php" class="nav-link-custom <?= ($currentPage === 'index.php') ? 'active' : '' ?>">
+                <i class="bi bi-cpu"></i> Dashboard
+            </a>
+            
+            <?php if (in_array($currentRole, ['admin'])): ?>
+                <a href="users.php" class="nav-link-custom <?= ($currentPage === 'users.php') ? 'active' : '' ?>">
+                    <i class="bi bi-people"></i> Users
+                </a>
+                <a href="logs.php" class="nav-link-custom <?= ($currentPage === 'logs.php') ? 'active' : '' ?>">
+                    <i class="bi bi-file-text"></i> Logs
+                </a>
+                <a href="settings.php" class="nav-link-custom <?= ($currentPage === 'settings.php') ? 'active' : '' ?>">
+                    <i class="bi bi-sliders"></i> Settings
+                </a>
+                <a href="terminal.php" class="nav-link-custom <?= ($currentPage === 'terminal.php') ? 'active' : '' ?>">
+                    <i class="bi bi-terminal"></i> Terminal
+                </a>
+            <?php elseif (in_array($currentRole, ['auditor', 'operator'])): ?>
+                <a href="logs.php" class="nav-link-custom <?= ($currentPage === 'logs.php') ? 'active' : '' ?>">
+                    <i class="bi bi-file-text"></i> Logs
+                </a>
+            <?php endif; ?>
+
+            <a href="setup_2fa.php" class="nav-link-custom <?= ($currentPage === 'setup_2fa.php') ? 'active' : '' ?>">
+                <i class="bi bi-key"></i> 2FA
+            </a>
+        </div>
+
+        <!-- Right Side: User & Controls -->
+        <div class="d-flex align-items-center gap-2 ms-auto">
+            <div class="user-badge d-none d-md-inline-flex">
+                <i class="bi bi-person"></i>
+                <span><?= htmlspecialchars($username) ?></span>
+                <span class="text-dim">(<?= ucfirst(htmlspecialchars($currentRole)) ?>)</span>
             </div>
+
+            <button id="theme-toggle" class="btn-clean btn-clean-sm" title="Toggle Theme" type="button">
+                <i class="bi bi-sun"></i>
+            </button>
+
+            <a href="logout.php" class="btn-clean btn-clean-sm" title="Sign out">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </a>
         </div>
     </div>
 </nav>

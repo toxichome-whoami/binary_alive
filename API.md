@@ -1,4 +1,4 @@
-# API Documentation — v1.0.4
+# API Documentation — v1.0.5
 
 You can control the system remotely using an API token generated from the Users page. Pass the token either as a URL parameter (`?api_token=YOUR_TOKEN`) or as an HTTP header (`Authorization: Bearer YOUR_TOKEN`).
 

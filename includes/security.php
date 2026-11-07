@@ -6,7 +6,6 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
     exit('Access denied.');
 }
 
-// Configuration helpers and protection against direct download (finding #2)
 /**
  * Saves the application configuration to config.php
  *
@@ -50,7 +49,7 @@ function getAppConfig($forceReread = false) {
         $config = [];
     }
 
-    // Auto-generate secure key if weak default is detected (finding #4)
+    // Auto-generate secure key if weak default is detected
     if (empty($config['security']['secret_key']) || $config['security']['secret_key'] === 'generate_a_random_key_in_production' || $config['security']['secret_key'] === 'default_fallback_secret_binary_alive_2026') {
         $config['security']['secret_key'] = bin2hex(random_bytes(32));
         if (!saveAppConfig($config)) {
@@ -65,8 +64,11 @@ function getAppConfig($forceReread = false) {
     return $config;
 }
 
-// Enforce HTTPS redirection in production web environment (finding #5)
-if (php_sapi_name() !== 'cli' && !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', '::1'])) {
+$hostName = explode(':', $_SERVER['HTTP_HOST'] ?? '')[0];
+$isLocalhost = in_array($hostName, ['localhost', '127.0.0.1', '::1']) || php_sapi_name() === 'cli-server';
+
+// Enforce HTTPS redirection in production web environment (never on localhost development)
+if (php_sapi_name() !== 'cli' && !$isLocalhost) {
     $cfg = getAppConfig();
     $forceHttps = !isset($cfg['security']['force_https']) || $cfg['security']['force_https'] !== false;
     if ($forceHttps && (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') && ($_SERVER['SERVER_PORT'] ?? 80) != 443 && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') !== 'https') {
@@ -76,23 +78,26 @@ if (php_sapi_name() !== 'cli' && !in_array($_SERVER['HTTP_HOST'] ?? '', ['localh
 }
 
 // Force strict security headers
-header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
-header("Content-Security-Policy: default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com; img-src 'self' data: https://chart.googleapis.com https://api.qrserver.com; frame-ancestors 'none';");
+if (!$isLocalhost) {
+    header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
+}
+
+header("Content-Security-Policy: default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://chart.googleapis.com https://api.qrserver.com; font-src 'self' https://cdn.jsdelivr.net; frame-ancestors 'none';");
 header("X-Content-Type-Options: nosniff");
 header("X-Frame-Options: DENY");
 header("X-XSS-Protection: 1; mode=block");
 header("Referrer-Policy: strict-origin-when-cross-origin");
+header("Permissions-Policy: geolocation=(), microphone=(), camera=()");
 
 // Prevent information leakage
 header_remove("X-Powered-By");
 
-// Basic IP Whitelist Check (callable early in the lifecycle)
+// Basic IP Whitelist Check
 function enforceIpWhitelist($allowedIps = []) {
     if (empty($allowedIps)) return;
 
     $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
 
-    // Simple direct match for now (no CIDR block parsing to keep it lightweight)
     if (!in_array($clientIp, $allowedIps)) {
         header("HTTP/1.1 403 Forbidden");
         die("403 Forbidden - IP not allowed.");

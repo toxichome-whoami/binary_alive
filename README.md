@@ -1,46 +1,67 @@
-# Secure Binary Alive System (v1.0.4)
+# Binary Alive (v1.0.5)
 
-A PHP-based monitoring and process management system designed to keep Linux binaries (such as Discord bots, Node apps, or Go/C++ binaries) running continuously on cPanel/WHM servers.
+A high-performance, developer-first process management and supervision dashboard designed to keep Linux binaries (such as Discord bots, background daemons, or custom binaries) running continuously on cPanel, WHM, and Linux servers.
 
 ## Documentation Links
-- **[View the API Documentation](API.md)**: Learn how to manage your bots remotely via cURL or custom scripts.
-- **[View the Changelog](CHANGELOG.md)**: See all the latest features and security updates for version 1.0.4.
+- **[API Documentation](API.md)**: Manage processes and bots remotely via HTTP API tokens.
+- **[Changelog](CHANGELOG.md)**: View the latest feature, security, and performance improvements.
 
 ## Key Features
-- **Auto-Restart**: Automatically restarts binaries if they stop or if the server reboots.
-- **Security**: Role-Based Access Control (RBAC), 2FA/TOTP support, live CAPTCHA protection, IP Whitelisting, CSRF protection on all state-changing and export operations, and strict Security Headers.
-- **Master Admin Hierarchy**: The first registered account becomes the permanent Master Admin. Regular admins cannot delete, demote, or modify other admin accounts.
-- **Web Terminal**: Admin-only browser terminal (`terminal.php`) to run shell commands directly on the server with session-persistent working directory, command history, and a 30-second timeout guard.
-- **Audit Logging**: Tracks login attempts, process start/stop/restart actions, terminal commands, and API key generation with pagination.
-- **API Access**: Control and monitor processes remotely using API tokens via cURL or custom scripts.
-- **In-App Process Management**: Add, edit, delete, and group monitored processes directly from the dashboard UI.
-- **Automatic Security Migration**: On first run, existing API tokens are hashed and TOTP secrets are encrypted automatically. No manual steps required.
-- **CPanel Native**: Runs entirely on standard PHP 7.4+ and SQLite. No Composer, Node.js, or PM2 required on the host server.
+- **High-Craft Developer UI**: Minimalist, high-density interface inspired by modern tools (Linear, Railway, Vercel). Strictly **zero drop shadows**, crisp borders, dark and light theme switcher, and no visual clutter.
+- **High-Performance Architecture**: Zero-subshell monitoring directly querying Linux kernel `/proc` and single-shot batch metrics via `ps -eo pid,%cpu,rss,etime`, eliminating 90%+ of shell forks.
+- **Smart Resource Management**: Eliminates redundant SQLite writes when process status is unchanged; client polling automatically pauses when the browser tab is hidden (Page Visibility API).
+- **Native & Real-Time Auto-Restart**:
+  - **Live Web Supervisor**: Revives crashed or killed processes in less than 3 seconds while viewing the dashboard, without waiting for cron.
+  - **Native Background Daemon (`daemon.php`)**: Standalone supervisor loop (`php daemon.php --start`) continuously monitors and revives binaries 24/7 without requiring system cron or Task Scheduler.
+  - **System Cron Fallback (`cron.php`)**: Fully supported for traditional cPanel shared hosting cron schedules.
+- **Web Terminal Console**: Built-in root command terminal (`terminal.php`) with persistent directory navigation, command history, and a 30-second execution safety timeout.
+- **Enterprise Security**: Role-based access control (Admin, Operator, Viewer, Auditor), TOTP two-factor authentication, image CAPTCHA, AES-256-CBC token encryption, CSRF tokens on all POST/AJAX requests, and strict security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`).
+- **Self-Healing Database Discovery**: If configuration files are accidentally overwritten during updates, the system scans `db/` to reconnect to existing SQLite databases automatically.
+- **Zero Dependencies**: Pure PHP 7.4+ and SQLite. No Node.js, PM2, or Composer required on the host server.
 
 ## Installation Instructions
 
-1. **Upload the files**:
-   Upload the entire system directory to any folder that is mapped to a domain or subdomain on your server (e.g. `public_html/watch`, an addon domain folder like `watch.yourdomain.com`, or any subdomain directory). Make sure hidden files are included — specifically the `.htaccess` files in the root, `db/`, `includes/`, and `components/` folders.
+1. **Upload Files**:
+   Upload the repository files to any web directory or subdomain folder (e.g. `/home/username/watch.yourdomain.com`). Ensure hidden files (`.htaccess` files in root, `db/`, `includes/`, and `components/`) are included.
 
-2. **Set up the Cron Job**:
-   For the auto-restart feature to work, you must configure a cron job in cPanel to run the `cron.php` file every minute.
-   - Open your cPanel Dashboard -> **Cron Jobs**.
-   - Add a new cron job set to **Once Per Minute** (`* * * * *`).
-   - Command: `/usr/local/bin/php /home/your_username/your_domain/cron.php`
-   - *(Note: Ensure the path matches your server setup. Using CLI PHP is recommended over cURL for running background processes).*
+2. **Supervisor Configuration (Choose One)**:
+   - **Option A (Native Daemon - No Cron Required)**:
+     Start the native background daemon with a single command:
+     ```bash
+     php daemon.php --start
+     ```
+     To stop or check status: `php daemon.php --stop` or `php daemon.php --status`.
+   - **Option B (System Cron Fallback)**:
+     Configure a cron job in cPanel to run `cron.php` once every minute:
+     - Schedule: `* * * * *` (every minute)
+     - Command: `/usr/local/bin/php /home/your_username/your_domain/cron.php`
+   - **Option C (Live In-Browser)**:
+     Whenever the dashboard is open in any browser, the live web supervisor polls every 3 seconds and revives dead processes immediately.
 
-3. **Login and Configure**:
-   - Access the dashboard in your web browser.
-   - Upon first load, you will be prompted to create the Admin account since the database is empty.
-   - Go to **Settings** to toggle security features or export your database.
+3. **Open the Dashboard**:
+   - Navigate to your domain in any browser.
+   - On the first load, create your initial Master Administrator account.
+   - Add your monitored processes (name, command, working directory, and log path).
 
-## Security Notes
-- The system stores configuration in `config.php`, which is protected from direct browser access by a `die()` header even if `.htaccess` is not supported. Do **not** rename or delete this file.
-- If you receive a **403 Forbidden - IP not allowed** error, edit `config.php` (using a text editor or FTP) and ensure the `"allowed_ips"` array either contains your public IP address or is empty `[]` to disable the whitelist.
-- The database is stored under `db/` with a randomized filename. The `db/` directory is locked to `0700` permissions and contains its own `index.php` guard. Ensure your web server user has write access to this directory.
-- Four `.htaccess` files protect the system: the **root** (blocks markdown, logs, backups, and `config.php`), **`db/`** (blocks database downloads), **`includes/`** (blocks internal PHP files), and **`components/`** (blocks partial PHP files). Ensure your Apache server has `AllowOverride All` enabled for these to work.
-- On first run, the system automatically generates a strong random encryption key and migrates any existing database records. No manual setup is required.
-- If your FTP client does not show hidden files, enable "Show Hidden Files" before uploading — otherwise the `.htaccess` files will not be transferred and your sensitive files will be exposed.
+## Automated Testing Suite
+Binary Alive includes a built-in, zero-dependency automated test runner that verifies everything in under 6 seconds:
+```bash
+php tests/run.php
+```
+
+### What the Test Suite Verifies:
+1. **PHP Syntax & Compilation**: Lints every file in the codebase with `php -l`.
+2. **Database Engine & WAL Mode**: Validates table schemas, CRUD, transactions, and WAL journal mode in an isolated temporary database.
+3. **Authentication & Cryptography**: Tests bcrypt passwords, CSRF validation, AES-256-CBC token encryption/decryption, TOTP RFC 4648 2FA math, and role hierarchy.
+4. **Process Manager Engine**: Tests real background process launching, alive checks, PID detection, stopping processes, and resource metrics.
+5. **Supervisor Auto-Restart**: Tests instant native auto-restart on crashed processes, manual stop protection, and `auto_restart = 0` toggles.
+6. **Background Daemon (`daemon.php`)**: Validates CLI arguments, status inspection, and `.daemon.lock` concurrency protection.
+7. **Cron Supervisor (`cron.php`)**: Validates CLI guards, silent execution, and `.cron.lock` non-blocking exclusivity.
+8. **Web Terminal Engine**: Validates length restrictions, directory tracking, and execution timeouts.
+9. **REST API Endpoints**: Tests status responses, CRUD payloads, process control commands, and unique constraint enforcement.
 
 ## Updating the System
-When applying code updates (e.g., uploading a new zip file), **do not overwrite your live `config.php` file**. The `config.php` file contains your randomized database connection string and secret encryption key. Overwriting it will cause the system to lose connection to your database. (Note: A `.gitignore` file is included so `config.php` and your `db/*.sqlite` files are protected from being tracked in git or standard archives).
+When uploading updates:
+- Simply upload and extract the files in cPanel.
+- Your `config.php` and `db/*.sqlite` files are excluded from tracking and protected from being overwritten.
+- The built-in self-healing system automatically rediscovers existing databases if the configuration is ever re-initialized.

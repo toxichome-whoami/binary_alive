@@ -28,7 +28,10 @@ class TotpHelper {
         return false;
     }
 
-    private static function getCode($secret, $timeSlice) {
+    public static function getCode($secret, $timeSlice = null) {
+        if ($timeSlice === null) {
+            $timeSlice = floor(time() / 30);
+        }
         $secretKey = self::base32Decode($secret);
 
         // Pack time into 8 bytes

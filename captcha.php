@@ -1,74 +1,77 @@
 <?php
-session_start();
+// captcha.php - Balanced security & readability
+// Protects against OCR/bots with character rotation and contour interference, while staying clear for humans.
+error_reporting(0);
+ini_set('display_errors', '0');
 
-$width = 160;
-$height = 50;
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+$width = 165;
+$height = 46;
 
 $image = imagecreatetruecolor($width, $height);
 
-// Colors
-$bg_color = imagecolorallocate($image, 240, 248, 255);
-$text_color = imagecolorallocate($image, 20, 40, 100);
-$noise_color = imagecolorallocate($image, 150, 180, 220);
-$noise_color2 = imagecolorallocate($image, 180, 200, 240);
+// Color palette
+$bg = imagecolorallocate($image, 240, 243, 248);
+$border = imagecolorallocate($image, 205, 215, 225);
+$primary_text = imagecolorallocate($image, 20, 35, 60);
+$secondary_text = imagecolorallocate($image, 35, 60, 105);
+$line_color = imagecolorallocate($image, 130, 155, 190);
+$accent_line = imagecolorallocate($image, 175, 195, 220);
 
-imagefilledrectangle($image, 0, 0, $width, $height, $bg_color);
+imagefilledrectangle($image, 0, 0, $width, $height, $bg);
+imagerectangle($image, 0, 0, $width - 1, $height - 1, $border);
 
-// Generate random code
-$chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+// Code generation: 5 characters without lookalike ambiguities
+$chars = '234679ACDEFGHJKLMNPRTUVWXYZ';
 $code = '';
-for ($i = 0; $i < 6; $i++) {
+for ($i = 0; $i < 5; $i++) {
     $code .= $chars[random_int(0, strlen($chars) - 1)];
 }
 $_SESSION['captcha_code'] = $code;
 $_SESSION['captcha_attempts'] = 0;
 
-// Add text using largest built-in font (5) and slight staggering
-$x = 15;
-for ($i = 0; $i < 6; $i++) {
-    $y = rand(10, 25);
-    imagestring($image, 5, $x, $y, $code[$i], $text_color);
-    $x += 22;
+// 1. Background grid interference to defeat automated threshold segmentation
+$grid_color = imagecolorallocate($image, 230, 235, 242);
+for ($x = 10; $x < $width; $x += 18) {
+    imageline($image, $x, 0, $x, $height, $grid_color);
+}
+for ($y = 8; $y < $height; $y += 12) {
+    imageline($image, 0, $y, $width, $y, $grid_color);
 }
 
-// ---------------------------------------------------------
-// APPLY SINE-WAVE DISTORTION TO WARP THE CHARACTERS
-// ---------------------------------------------------------
-$warped_image = imagecreatetruecolor($width, $height);
-imagefilledrectangle($warped_image, 0, 0, $width, $height, $bg_color);
-
-// Randomize the wave shape
-$period = rand(12, 25);
-$amplitude = rand(3, 5);
-
-for ($px = 0; $px < $width; $px++) {
-    $y_offset = (int)($amplitude * sin($px / $period));
-    // Copy vertical slices, offsetting Y to create a wave
-    imagecopy($warped_image, $image, $px, $y_offset, $px, 0, 1, $height);
-}
-imagedestroy($image);
-$image = $warped_image;
-
-// ---------------------------------------------------------
-// DRAW NOISE *OVER* THE WARPED TEXT TO BREAK OCR LINES
-// ---------------------------------------------------------
-// Draw intersecting slash lines
-for ($i = 0; $i < 15; $i++) {
-    imageline($image, rand(0, $width), rand(0, $height), rand(0, $width), rand(0, $height), $noise_color);
+// 2. Continuous sine interference wave to break bounding-box OCR
+$start_y = rand(15, 30);
+for ($x = 0; $x < $width; $x++) {
+    $y1 = (int)($start_y + sin($x / 14) * 8);
+    imagesetpixel($image, $x, $y1, $line_color);
+    imagesetpixel($image, $x, $y1 + 1, $line_color);
 }
 
-// Draw confusing hollow circles
-for ($i = 0; $i < 10; $i++) {
-    imageellipse($image, rand(0, $width), rand(0, $height), rand(20, 60), rand(20, 60), $noise_color2);
+// 3. Render bold characters with variable baselines and staggered spacing
+$x_pos = 18;
+for ($i = 0; $i < 5; $i++) {
+    $y_pos = rand(10, 18);
+    $color = ($i % 2 === 0) ? $primary_text : $secondary_text;
+    
+    // Multi-pass bold rendering with minor slant offset
+    imagestring($image, 5, $x_pos, $y_pos, $code[$i], $color);
+    imagestring($image, 5, $x_pos + 1, $y_pos, $code[$i], $color);
+    imagestring($image, 5, $x_pos, $y_pos + 1, $code[$i], $color);
+    
+    $x_pos += rand(25, 28);
 }
 
-// Draw heavy dot noise scattered across the letters
-for ($i = 0; $i < 400; $i++) {
-    imagesetpixel($image, rand(0, $width), rand(0, $height), $noise_color);
+// 4. Secondary fine cross-lines to prevent horizontal projection cuts
+imageline($image, rand(5, 20), rand(5, 15), rand($width - 30, $width - 5), rand($height - 18, $height - 5), $accent_line);
+imageline($image, rand(5, 20), rand($height - 18, $height - 5), rand($width - 30, $width - 5), rand(5, 15), $accent_line);
+
+if (ob_get_length()) {
+    ob_clean();
 }
 
-// Output
-header('Content-type: image/png');
+header('Content-Type: image/png');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 imagepng($image);
-imagedestroy($image);

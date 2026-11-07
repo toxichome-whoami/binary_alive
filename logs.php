@@ -1,13 +1,12 @@
 <?php
-require_once 'includes/security.php';
-require_once 'includes/auth.php';
+require_once __DIR__ . '/includes/security.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $auth = new Auth();
 $auth->requireAuth();
-$auth->requireRole(['admin', 'auditor', 'operator']); // Admins, auditors, and operators can view logs
+$auth->requireRole(['admin', 'auditor', 'operator']);
 
 $pdo = $auth->getPdo();
-
 $isAdmin = $auth->hasRole(['admin']);
 
 $limit = 20;
@@ -69,37 +68,41 @@ if ($isAdmin) {
     $stmt3->execute([$limit, $termOffset]);
     $termLogs = $stmt3->fetchAll(PDO::FETCH_ASSOC);
 }
-?>
-<?php
+
 $pageTitle = 'Audit Logs';
-require_once 'components/header.php';
-require_once 'components/navbar.php';
+require_once __DIR__ . '/components/header.php';
+require_once __DIR__ . '/components/navbar.php';
 ?>
 
-<div class="container mt-4">
-    <ul class="nav nav-tabs mb-4" id="logTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link <?= $activeTab === 'audit' ? 'active' : '' ?>" id="audit-tab" data-bs-toggle="tab" data-bs-target="#audit" type="button" role="tab">System Audit Logs</button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link <?= $activeTab === 'login' ? 'active' : '' ?>" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Access Logs</button>
-        </li>
+<div class="container-fluid py-4 px-md-4">
+    <!-- Tab Controls -->
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <a href="?tab=audit" class="btn-clean <?= ($activeTab === 'audit') ? 'btn-clean-primary' : '' ?>">
+            <i class="bi bi-shield-check"></i> System Audit Logs
+        </a>
+        <a href="?tab=login" class="btn-clean <?= ($activeTab === 'login') ? 'btn-clean-primary' : '' ?>">
+            <i class="bi bi-box-arrow-in-right"></i> Access Logs
+        </a>
         <?php if ($isAdmin): ?>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link <?= $activeTab === 'terminal' ? 'active' : '' ?>" id="terminal-tab" data-bs-toggle="tab" data-bs-target="#terminal" type="button" role="tab">Terminal Logs</button>
-        </li>
+        <a href="?tab=terminal" class="btn-clean <?= ($activeTab === 'terminal') ? 'btn-clean-primary' : '' ?>">
+            <i class="bi bi-terminal"></i> Terminal Logs
+        </a>
         <?php endif; ?>
-    </ul>
+    </div>
 
-    <div class="tab-content" id="logTabsContent">
-        <div class="tab-pane fade <?= $activeTab === 'audit' ? 'show active' : '' ?>" id="audit" role="tabpanel">
-            <div class="card">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-striped mb-0">
-                        <thead class="table-dark">
+    <!-- Active Tab Panel -->
+    <?php if ($activeTab === 'audit'): ?>
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>System Operations & Changes</span>
+                <span class="text-muted small">Total: <?= $totalAudit ?> events</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
                             <tr>
-                                <th class="text-nowrap">Timestamp</th>
+                                <th style="width: 170px;">Timestamp</th>
                                 <th>User</th>
                                 <th>IP Address</th>
                                 <th>Action</th>
@@ -107,137 +110,150 @@ require_once 'components/navbar.php';
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($auditLogs as $log): ?>
-                            <tr>
-                                <td class="text-nowrap"><?= $log['timestamp'] ?></td>
-                                <td><?= htmlspecialchars($log['username'] ?? 'System') ?></td>
-                                <td><?= htmlspecialchars($log['ip_address']) ?></td>
-                                <td><span class="badge bg-primary"><?= htmlspecialchars($log['action']) ?></span></td>
-                                <td><?= htmlspecialchars($log['details']) ?></td>
-                            </tr>
-                            <?php endforeach; ?>
+                            <?php if (empty($auditLogs)): ?>
+                                <tr><td colspan="5" class="text-center py-4 text-muted">No audit logs recorded yet.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($auditLogs as $log): ?>
+                                <tr>
+                                    <td class="font-mono text-muted text-nowrap"><?= htmlspecialchars($log['timestamp']) ?></td>
+                                    <td class="fw-semibold"><?= htmlspecialchars($log['username'] ?? 'System') ?></td>
+                                    <td class="font-mono text-muted"><?= htmlspecialchars($log['ip_address']) ?></td>
+                                    <td><span class="version-pill"><?= htmlspecialchars($log['action']) ?></span></td>
+                                    <td class="text-dim"><?= htmlspecialchars($log['details']) ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
-                        </table>
-                    </div>
+                    </table>
                 </div>
-                <div class="card-footer d-flex justify-content-between align-items-center">
-                    <?php if ($auditPage > 1): ?>
-                        <a href="?tab=audit&audit_page=<?= $auditPage - 1 ?>&login_page=<?= $loginPage ?>" class="btn btn-outline-primary btn-sm">Previous</a>
-                    <?php else: ?>
-                        <button class="btn btn-outline-secondary btn-sm" disabled>Previous</button>
-                    <?php endif; ?>
+            </div>
+            <div class="card-footer bg-transparent d-flex justify-content-between align-items-center py-2 px-3 border-top">
+                <?php if ($auditPage > 1): ?>
+                    <a href="?tab=audit&audit_page=<?= $auditPage - 1 ?>" class="btn-clean btn-clean-sm">Previous</a>
+                <?php else: ?>
+                    <button class="btn-clean btn-clean-sm opacity-50" disabled>Previous</button>
+                <?php endif; ?>
 
-                    <span class="text-muted small">Page <?= $auditPage ?> of <?= max(1, $totalAuditPages) ?> (Total: <?= $totalAudit ?>)</span>
+                <span class="text-muted small">Page <?= $auditPage ?> of <?= max(1, $totalAuditPages) ?></span>
 
-                    <?php if ($auditPage < $totalAuditPages): ?>
-                        <a href="?tab=audit&audit_page=<?= $auditPage + 1 ?>&login_page=<?= $loginPage ?>" class="btn btn-outline-primary btn-sm">Next</a>
-                    <?php else: ?>
-                        <button class="btn btn-outline-secondary btn-sm" disabled>Next</button>
-                    <?php endif; ?>
-                </div>
+                <?php if ($auditPage < $totalAuditPages): ?>
+                    <a href="?tab=audit&audit_page=<?= $auditPage + 1 ?>" class="btn-clean btn-clean-sm">Next</a>
+                <?php else: ?>
+                    <button class="btn-clean btn-clean-sm opacity-50" disabled>Next</button>
+                <?php endif; ?>
             </div>
         </div>
 
-        <div class="tab-pane fade <?= $activeTab === 'login' ? 'show active' : '' ?>" id="login" role="tabpanel">
-            <div class="card">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-striped mb-0">
-                        <thead class="table-dark">
+    <?php elseif ($activeTab === 'login'): ?>
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Sign In & Sign Out Attempts</span>
+                <span class="text-muted small">Total: <?= (int)$totalLogin ?> records</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
                             <tr>
-                                <th class="text-nowrap">Timestamp</th>
-                                <th>Username Attempted</th>
+                                <th style="width: 170px;">Timestamp</th>
+                                <th>Username</th>
                                 <th>IP Address</th>
-                                <th>Event Type</th>
+                                <th>Result</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($loginLogs as $log): ?>
-                            <tr>
-                                <td class="text-nowrap"><?= $log['timestamp'] ?></td>
-                                <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
-                                <td><?= htmlspecialchars($log['ip_address']) ?></td>
-                                <td>
-                                    <?php if ($log['event_type'] === 'login_success'): ?>
-                                        <span class="badge bg-success">Login Success</span>
-                                    <?php elseif ($log['event_type'] === 'login_failed'): ?>
-                                        <span class="badge bg-danger">Login Failed</span>
-                                    <?php elseif ($log['event_type'] === 'logout'): ?>
-                                        <span class="badge bg-secondary">Logout</span>
-                                    <?php else: ?>
-                                        <span class="badge bg-info"><?= htmlspecialchars($log['event_type']) ?></span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
+                            <?php if (empty($loginLogs)): ?>
+                                <tr><td colspan="4" class="text-center py-4 text-muted">No login attempts recorded yet.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($loginLogs as $log): ?>
+                                <tr>
+                                    <td class="font-mono text-muted text-nowrap"><?= htmlspecialchars($log['timestamp']) ?></td>
+                                    <td class="fw-semibold"><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
+                                    <td class="font-mono text-muted"><?= htmlspecialchars($log['ip_address']) ?></td>
+                                    <td>
+                                        <?php if ($log['event_type'] === 'login_success'): ?>
+                                            <span class="status-pill online"><span class="status-dot"></span> Success</span>
+                                        <?php elseif ($log['event_type'] === 'login_failed'): ?>
+                                            <span class="status-pill stopped"><span class="status-dot"></span> Failed</span>
+                                        <?php else: ?>
+                                            <span class="version-pill"><?= htmlspecialchars($log['event_type']) ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
-                        </table>
-                    </div>
+                    </table>
                 </div>
-                <div class="card-footer d-flex justify-content-between align-items-center">
-                    <?php if ($loginPage > 1): ?>
-                        <a href="?tab=login&audit_page=<?= $auditPage ?>&login_page=<?= $loginPage - 1 ?>&term_page=<?= $termPage ?>" class="btn btn-outline-primary btn-sm">Previous</a>
-                    <?php else: ?>
-                        <button class="btn btn-outline-secondary btn-sm" disabled>Previous</button>
-                    <?php endif; ?>
+            </div>
+            <div class="card-footer bg-transparent d-flex justify-content-between align-items-center py-2 px-3 border-top">
+                <?php if ($loginPage > 1): ?>
+                    <a href="?tab=login&login_page=<?= $loginPage - 1 ?>" class="btn-clean btn-clean-sm">Previous</a>
+                <?php else: ?>
+                    <button class="btn-clean btn-clean-sm opacity-50" disabled>Previous</button>
+                <?php endif; ?>
 
-                    <span class="text-muted small">Page <?= $loginPage ?> of <?= max(1, $totalLoginPages) ?> (Total: <?= $totalLogin ?>)</span>
+                <span class="text-muted small">Page <?= $loginPage ?> of <?= max(1, $totalLoginPages) ?></span>
 
-                    <?php if ($loginPage < $totalLoginPages): ?>
-                        <a href="?tab=login&audit_page=<?= $auditPage ?>&login_page=<?= $loginPage + 1 ?>&term_page=<?= $termPage ?>" class="btn btn-outline-primary btn-sm">Next</a>
-                    <?php else: ?>
-                        <button class="btn btn-outline-secondary btn-sm" disabled>Next</button>
-                    <?php endif; ?>
-                </div>
+                <?php if ($loginPage < $totalLoginPages): ?>
+                    <a href="?tab=login&login_page=<?= $loginPage + 1 ?>" class="btn-clean btn-clean-sm">Next</a>
+                <?php else: ?>
+                    <button class="btn-clean btn-clean-sm opacity-50" disabled>Next</button>
+                <?php endif; ?>
             </div>
         </div>
 
-        <?php if ($isAdmin): ?>
-        <div class="tab-pane fade <?= $activeTab === 'terminal' ? 'show active' : '' ?>" id="terminal" role="tabpanel">
-            <div class="card">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-striped mb-0">
-                        <thead class="table-dark">
+    <?php elseif ($isAdmin && $activeTab === 'terminal'): ?>
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Executed Shell Commands</span>
+                <span class="text-muted small">Total: <?= $totalTerm ?> commands</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
                             <tr>
-                                <th class="text-nowrap">Timestamp</th>
+                                <th style="width: 170px;">Timestamp</th>
                                 <th>Admin User</th>
                                 <th>IP Address</th>
                                 <th>Executed Command</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($termLogs as $log): ?>
-                            <tr>
-                                <td class="text-nowrap"><?= $log['timestamp'] ?></td>
-                                <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
-                                <td><?= htmlspecialchars($log['ip_address']) ?></td>
-                                <td><code><?= htmlspecialchars($log['details']) ?></code></td>
-                            </tr>
-                            <?php endforeach; ?>
+                            <?php if (empty($termLogs)): ?>
+                                <tr><td colspan="4" class="text-center py-4 text-muted">No terminal commands logged yet.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($termLogs as $log): ?>
+                                <tr>
+                                    <td class="font-mono text-muted text-nowrap"><?= htmlspecialchars($log['timestamp']) ?></td>
+                                    <td class="fw-semibold"><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
+                                    <td class="font-mono text-muted"><?= htmlspecialchars($log['ip_address']) ?></td>
+                                    <td><code class="font-mono"><?= htmlspecialchars($log['details']) ?></code></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="card-footer d-flex justify-content-between align-items-center">
-                    <?php if ($termPage > 1): ?>
-                        <a href="?tab=terminal&audit_page=<?= $auditPage ?>&login_page=<?= $loginPage ?>&term_page=<?= $termPage - 1 ?>" class="btn btn-outline-primary btn-sm">Previous</a>
-                    <?php else: ?>
-                        <button class="btn btn-outline-secondary btn-sm" disabled>Previous</button>
-                    <?php endif; ?>
-
-                    <span class="text-muted small">Page <?= $termPage ?> of <?= max(1, $totalTermPages) ?> (Total: <?= $totalTerm ?>)</span>
-
-                    <?php if ($termPage < $totalTermPages): ?>
-                        <a href="?tab=terminal&audit_page=<?= $auditPage ?>&login_page=<?= $loginPage ?>&term_page=<?= $termPage + 1 ?>" class="btn btn-outline-primary btn-sm">Next</a>
-                    <?php else: ?>
-                        <button class="btn btn-outline-secondary btn-sm" disabled>Next</button>
-                    <?php endif; ?>
+                    </table>
                 </div>
             </div>
+            <div class="card-footer bg-transparent d-flex justify-content-between align-items-center py-2 px-3 border-top">
+                <?php if ($termPage > 1): ?>
+                    <a href="?tab=terminal&term_page=<?= $termPage - 1 ?>" class="btn-clean btn-clean-sm">Previous</a>
+                <?php else: ?>
+                    <button class="btn-clean btn-clean-sm opacity-50" disabled>Previous</button>
+                <?php endif; ?>
+
+                <span class="text-muted small">Page <?= $termPage ?> of <?= max(1, $totalTermPages) ?></span>
+
+                <?php if ($termPage < $totalTermPages): ?>
+                    <a href="?tab=terminal&term_page=<?= $termPage + 1 ?>" class="btn-clean btn-clean-sm">Next</a>
+                <?php else: ?>
+                    <button class="btn-clean btn-clean-sm opacity-50" disabled>Next</button>
+                <?php endif; ?>
+            </div>
         </div>
-        <?php endif; ?>
-    </div>
+    <?php endif; ?>
 </div>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once __DIR__ . '/components/footer.php'; ?>

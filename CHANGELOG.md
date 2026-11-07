@@ -1,5 +1,22 @@
 # Changelog
 
+## Version 1.0.5 — Modernization, Supervisor Engine & Testing Suite
+- **Native & Real-Time Auto-Restart**:
+  - Live Web Supervisor revives dead processes in `< 3 seconds` during dashboard polling without waiting for cron.
+  - Native Background Daemon (`daemon.php`) continuously monitors and revives binaries 24/7 without crontab or Task Scheduler.
+- **Automated Testing Suite (`tests/run.php`)**: Built-in 120-assertion zero-dependency testing engine validating syntax, database, auth/security, process supervisor, daemon, cron, terminal, and API endpoints.
+- **High-Craft Developer UI**: Redesigned the entire interface inspired by modern developer platforms (Linear, Railway, Vercel). Enforced a strict zero drop-shadow rule across all components, cards, tables, modals, and buttons with crisp `1px solid var(--border)` styling.
+- **Unified Navigation Bar**: Replaced rainbow-colored buttons with a cohesive developer navbar featuring subtle tab indicators, version pill (`v1.0.5`), user identity badge, and dark/light theme switcher.
+- **Removed All Emojis & Simplified Vocabulary**: Standardized on clean SVG/Bootstrap glyphs and straightforward, easy-to-understand plain English terminology.
+- **Metric Ribbon**: Replaced four garish primary-color cards with a clean, unified system metrics ribbon (Total, Running, Offline, System Load, Host Memory, Supervisor Engine).
+- **Zero-Subshell Process Monitoring (`/proc`)**: Created `ProcessManager.php` which inspects Linux kernel `/proc` directly and uses `posix_kill($pid, 0)` to verify process liveness in microseconds without spawning bash/sh subshells. Cross-platform support with native PowerShell process management on Windows.
+- **Single-Shot Batch Metrics**: Transformed individual per-process `ps` executions into a single batch `ps -eo pid,%cpu,rss,etime` call, reducing server subshell forks by over 90%.
+- **Eliminated Redundant SQLite Disk Writes**: Polling no longer repeatedly writes unchanged PIDs or statuses to disk on every 3-second cycle, eliminating SQLite write-lock contention on cPanel shared hosting.
+- **Visibility-Aware Polling**: Implemented Page Visibility API in `assets/js/app.js` to automatically pause status polling when the browser tab is hidden or minimized, conserving server CPU and network bandwidth.
+- **Clean Asset Separation**: Moved all stylesheets into `assets/css/style.css` and JavaScript logic into `assets/js/app.js`, eliminating inline CSS and jQuery script bloat from templates.
+- **Cron Concurrency Locking**: Added non-blocking execution lock (`.cron.lock`) and a 55-second timeout guard to `cron.php` to prevent overlapping runs.
+- **Hardened HTTP Security Headers**: Added `Permissions-Policy: geolocation=(), microphone=(), camera=()`, tightened Content-Security-Policy, and aligned `X-Frame-Options: DENY` across headers and `.htaccess`.
+
 ## Version 1.0.4 — Security Hardening
 - **CSRF on Export Operations**: Config and database backup download buttons are now POST forms protected with CSRF tokens. An attacker can no longer silently exfiltrate backups by tricking an authenticated admin into visiting a malicious link.
 - **Config File Protection**: Converted `config.json` into `config.php` prefixed with `<?php die('Access denied'); ?>`. The config file can no longer be downloaded directly even if `.htaccess` is bypassed or disabled on non-Apache servers.
@@ -22,33 +39,8 @@
 - **Initialization Race Condition Fixed**: Implemented a `.db_init.lock` file mechanism in `database.php` to prevent the web process and cron process from generating separate randomized SQLite files simultaneously if they boot at the exact same millisecond.
 - **Self-Healing Database Discovery**: If `config.php` is accidentally overwritten (e.g. during an update) and loses the randomized database filename, the system will now automatically scan the `db/` folder to discover the existing database and fix its configuration, rather than creating a new empty database.
 
-
 ## Version 1.0.3 Updates
 - **Security Hardening**: Implemented comprehensive `.htaccess` rules across the root, `db/`, `includes/`, and `components/` directories. This completely blocks direct web access to sensitive files like `config.json`, SQLite databases, logs, and internal PHP partials.
 - **Terminal Reliability**: Replaced all `shell_exec()` calls with a `safe_exec()` wrapper to prevent fatal crashes on restricted cPanel hosts where the function is disabled.
 - **Smart Directory Resolution**: The terminal now falls back to parsing the server path to determine the user's home directory if standard shell commands are unavailable.
 - **Navbar Toggle Fix**: Rebuilt the mobile hamburger menu toggle using custom JavaScript to prevent conflicts and double-firing caused by Bootstrap JS loading issues.
-
-## Version 1.0.2 Updates
-- **Admin Web Terminal**: Added a `terminal.php` page (admin only) with a dark terminal-style UI where admins can run shell commands directly from the browser, with command history, built-in `help`/`clear`/`processes`/`system` commands, and a 30-second timeout to prevent hangs.
-- **Terminal API**: New `action=terminal` endpoint in `api.php` (admin only) that executes a shell command and returns stdout/stderr, exit code, and timeout status. Every command is recorded in the audit logs.
-- **Dynamic Terminal Prompt**: Terminal prompt dynamically detects the underlying OS username and hostname instead of hardcoding values.
-- **Enhanced Terminal UI**: Switched the terminal prompt design to use precise CSS-drawn brackets and VS Code-inspired text colors instead of raw characters, keeping it looking crisp across light and dark modes.
-- **Dashboard UI Refinements**: Flattened the dashboard design by removing drop shadows from the cards and grouping all global action buttons cleanly in the header.
-- **Master Admin Security**: Implemented a strict hierarchy where the Master Admin (User ID 1) cannot be deleted or demoted. 
-- **Role Restrictions**: Regular admins can no longer assign the `admin` role, nor can they edit or delete other admin accounts.
-- **Admin Hierarchy UI**: The Master Admin now features a distinct golden "Master Admin" badge in the users list, and restricted actions (like upgrading someone to admin) are securely disabled in the UI for regular admins.
-- **Live CAPTCHA Validation**: The login page now shows a real-time green checkmark (✔) or red cross (✘) as you type the CAPTCHA code, so you know instantly if it's right without submitting the form. Includes anti-brute-force protection that invalidates and refreshes the CAPTCHA after too many bad attempts.
-- **Navbar Layout Fix**: The logged-in username and role label is now correctly positioned inside the right-side button group in the navigation bar.
-- **API Docs Sync**: Updated `API.md` to document the bulk process control (`ids[]`), the `sys_load` field in the status response, and the `cwd` field in the terminal response.
-
-## Version 1.0.1 Updates
-- **In-App Process Management**: Add, edit, delete, and group processes directly from the user interface.
-- **Session Validation**: Changing a user's role or deleting an account instantly updates their active session.
-- **Form Resubmission Fixes**: Uses the Post-Redirect-Get pattern to prevent browser "Confirm Form Resubmission" warnings on the Login, User Management, and Settings pages.
-- **Database Settings**: Security settings (such as the CAPTCHA toggle) are now stored in the SQLite database to avoid file permission issues.
-- **Admin Overrides**: Administrators can remove a user's 2FA setup if the user loses access to their authenticator app.
-- **Rate Limiting**: The dashboard Refresh button has a 2-second delay to prevent excessive server requests.
-- **Background Optimization**: Dashboard polling pauses when the browser tab is hidden to reduce server load.
-- **UI Optimizations**: Buttons and checkboxes are hidden for restricted roles (Viewers/Auditors) for a cleaner interface.
-- **Delete Functionality**: Added a dedicated API endpoint and a dashboard UI button to safely stop and permanently delete monitored processes.

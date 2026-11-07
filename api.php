@@ -1,16 +1,15 @@
 <?php
 // api.php
-require_once 'includes/security.php';
-require_once 'includes/auth.php';
-require_once 'includes/monitor.php';
-require_once 'includes/database.php';
+require_once __DIR__ . '/includes/security.php';
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/ProcessManager.php';
+require_once __DIR__ . '/includes/database.php';
 
 $auth = new Auth();
 $auth->requireAuth();
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-header('Cache-Control: post-check=0, pre-check=0', false);
 header('Pragma: no-cache');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_SESSION['api_auth'])) {
@@ -26,51 +25,76 @@ if ($action === 'status') {
     $stmt = $pdo->query("SELECT * FROM processes");
     $processes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Batch preload metrics in a single command across all processes
+    ProcessManager::preloadBatchMetrics();
+
     foreach ($processes as &$process) {
-        $actual_pid = Monitor::isRunning($process);
+        $actual_pid = ProcessManager::isRunning($process);
+        $old_pid = !empty($process['pid']) ? (int)$process['pid'] : null;
 
         if ($actual_pid) {
             $process['status'] = 'running';
             $process['pid'] = $actual_pid;
-            $metrics = Monitor::getMetrics($actual_pid);
+            $metrics = ProcessManager::getMetrics($actual_pid);
             $process = array_merge($process, $metrics);
 
-            // Only update the PID, DO NOT touch the status (status is our desired state)
-            $update = $pdo->prepare("UPDATE processes SET pid = ? WHERE id = ?");
-            $update->execute([$actual_pid, $process['id']]);
+            // Only write to SQLite if PID actually changed to prevent high disk I/O
+            if ($old_pid !== $actual_pid || $process['status'] !== 'running') {
+                $update = $pdo->prepare("UPDATE processes SET pid = ?, status = 'running' WHERE id = ?");
+                $update->execute([$actual_pid, $process['id']]);
+            }
         } else {
-            // If DB says running but it's dead, it means it crashed!
-            $process['status'] = ($process['status'] === 'running') ? 'crashed' : 'stopped';
-            $process['pid'] = null;
-            $process['cpu'] = 0;
-            $process['mem'] = '0 MB';
-            $process['uptime'] = '00:00:00';
+            // Process is dead. Check if native auto-restart is required.
+            $isExplicitlyStopped = ($process['status'] === 'stopped');
+            $autoRestartEnabled = !isset($process['auto_restart']) || (int)$process['auto_restart'] === 1;
 
-            // Clear the PID, DO NOT touch the desired status
-            $update = $pdo->prepare("UPDATE processes SET pid = NULL WHERE id = ?");
-            $update->execute([$process['id']]);
-        }
-    }
+            if (!$isExplicitlyStopped && $autoRestartEnabled) {
+                // Instantly revive process natively
+                $newPid = ProcessManager::startProcess($process);
+                if ($newPid) {
+                    $update = $pdo->prepare("UPDATE processes SET pid = ?, status = 'running', last_restart = CURRENT_TIMESTAMP, restart_count = COALESCE(restart_count, 0) + 1 WHERE id = ?");
+                    $update->execute([$newPid, $process['id']]);
 
-    // Get system load
-    $sysLoad = '---';
-    if (function_exists('sys_getloadavg')) {
-        $loadArr = sys_getloadavg();
-        if ($loadArr && isset($loadArr[0])) {
-            $sysLoad = round($loadArr[0], 2);
-        }
-    }
-    if ($sysLoad === '---' && is_readable('/proc/loadavg')) {
-        $loadData = @file_get_contents('/proc/loadavg');
-        if ($loadData) {
-            $loadParts = explode(' ', $loadData);
-            if (isset($loadParts[0])) {
-                $sysLoad = round((float)$loadParts[0], 2);
+                    $process['status'] = 'running';
+                    $process['pid'] = $newPid;
+                    $process['restart_count'] = ((int)($process['restart_count'] ?? 0)) + 1;
+                    $metrics = ProcessManager::getMetrics($newPid);
+                    $process = array_merge($process, $metrics);
+                } else {
+                    $process['status'] = 'crashed';
+                    $process['pid'] = null;
+                    $process['cpu'] = 0;
+                    $process['mem'] = '0 MB';
+                    $process['uptime'] = '00:00:00';
+
+                    $update = $pdo->prepare("UPDATE processes SET pid = NULL, status = 'crashed' WHERE id = ?");
+                    $update->execute([$process['id']]);
+                }
+            } else {
+                $process['status'] = 'stopped';
+                $process['pid'] = null;
+                $process['cpu'] = 0;
+                $process['mem'] = '0 MB';
+                $process['uptime'] = '00:00:00';
+
+                if ($old_pid !== null || $process['status'] !== 'stopped') {
+                    $update = $pdo->prepare("UPDATE processes SET pid = NULL, status = 'stopped' WHERE id = ?");
+                    $update->execute([$process['id']]);
+                }
             }
         }
     }
 
-    echo json_encode(['success' => true, 'data' => $processes, 'sys_load' => $sysLoad]);
+    $sys = ProcessManager::getSystemMetrics();
+    $daemonActive = ProcessManager::isDaemonRunning();
+
+    echo json_encode([
+        'success' => true,
+        'data' => $processes,
+        'sys_load' => $sys['load'],
+        'sys_mem' => $sys['mem_usage'],
+        'daemon_active' => $daemonActive
+    ]);
     exit;
 }
 
@@ -100,26 +124,29 @@ if ($action === 'control') {
     $results = [];
     foreach ($processes as $process) {
         if ($cmd === 'start') {
-            $pid = Monitor::startProcess($process);
+            $pid = ProcessManager::startProcess($process);
             if ($pid) {
                 $pdo->prepare("UPDATE processes SET pid = ?, status = 'running' WHERE id = ?")->execute([$pid, $process['id']]);
             }
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'process_start', "Process: {$process['name']}");
             $results[$process['id']] = ['success' => (bool)$pid, 'pid' => $pid];
         } elseif ($cmd === 'stop') {
-            $pid = Monitor::isRunning($process);
-            $success = Monitor::stopProcess($pid);
-            if ($success) {
-                $pdo->prepare("UPDATE processes SET pid = NULL, status = 'stopped' WHERE id = ?")->execute([$process['id']]);
+            $pid = ProcessManager::isRunning($process);
+            if ($pid) {
+                ProcessManager::stopProcess($pid);
             }
+            // User explicitly stopped this process: persist 'stopped' status so auto-restart will not revive it
+            $pdo->prepare("UPDATE processes SET pid = NULL, status = 'stopped' WHERE id = ?")->execute([$process['id']]);
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'process_stop', "Process: {$process['name']}");
-            $results[$process['id']] = ['success' => $success];
+            $results[$process['id']] = ['success' => true];
         } elseif ($cmd === 'restart') {
-            $pid = Monitor::isRunning($process);
-            Monitor::stopProcess($pid);
-            $newPid = Monitor::startProcess($process);
+            $pid = ProcessManager::isRunning($process);
+            if ($pid) {
+                ProcessManager::stopProcess($pid);
+            }
+            $newPid = ProcessManager::startProcess($process);
             if ($newPid) {
-                $pdo->prepare("UPDATE processes SET pid = ?, status = 'running', last_restart = CURRENT_TIMESTAMP, restart_count = restart_count + 1 WHERE id = ?")->execute([$newPid, $process['id']]);
+                $pdo->prepare("UPDATE processes SET pid = ?, status = 'running', last_restart = CURRENT_TIMESTAMP, restart_count = COALESCE(restart_count, 0) + 1 WHERE id = ?")->execute([$newPid, $process['id']]);
             }
             $auth->getLogger()->logAudit($_SESSION['user_id'], 'process_restart', "Process: {$process['name']}");
             $results[$process['id']] = ['success' => (bool)$newPid, 'pid' => $newPid];
@@ -130,14 +157,31 @@ if ($action === 'control') {
     exit;
 }
 
-if ($action === 'add_process') {
-    $auth->requireRole(['admin']); // Only admin can add processes
+if ($action === 'daemon_control') {
+    $auth->requireRole(['admin']);
+    $cmd = $_POST['cmd'] ?? '';
+    
+    if ($cmd === 'start') {
+        $started = ProcessManager::startDaemon();
+        echo json_encode(['success' => $started, 'daemon_active' => ProcessManager::isDaemonRunning()]);
+    } elseif ($cmd === 'stop') {
+        ProcessManager::stopDaemon();
+        echo json_encode(['success' => true, 'daemon_active' => false]);
+    } else {
+        echo json_encode(['success' => true, 'daemon_active' => ProcessManager::isDaemonRunning()]);
+    }
+    exit;
+}
 
-    $name = $_POST['name'] ?? '';
-    $command = $_POST['command'] ?? '';
-    $group = $_POST['group_name'] ?? 'Default';
-    $dir = $_POST['working_dir'] ?? '';
-    $log = $_POST['log_file'] ?? '';
+if ($action === 'add_process') {
+    $auth->requireRole(['admin']);
+
+    $name = trim($_POST['name'] ?? '');
+    $command = trim($_POST['command'] ?? '');
+    $group = trim($_POST['group_name'] ?? 'Default');
+    $dir = trim($_POST['working_dir'] ?? '');
+    $log = trim($_POST['log_file'] ?? '');
+    $autoRestart = isset($_POST['auto_restart']) ? (int)$_POST['auto_restart'] : 1;
 
     if (empty($name) || empty($command)) {
         echo json_encode(['success' => false, 'message' => 'Name and command are required']);
@@ -145,8 +189,8 @@ if ($action === 'add_process') {
     }
 
     try {
-        $stmt = $pdo->prepare("INSERT INTO processes (name, group_name, command, working_dir, log_file) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$name, $group, $command, $dir, $log]);
+        $stmt = $pdo->prepare("INSERT INTO processes (name, group_name, command, working_dir, log_file, auto_restart) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$name, $group, $command, $dir, $log, $autoRestart]);
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'add_process', "Added process: $name");
         echo json_encode(['success' => true, 'message' => 'Process added successfully']);
     } catch (PDOException $e) {
@@ -172,11 +216,12 @@ if ($action === 'get_process') {
 if ($action === 'edit_process') {
     $auth->requireRole(['admin']);
     $id = $_POST['id'] ?? 0;
-    $name = $_POST['name'] ?? '';
-    $command = $_POST['command'] ?? '';
-    $group = $_POST['group_name'] ?? 'Default';
-    $dir = $_POST['working_dir'] ?? '';
-    $log = $_POST['log_file'] ?? '';
+    $name = trim($_POST['name'] ?? '');
+    $command = trim($_POST['command'] ?? '');
+    $group = trim($_POST['group_name'] ?? 'Default');
+    $dir = trim($_POST['working_dir'] ?? '');
+    $log = trim($_POST['log_file'] ?? '');
+    $autoRestart = isset($_POST['auto_restart']) ? (int)$_POST['auto_restart'] : 1;
 
     if (empty($name) || empty($command)) {
         echo json_encode(['success' => false, 'message' => 'Name and command are required']);
@@ -184,8 +229,8 @@ if ($action === 'edit_process') {
     }
 
     try {
-        $stmt = $pdo->prepare("UPDATE processes SET name = ?, group_name = ?, command = ?, working_dir = ?, log_file = ? WHERE id = ?");
-        $stmt->execute([$name, $group, $command, $dir, $log, $id]);
+        $stmt = $pdo->prepare("UPDATE processes SET name = ?, group_name = ?, command = ?, working_dir = ?, log_file = ?, auto_restart = ? WHERE id = ?");
+        $stmt->execute([$name, $group, $command, $dir, $log, $autoRestart, $id]);
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'edit_process', "Edited process ID: $id");
         echo json_encode(['success' => true, 'message' => 'Process updated successfully']);
     } catch (PDOException $e) {
@@ -202,13 +247,12 @@ if ($action === 'delete_process') {
         exit;
     }
 
-    // Stop it if it's running before deleting
     $stmt = $pdo->prepare("SELECT * FROM processes WHERE id = ?");
     $stmt->execute([$id]);
     $process = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($process) {
-        $pid = Monitor::isRunning($process);
-        if ($pid) Monitor::stopProcess($pid);
+        $pid = ProcessManager::isRunning($process);
+        if ($pid) ProcessManager::stopProcess($pid);
 
         $pdo->prepare("DELETE FROM processes WHERE id = ?")->execute([$id]);
         $auth->getLogger()->logAudit($_SESSION['user_id'], 'delete_process', "Deleted process: {$process['name']}");
@@ -220,7 +264,7 @@ if ($action === 'delete_process') {
 }
 
 if ($action === 'terminal') {
-    $auth->requireRole(['admin']); // Only admin can run shell commands
+    $auth->requireRole(['admin']);
 
     $cmd = trim($_POST['cmd'] ?? '');
     if (empty($cmd)) {
@@ -259,7 +303,7 @@ if ($action === 'terminal') {
     $output = '';
     $exitCode = -1;
 
-    // Use bash for a richer environment, and force stderr to stdout (2>&1)
+    // Use bash for a richer environment on Linux
     if (PHP_OS_FAMILY !== 'Windows') {
         $cmd = '/bin/bash -c ' . escapeshellarg($cmd . ' 2>&1');
     }
@@ -276,7 +320,7 @@ if ($action === 'terminal') {
         exit;
     }
 
-    fclose($pipes[0]); // No stdin input
+    fclose($pipes[0]);
     stream_set_blocking($pipes[1], false);
     stream_set_blocking($pipes[2], false);
 
@@ -295,7 +339,7 @@ if ($action === 'terminal') {
         $chunk2 = stream_get_contents($pipes[2]);
         if ($chunk1 !== false && $chunk1 !== '') $output .= $chunk1;
         if ($chunk2 !== false && $chunk2 !== '') $output .= $chunk2;
-        usleep(50000); // 50ms
+        usleep(50000);
         $status = proc_get_status($proc);
     }
 

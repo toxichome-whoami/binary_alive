@@ -1,3 +1,55 @@
+# ==============================================================================
+# Binary Alive - Git Ignore Configuration
+# ==============================================================================
+
+# Database & SQLite files
 db/*.sqlite
 db/*.sqlite-shm
 db/*.sqlite-wal
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# Runtime lockfiles and process PID records
+db/*.lock
+db/.*.lock
+db/*.pid
+db/.*.pid
+*.lock
+*.pid
+!composer.lock
+
+# Log files and directories
+*.log
+logs/
+db/*.log
+
+# Temporary test databases and artifacts
+temp_*
+tests/temp_*
+*.tmp
+
+# Environment and local secret overrides
+.env
+.env.*
+*.local.php
+
+# OS and Editor metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Preserve essential security index & protection files in protected directories
+!db/index.php
+!db/.htaccess
+!tests/index.php
+!tests/.htaccess
+!includes/.htaccess
+!components/.htaccess
+!assets/.htaccess
